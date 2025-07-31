@@ -2,11 +2,28 @@
 
 import React, { useState } from "react";
 import { Navigation } from "@/components/Navigation";
-import { Search, Star, Users, Heart, ExternalLink, X } from "lucide-react";
+import {
+  Search,
+  Star,
+  Users,
+  Heart,
+  ExternalLink,
+  X,
+  Filter,
+  Menu,
+  RotateCcw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // AI Tools data matching the image
 const aiTools = [
@@ -15,6 +32,7 @@ const aiTools = [
     name: "DeepArt",
     description: "AI-powered image generator",
     category: "Image",
+    pricing: "Free",
     image: "https://picsum.photos/400/300?random=1",
     likes: 1200,
     comments: 12,
@@ -26,6 +44,7 @@ const aiTools = [
     name: "TextCraft",
     description: "Craft compelling text with AI",
     category: "Text",
+    pricing: "Paid",
     image: "https://picsum.photos/400/300?random=2",
     likes: 980,
     comments: 25,
@@ -37,6 +56,7 @@ const aiTools = [
     name: "VideoGenius",
     description: "Generate videos from text",
     category: "Video",
+    pricing: "Free",
     image: "https://picsum.photos/400/300?random=3",
     likes: 850,
     comments: 50,
@@ -48,6 +68,7 @@ const aiTools = [
     name: "SoundSculpt",
     description: "Edit audio with AI precision",
     category: "Audio",
+    pricing: "Paid",
     image: "https://picsum.photos/400/300?random=4",
     likes: 700,
     comments: 8,
@@ -60,6 +81,7 @@ const aiTools = [
     description:
       "An AI-powered tool that helps you write better content, faster.",
     category: "Text",
+    pricing: "Free",
     image: "https://picsum.photos/400/300?random=5",
     likes: 1500,
     comments: 45,
@@ -71,6 +93,7 @@ const aiTools = [
     name: "ImageMaster",
     description: "Professional image editing with AI",
     category: "Image",
+    pricing: "Paid",
     image: "https://picsum.photos/400/300?random=6",
     likes: 920,
     comments: 18,
@@ -87,6 +110,7 @@ const categories = [
   "Audio Editing",
 ];
 const sortOptions = ["Popular", "Latest"];
+const pricingOptions = ["All", "Free", "Paid"];
 
 interface ToolModalProps {
   tool: (typeof aiTools)[0] | null;
@@ -203,6 +227,7 @@ export default function ToolsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedSort, setSelectedSort] = useState("Popular");
+  const [selectedPricing, setSelectedPricing] = useState("All");
   const [selectedTool, setSelectedTool] = useState<(typeof aiTools)[0] | null>(
     null
   );
@@ -213,6 +238,13 @@ export default function ToolsPage() {
     setIsModalOpen(true);
   };
 
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setSelectedCategory("All");
+    setSelectedSort("Popular");
+    setSelectedPricing("All");
+  };
+
   const filteredTools = aiTools.filter((tool) => {
     const matchesSearch =
       tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -220,128 +252,242 @@ export default function ToolsPage() {
     const matchesCategory =
       selectedCategory === "All" ||
       tool.category === selectedCategory.split(" ")[0];
-    return matchesSearch && matchesCategory;
+    const matchesPricing =
+      selectedPricing === "All" || tool.pricing === selectedPricing;
+    return matchesSearch && matchesCategory && matchesPricing;
   });
+
+  const SidebarContent = () => (
+    <div className="space-y-6">
+      {/* Search Section */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-white">Search Tools</h3>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-slate-400 hover:text-blue-500"
+                  onClick={handleResetFilters}
+                  aria-label="필터 초기화"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">필터 초기화</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+          <Input
+            placeholder="Search for tools..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-4 py-2 bg-slate-800 border-slate-700 text-white placeholder:text-slate-400 rounded-xl"
+          />
+        </div>
+      </div>
+
+      {/* Sort Options */}
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-4">Sort By</h3>
+        <div className="space-y-2">
+          {sortOptions.map((option) => (
+            <Button
+              key={option}
+              onClick={() => setSelectedSort(option)}
+              variant={selectedSort === option ? "default" : "secondary"}
+              className={`w-full justify-start ${
+                selectedSort === option
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-300"
+              }`}
+            >
+              {option}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Pricing Options */}
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-4">Pricing</h3>
+        <div className="space-y-2">
+          {pricingOptions.map((option) => (
+            <Button
+              key={option}
+              onClick={() => setSelectedPricing(option)}
+              variant={selectedPricing === option ? "default" : "secondary"}
+              className={`w-full justify-start ${
+                selectedPricing === option
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-300"
+              }`}
+            >
+              {option}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Categories */}
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-4">Categories</h3>
+        <div className="space-y-2">
+          {categories.map((category) => (
+            <Button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              variant={selectedCategory === category ? "default" : "secondary"}
+              className={`w-full justify-start ${
+                selectedCategory === category
+                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-300"
+              }`}
+            >
+              {category}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <Navigation />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Search Section */}
-        <div className="mb-8">
-          <div className="relative max-w-2xl mx-auto">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <Input
-              placeholder="Search for tools..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 pr-4 py-3 bg-slate-800 border-slate-700 text-white placeholder:text-slate-400 rounded-2xl text-lg"
-            />
-          </div>
+      <div className="flex">
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:block w-80 min-h-screen bg-slate-900 border-r border-slate-800 p-6">
+          <SidebarContent />
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
+        {/* Mobile Sidebar */}
+        <div className="lg:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
               <Button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                variant={
-                  selectedCategory === category ? "default" : "secondary"
-                }
-                className={`rounded-full ${
-                  selectedCategory === category
-                    ? "bg-blue-600 hover:bg-blue-700 text-white"
-                    : "bg-slate-800 hover:bg-slate-700 text-slate-300"
-                }`}
+                variant="ghost"
+                size="sm"
+                className="fixed top-20 left-4 z-40 bg-slate-800 border border-slate-700"
               >
-                {category}
+                <Menu className="w-5 h-5" />
               </Button>
-            ))}
-          </div>
-
-          <div className="flex gap-2">
-            {sortOptions.map((option) => (
-              <Button
-                key={option}
-                onClick={() => setSelectedSort(option)}
-                variant={selectedSort === option ? "default" : "secondary"}
-                className={`rounded-full ${
-                  selectedSort === option
-                    ? "bg-blue-600 hover:bg-blue-700 text-white"
-                    : "bg-slate-800 hover:bg-slate-700 text-slate-300"
-                }`}
-              >
-                {option}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Tools Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredTools.map((tool) => (
-            <Card
-              key={tool.id}
-              className="bg-slate-800 border-slate-700 hover:border-slate-600 transition-colors cursor-pointer group"
-              onClick={() => handleToolClick(tool)}
+            </SheetTrigger>
+            <SheetContent
+              side="left"
+              className="w-80 bg-slate-900 border-r border-slate-800"
             >
-              <CardContent className="p-0">
-                <div className="relative">
-                  <img
-                    src={tool.image}
-                    alt={tool.name}
-                    className="w-full h-48 object-cover rounded-t-lg"
-                  />
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors rounded-t-lg" />
-                </div>
+              <SidebarContent />
+            </SheetContent>
+          </Sheet>
+        </div>
 
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-bold text-white text-lg group-hover:text-blue-400 transition-colors">
-                      {tool.name}
-                    </h3>
+        {/* Main Content */}
+        <div className="flex-1 p-6">
+          {/* Mobile Search Bar */}
+          <div className="lg:hidden mb-6">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <Input
+                placeholder="Search for tools..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-12 pr-4 py-3 bg-slate-800 border-slate-700 text-white placeholder:text-slate-400 rounded-2xl text-lg"
+              />
+            </div>
+          </div>
+
+          {/* Results Header */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-white mb-2">AI Tools</h1>
+            <p className="text-slate-400">
+              {filteredTools.length} tools found
+              {searchQuery && ` for "${searchQuery}"`}
+              {selectedCategory !== "All" && ` in ${selectedCategory}`}
+              {selectedPricing !== "All" && ` and ${selectedPricing}`}
+            </p>
+          </div>
+
+          {/* Tools Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+            {filteredTools.map((tool) => (
+              <Card
+                key={tool.id}
+                className="bg-slate-800 border-slate-700 hover:border-slate-600 transition-colors cursor-pointer group"
+                onClick={() => handleToolClick(tool)}
+              >
+                <CardContent className="p-0">
+                  <div className="relative">
+                    <img
+                      src={tool.image}
+                      alt={tool.name}
+                      className="w-full h-48 object-cover rounded-t-lg"
+                    />
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors rounded-t-lg" />
                   </div>
 
-                  <p className="text-slate-400 text-sm mb-4 leading-relaxed">
-                    {tool.description}
-                  </p>
+                  <div className="p-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="font-bold text-white text-lg group-hover:text-blue-400 transition-colors">
+                        {tool.name}
+                      </h3>
+                    </div>
 
-                  <div className="flex items-center justify-between">
-                    <Badge
-                      variant="secondary"
-                      className="bg-slate-700 text-slate-300"
-                    >
-                      {tool.category}
-                    </Badge>
+                    <p className="text-slate-400 text-sm mb-4 leading-relaxed">
+                      {tool.description}
+                    </p>
 
-                    <div className="flex items-center space-x-3 text-slate-400 text-sm">
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                        <span>{tool.likes}</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Badge
+                          variant="secondary"
+                          className="bg-slate-700 text-slate-300"
+                        >
+                          {tool.category}
+                        </Badge>
+                        <Badge
+                          variant="secondary"
+                          className={`${
+                            tool.pricing === "Free"
+                              ? "bg-green-600 text-white"
+                              : "bg-orange-600 text-white"
+                          }`}
+                        >
+                          {tool.pricing}
+                        </Badge>
                       </div>
-                      <div className="flex items-center space-x-1">
-                        <Users className="w-4 h-4" />
-                        <span>{tool.comments}</span>
+
+                      <div className="flex items-center space-x-3 text-slate-400 text-sm">
+                        <div className="flex items-center space-x-1">
+                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                          <span>{tool.likes}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Users className="w-4 h-4" />
+                          <span>{tool.comments}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {filteredTools.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-slate-400 text-lg">
-              No tools found matching your criteria.
-            </p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        )}
-      </main>
+
+          {filteredTools.length === 0 && (
+            <div className="text-center py-16">
+              <p className="text-slate-400 text-lg">
+                No tools found matching your criteria.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
 
       <ToolModal
         tool={selectedTool}
