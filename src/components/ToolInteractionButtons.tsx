@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
 import LoginRequiredModal from "@/components/LoginRequiredModal";
 import { CreateInteractionRequest } from "@/types/auth";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface ToolInteractionButtonsProps {
   toolId: string;
@@ -17,12 +19,28 @@ export default function ToolInteractionButtons({
   toolId,
   className = "",
 }: ToolInteractionButtonsProps) {
-  const { user } = useAuth();
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const supabase = createClient();
   const queryClient = useQueryClient();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [currentInteraction, setCurrentInteraction] = useState<-1 | 1 | null>(
     null
   );
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
 
   // Fetch user's current interaction
   const { data: interactions } = useQuery({

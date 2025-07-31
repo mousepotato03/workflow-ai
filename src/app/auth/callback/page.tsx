@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { GoogleIcon } from "@/components/ui/google-icon";
@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [status, setStatus] = useState<string>("인증 처리 중...");
   const [error, setError] = useState<string | null>(null);
 
@@ -46,8 +46,28 @@ export default function AuthCallbackPage() {
 
         setStatus("세션 생성 중...");
 
-        // exchangeCodeForSession을 사용하여 OAuth 콜백 처리
-        const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        // Supabase가 자동으로 세션을 처리하도록 기다림
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // 현재 세션 확인
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        let data, exchangeError;
+        
+        if (session) {
+          data = { session, user: session.user };
+          exchangeError = null;
+        } else {
+          // 세션이 없으면 수동으로 code 교환 시도
+          try {
+            const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code);
+            data = sessionData;
+            exchangeError = error;
+          } catch (err) {
+            exchangeError = err;
+            data = null;
+          }
+        }
 
         if (exchangeError) {
           console.error("Exchange code error:", exchangeError);

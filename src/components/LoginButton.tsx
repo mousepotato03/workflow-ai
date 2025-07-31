@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -12,10 +13,31 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogIn, LogOut, User, Loader2 } from "lucide-react";
 import { GoogleIcon } from "@/components/ui/google-icon";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 export default function LoginButton() {
-  const { user, loading, signInWithGoogle, signOut } = useAuth();
+  const { signInWithGoogle, signOut } = useAuth();
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      setLoading(false);
+    };
+
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
 
   const handleSignIn = async () => {
     try {
@@ -52,8 +74,8 @@ export default function LoginButton() {
           <Button variant="ghost" className="h-8 w-8 rounded-full p-0">
             <Avatar className="h-8 w-8">
               <AvatarImage
-                src={user.avatar_url || ""}
-                alt={user.full_name || ""}
+                src={user.user_metadata?.avatar_url || ""}
+                alt={user.user_metadata?.full_name || ""}
               />
               <AvatarFallback>
                 <User className="h-4 w-4" />
@@ -65,8 +87,8 @@ export default function LoginButton() {
           <div className="flex items-center gap-2 p-2">
             <Avatar className="h-8 w-8">
               <AvatarImage
-                src={user.avatar_url || ""}
-                alt={user.full_name || ""}
+                src={user.user_metadata?.avatar_url || ""}
+                alt={user.user_metadata?.full_name || ""}
               />
               <AvatarFallback>
                 <User className="h-4 w-4" />
@@ -74,7 +96,7 @@ export default function LoginButton() {
             </Avatar>
             <div className="flex flex-col">
               <p className="text-sm font-medium">
-                {user.full_name || "사용자"}
+                {user.user_metadata?.full_name || "사용자"}
               </p>
               <p className="text-xs text-muted-foreground">로그인됨</p>
             </div>
