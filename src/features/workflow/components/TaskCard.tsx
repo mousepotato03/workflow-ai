@@ -39,15 +39,15 @@ export function TaskCard({ task }: TaskCardProps) {
   };
 
   return (
-    <Card className="border border-slate-700 bg-slate-800 hover:border-slate-600 transition-colors duration-200">
+    <Card className="border border-border bg-card hover:border-muted-foreground transition-colors duration-200">
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-sm font-semibold text-white">
+            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-sm font-semibold text-primary-foreground">
               {task.order}
             </div>
             <div>
-              <h3 className="font-semibold text-white text-lg">{task.name}</h3>
+              <h3 className="font-semibold text-foreground text-lg">{task.name}</h3>
             </div>
           </div>
           <Badge
@@ -59,14 +59,14 @@ export function TaskCard({ task }: TaskCardProps) {
         </div>
 
         {task.recommendedTool ? (
-          <div className="bg-slate-900 rounded-lg p-4 space-y-4 border border-slate-700">
+          <div className="bg-muted rounded-lg p-4 space-y-4 border border-border">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 {task.recommendedTool.logoUrl ? (
                   <img
                     src={task.recommendedTool.logoUrl}
                     alt={`${task.recommendedTool.name} logo`}
-                    className="w-10 h-10 rounded-lg object-cover border border-slate-600"
+                    className="w-10 h-10 rounded-lg object-cover border border-border"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.style.display = "none";
@@ -82,26 +82,26 @@ export function TaskCard({ task }: TaskCardProps) {
                   <ImageIcon className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-white">
+                  <h4 className="font-semibold text-foreground">
                     {task.recommendedTool.name}
                   </h4>
-                  <p className="text-sm text-slate-400">Recommended Tool</p>
+                  <p className="text-sm text-muted-foreground">Recommended Tool</p>
                 </div>
               </div>
 
               <Button
                 onClick={handleToolClick}
                 size="sm"
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Open
               </Button>
             </div>
 
-            <div className="border-t border-slate-600 pt-3">
-              <p className="text-sm text-slate-300 leading-relaxed">
-                <span className="font-medium text-white">Why recommended:</span>{" "}
+            <div className="border-t border-border pt-3">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                <span className="font-medium text-foreground">Why recommended:</span>{" "}
                 {task.recommendationReason}
               </p>
             </div>

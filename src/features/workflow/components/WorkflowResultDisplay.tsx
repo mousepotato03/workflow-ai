@@ -83,22 +83,22 @@ export function WorkflowResultDisplay() {
   if (isLoading) {
     return (
       <div className="mt-8">
-        <Card className="border border-slate-700 bg-slate-800">
+        <Card className="border border-border bg-card">
           <CardContent className="p-8">
             <div className="flex flex-col items-center justify-center space-y-4">
               <div className="flex items-center space-x-3">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 <div className="space-y-1">
-                  <h3 className="font-semibold text-white">
+                  <h3 className="font-semibold text-foreground">
                     AI is analyzing your workflow
                   </h3>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-muted-foreground">
                     Please wait a moment...
                   </p>
                 </div>
               </div>
               <div className="w-full max-w-md">
-                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-pulse" />
                 </div>
               </div>
@@ -124,8 +124,8 @@ export function WorkflowResultDisplay() {
             <CheckCircle2 className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-white">Workflow Complete!</h3>
-            <p className="text-sm text-slate-400">
+            <h3 className="text-xl font-bold text-foreground">Workflow Complete!</h3>
+            <p className="text-sm text-muted-foreground">
               Check {workflowResult.tasks.length} task steps and recommended
               tools
             </p>
@@ -135,7 +135,7 @@ export function WorkflowResultDisplay() {
           onClick={handleStartOver}
           variant="outline"
           size="sm"
-          className="flex items-center space-x-2 border-slate-600 text-slate-300 hover:bg-slate-800"
+          className="flex items-center space-x-2 border-border text-muted-foreground hover:bg-muted"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Start Over</span>
@@ -145,8 +145,8 @@ export function WorkflowResultDisplay() {
       {/* Tasks */}
       <div className="space-y-4">
         <div className="flex items-center space-x-2">
-          <Target className="w-5 h-5 text-blue-400" />
-          <h4 className="font-semibold text-white">Recommended Task Steps</h4>
+          <Target className="w-5 h-5 text-primary" />
+          <h4 className="font-semibold text-foreground">Recommended Task Steps</h4>
         </div>
 
         <div className="grid gap-4">
@@ -156,7 +156,7 @@ export function WorkflowResultDisplay() {
         </div>
       </div>
 
-      <Separator className="my-6 bg-slate-700" />
+      <Separator className="my-6 bg-border" />
 
       {/* Feedback Section */}
       <FeedbackSection
@@ -166,20 +166,20 @@ export function WorkflowResultDisplay() {
       />
 
       {/* Summary Stats */}
-      <Card className="bg-slate-800 border border-slate-700">
+      <Card className="bg-card border border-border">
         <CardContent className="p-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold text-blue-400">
+              <div className="text-2xl font-bold text-primary">
                 {workflowResult.tasks.length}
               </div>
-              <div className="text-sm text-slate-400">Task Steps</div>
+              <div className="text-sm text-muted-foreground">Task Steps</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-purple-400">
+              <div className="text-2xl font-bold text-accent">
                 {workflowResult.tasks.filter((t) => t.recommendedTool).length}
               </div>
-              <div className="text-sm text-slate-400">Recommended Tools</div>
+              <div className="text-sm text-muted-foreground">Recommended Tools</div>
             </div>
             <div>
               <div className="text-2xl font-bold text-green-400">
@@ -193,7 +193,7 @@ export function WorkflowResultDisplay() {
                 )}
                 %
               </div>
-              <div className="text-sm text-slate-400">Average Confidence</div>
+              <div className="text-sm text-muted-foreground">Average Confidence</div>
             </div>
             <div>
               <div className="text-2xl font-bold text-orange-400">
@@ -201,7 +201,7 @@ export function WorkflowResultDisplay() {
                   ? "Complete"
                   : "Processing"}
               </div>
-              <div className="text-sm text-slate-400">Status</div>
+              <div className="text-sm text-muted-foreground">Status</div>
             </div>
           </div>
         </CardContent>

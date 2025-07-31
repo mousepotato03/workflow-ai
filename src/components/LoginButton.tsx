@@ -62,7 +62,7 @@ export default function LoginButton() {
     return (
       <div className="flex items-center space-x-2">
         <Loader2 className="h-4 w-4 animate-spin" />
-        <span className="text-sm text-slate-400">세션 확인 중...</span>
+        <span className="text-sm text-muted-foreground">세션 확인 중...</span>
       </div>
     );
   }
@@ -116,7 +116,7 @@ export default function LoginButton() {
       disabled={signingIn}
       variant="outline"
       size="lg"
-      className="gap-3 px-6 py-3 h-12 bg-white hover:bg-gray-50 border border-gray-300 hover:border-gray-400 text-gray-700 font-medium shadow-sm"
+      className="gap-3 px-6 py-3 h-12 bg-card hover:bg-muted border border-border hover:border-muted-foreground text-foreground font-medium shadow-sm"
     >
       {signingIn ? (
         <Loader2 className="h-5 w-5 animate-spin" />

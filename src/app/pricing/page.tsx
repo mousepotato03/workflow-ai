@@ -15,10 +15,10 @@ const pricingPlans = [
     period: "forever",
     description: "Perfect for individuals getting started with AI tools",
     icon: Star,
-    iconColor: "text-slate-400",
-    bgColor: "bg-slate-800",
-    borderColor: "border-slate-700",
-    buttonStyle: "bg-slate-700 hover:bg-slate-600 text-white",
+    iconColor: "text-muted-foreground",
+    bgColor: "bg-card",
+    borderColor: "border-border",
+    buttonStyle: "bg-muted hover:bg-muted/80 text-foreground",
     features: [
       "Access to 5 AI tools",
       "100 requests per month",
@@ -39,10 +39,10 @@ const pricingPlans = [
     period: "per month",
     description: "Ideal for professionals and small teams",
     icon: Zap,
-    iconColor: "text-blue-400",
-    bgColor: "bg-slate-800",
-    borderColor: "border-blue-500",
-    buttonStyle: "bg-blue-600 hover:bg-blue-700 text-white",
+    iconColor: "text-primary",
+    bgColor: "bg-card",
+    borderColor: "border-primary",
+    buttonStyle: "bg-primary hover:bg-primary/90 text-primary-foreground",
     isPopular: true,
     features: [
       "Access to all AI tools",
@@ -62,10 +62,10 @@ const pricingPlans = [
     period: "per month",
     description: "For large teams and organizations",
     icon: Crown,
-    iconColor: "text-purple-400",
-    bgColor: "bg-slate-800",
-    borderColor: "border-slate-700",
-    buttonStyle: "bg-purple-600 hover:bg-purple-700 text-white",
+    iconColor: "text-secondary-foreground",
+    bgColor: "bg-card",
+    borderColor: "border-border",
+    buttonStyle: "bg-secondary hover:bg-secondary/80 text-secondary-foreground",
     features: [
       "Unlimited AI tool access",
       "Unlimited requests",
@@ -107,16 +107,16 @@ const faqs = [
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-6 py-16">
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
             Simple, Transparent Pricing
           </h1>
-          <p className="text-xl text-slate-400 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Choose the perfect plan for your AI workflow needs. All plans
             include access to our core features.
           </p>
@@ -124,13 +124,13 @@ export default function PricingPage() {
           <div className="flex items-center justify-center space-x-4 mb-8">
             <Badge
               variant="secondary"
-              className="bg-green-900/30 border-green-700 text-green-400"
+              className="bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400"
             >
               ✓ 30-day money-back guarantee
             </Badge>
             <Badge
               variant="secondary"
-              className="bg-blue-900/30 border-blue-700 text-blue-400"
+              className="bg-primary/10 border-primary/20 text-primary"
             >
               ✓ No setup fees
             </Badge>
@@ -147,12 +147,12 @@ export default function PricingPage() {
                 className={`${plan.bgColor} ${
                   plan.borderColor
                 } border-2 hover:border-opacity-80 transition-all duration-200 relative ${
-                  plan.isPopular ? "ring-2 ring-blue-500/20" : ""
+                  plan.isPopular ? "ring-2 ring-primary/20" : ""
                 }`}
               >
                 {plan.isPopular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-blue-600 text-white px-4 py-1">
+                    <Badge className="bg-primary text-primary-foreground px-4 py-1">
                       Most Popular
                     </Badge>
                   </div>
@@ -162,16 +162,16 @@ export default function PricingPage() {
                   <div className={`w-12 h-12 ${plan.iconColor} mx-auto mb-4`}>
                     <IconComponent className="w-full h-full" />
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-2">
+                  <h3 className="text-2xl font-bold text-foreground mb-2">
                     {plan.name}
                   </h3>
                   <div className="mb-4">
-                    <span className="text-4xl font-bold text-white">
+                    <span className="text-4xl font-bold text-foreground">
                       {plan.price}
                     </span>
-                    <span className="text-slate-400 ml-2">/{plan.period}</span>
+                    <span className="text-muted-foreground ml-2">/{plan.period}</span>
                   </div>
-                  <p className="text-slate-400 text-sm">{plan.description}</p>
+                  <p className="text-muted-foreground text-sm">{plan.description}</p>
                 </CardHeader>
 
                 <CardContent className="space-y-6">
@@ -182,14 +182,14 @@ export default function PricingPage() {
                   </Button>
 
                   <div className="space-y-3">
-                    <h4 className="font-semibold text-white">
+                    <h4 className="font-semibold text-foreground">
                       Features included:
                     </h4>
                     <ul className="space-y-2">
                       {plan.features.map((feature, index) => (
                         <li key={index} className="flex items-start space-x-3">
                           <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                          <span className="text-slate-300 text-sm">
+                          <span className="text-foreground text-sm">
                             {feature}
                           </span>
                         </li>
@@ -198,8 +198,8 @@ export default function PricingPage() {
                   </div>
 
                   {plan.limitations.length > 0 && (
-                    <div className="space-y-3 pt-4 border-t border-slate-700">
-                      <h4 className="font-semibold text-slate-400">
+                    <div className="space-y-3 pt-4 border-t border-border">
+                      <h4 className="font-semibold text-muted-foreground">
                         Limitations:
                       </h4>
                       <ul className="space-y-2">
@@ -208,10 +208,10 @@ export default function PricingPage() {
                             key={index}
                             className="flex items-start space-x-3"
                           >
-                            <span className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5">
+                            <span className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5">
                               ×
                             </span>
-                            <span className="text-slate-400 text-sm">
+                            <span className="text-muted-foreground text-sm">
                               {limitation}
                             </span>
                           </li>
@@ -227,18 +227,18 @@ export default function PricingPage() {
 
         {/* FAQ Section */}
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-white text-center mb-12">
+          <h2 className="text-3xl font-bold text-foreground text-center mb-12">
             Frequently Asked Questions
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {faqs.map((faq, index) => (
-              <Card key={index} className="bg-slate-800 border-slate-700">
+              <Card key={index} className="bg-card border-border">
                 <CardContent className="p-6">
-                  <h3 className="font-semibold text-white mb-3">
+                  <h3 className="font-semibold text-foreground mb-3">
                     {faq.question}
                   </h3>
-                  <p className="text-slate-400 text-sm leading-relaxed">
+                  <p className="text-muted-foreground text-sm leading-relaxed">
                     {faq.answer}
                   </p>
                 </CardContent>
@@ -248,21 +248,21 @@ export default function PricingPage() {
         </div>
 
         {/* CTA Section */}
-        <div className="text-center mt-20 py-16 bg-gradient-to-r from-blue-900/20 to-purple-900/20 rounded-3xl border border-slate-800">
-          <h2 className="text-3xl font-bold text-white mb-4">
+        <div className="text-center mt-20 py-16 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-3xl border border-border">
+          <h2 className="text-3xl font-bold text-foreground mb-4">
             Ready to supercharge your workflow?
           </h2>
-          <p className="text-slate-400 mb-8 max-w-2xl mx-auto">
+          <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
             Join thousands of professionals who are already using FlowGenius to
             streamline their work with AI.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3">
               Start Free Trial
             </Button>
             <Button
               variant="outline"
-              className="border-slate-600 text-slate-300 hover:bg-slate-800 px-8 py-3"
+              className="border-border text-muted-foreground hover:bg-muted px-8 py-3"
             >
               Contact Sales
             </Button>

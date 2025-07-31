@@ -122,17 +122,17 @@ export default function AuthCallbackPage() {
   }, [router, supabase.auth]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+    <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
       <div className="w-full max-w-md px-4">
-        <div className="bg-slate-900 rounded-2xl shadow-2xl p-8 border border-slate-800">
+        <div className="bg-card rounded-2xl shadow-2xl p-8 border border-border">
           <div className="flex flex-col items-center space-y-8">
             {/* Google 아이콘 */}
-            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 border border-slate-700 shadow mb-2">
+            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-muted border border-border shadow mb-2">
               <GoogleIcon size={32} />
             </div>
             {/* 상태 메시지 및 로딩 */}
             <div className="w-full flex flex-col items-center space-y-4">
-              <h2 className="text-2xl font-bold text-white tracking-tight">
+              <h2 className="text-2xl font-bold text-foreground tracking-tight">
                 {error ? "인증 오류" : "로그인 처리 중"}
               </h2>
               <div className="flex items-center space-x-2">
@@ -140,14 +140,14 @@ export default function AuthCallbackPage() {
                 {error && <div className="h-6 w-6 rounded-full bg-red-500 flex items-center justify-center">
                   <span className="text-white text-sm font-bold">!</span>
                 </div>}
-                <span className={`text-base ${error ? 'text-red-300' : 'text-slate-300'}`}>
+                <span className={`text-base ${error ? 'text-red-300' : 'text-muted-foreground'}`}>
                   {status}
                 </span>
               </div>
               {/* 진행 표시줄 또는 에러 메시지 */}
               {!error && (
                 <div className="w-full mt-2">
-                  <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
                     <div className="h-1 bg-gradient-to-r from-blue-500 to-purple-500 animate-pulse rounded-full" />
                   </div>
                 </div>
@@ -159,7 +159,7 @@ export default function AuthCallbackPage() {
               )}
             </div>
             {/* 안내 문구 */}
-            <p className="text-sm text-slate-400 text-center mt-4">
+            <p className="text-sm text-muted-foreground text-center mt-4">
               {error 
                 ? "잠시 후 홈페이지로 이동합니다. 문제가 지속되면 다시 시도해주세요."
                 : "인증이 완료되면 자동으로 이동합니다."

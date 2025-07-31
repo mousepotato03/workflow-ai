@@ -196,7 +196,7 @@ function ToolModal({ tool, isOpen, onClose }: ToolModalProps) {
                   </div>
                   <div>
                     <h4 className="font-medium text-green-400 mb-1">Pros</h4>
-                    <p className="text-slate-300 text-sm">
+                    <p className="text-muted-foreground text-sm">
                       Improves productivity and efficiency with advanced AI
                       capabilities.
                     </p>
@@ -208,7 +208,7 @@ function ToolModal({ tool, isOpen, onClose }: ToolModalProps) {
                   </div>
                   <div>
                     <h4 className="font-medium text-red-400 mb-1">Cons</h4>
-                    <p className="text-slate-300 text-sm">
+                    <p className="text-muted-foreground text-sm">
                       May require learning curve for optimal usage and
                       customization.
                     </p>

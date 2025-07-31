@@ -114,7 +114,7 @@ export function WorkflowInputForm() {
         <div className="space-y-4">
           <Textarea
             placeholder="e.g., Launch a new marketing campaign for our new product"
-            className="min-h-[120px] resize-none bg-slate-800 border-slate-700 text-white placeholder:text-slate-400 focus:border-blue-500 text-lg p-6"
+            className="min-h-[120px] resize-none bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary text-lg p-6"
             {...register("goal")}
           />
           {errors.goal && (
@@ -125,7 +125,7 @@ export function WorkflowInputForm() {
         <Button
           type="submit"
           disabled={mutation.isPending}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-4 px-8 rounded-xl text-lg transition-all duration-200"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-4 px-8 rounded-xl text-lg transition-all duration-200"
         >
           {mutation.isPending ? (
             <>

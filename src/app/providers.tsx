@@ -51,9 +51,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="system"
+      defaultTheme="dark"
       enableSystem
-      disableTransitionOnChange
+      disableTransitionOnChange={false}
+      storageKey="workflow-ai-theme"
     >
       <QueryClientProvider client={queryClient}>
         <AuthProvider>{children}</AuthProvider>

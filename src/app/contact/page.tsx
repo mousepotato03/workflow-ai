@@ -149,7 +149,7 @@ export default function ContactPage() {
             </div>
 
             {/* Quick Links */}
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="text-white">Quick Links</CardTitle>
               </CardHeader>
@@ -184,7 +184,7 @@ export default function ContactPage() {
 
           {/* Contact Form */}
           <div className="lg:col-span-2">
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="text-white text-2xl">
                   Send us a Message
@@ -208,7 +208,7 @@ export default function ContactPage() {
                         onChange={handleInputChange}
                         placeholder="Your full name"
                         required
-                        className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-400"
+                        className="bg-input border-border text-foreground placeholder:text-muted-foreground"
                       />
                     </div>
                     <div className="space-y-2">
@@ -223,7 +223,7 @@ export default function ContactPage() {
                         onChange={handleInputChange}
                         placeholder="your.email@example.com"
                         required
-                        className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-400"
+                        className="bg-input border-border text-foreground placeholder:text-muted-foreground"
                       />
                     </div>
                   </div>
@@ -239,7 +239,7 @@ export default function ContactPage() {
                         value={formData.company}
                         onChange={handleInputChange}
                         placeholder="Your company name"
-                        className="bg-slate-900 border-slate-700 text-white placeholder:text-slate-400"
+                        className="bg-input border-border text-foreground placeholder:text-muted-foreground"
                       />
                     </div>
                     <div className="space-y-2">
@@ -323,12 +323,12 @@ export default function ContactPage() {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
-                <h3 className="font-semibold text-white mb-3">
+                <h3 className="font-semibold text-foreground mb-3">
                   How quickly do you respond?
                 </h3>
-                <p className="text-slate-400 text-sm leading-relaxed">
+                <p className="text-muted-foreground text-sm leading-relaxed">
                   We typically respond to all inquiries within 24 hours during
                   business days. For urgent matters, please call our support
                   line.
@@ -336,12 +336,12 @@ export default function ContactPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
-                <h3 className="font-semibold text-white mb-3">
+                <h3 className="font-semibold text-foreground mb-3">
                   Do you offer phone support?
                 </h3>
-                <p className="text-slate-400 text-sm leading-relaxed">
+                <p className="text-muted-foreground text-sm leading-relaxed">
                   Yes, phone support is available for Pro and Enterprise
                   customers during business hours. Free users can reach us via
                   email or chat.
@@ -349,24 +349,24 @@ export default function ContactPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
-                <h3 className="font-semibold text-white mb-3">
+                <h3 className="font-semibold text-foreground mb-3">
                   Can I schedule a demo?
                 </h3>
-                <p className="text-slate-400 text-sm leading-relaxed">
+                <p className="text-muted-foreground text-sm leading-relaxed">
                   Absolutely! Contact our sales team to schedule a personalized
                   demo of FlowGenius and see how it can benefit your workflow.
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800 border-slate-700">
+            <Card className="bg-card border-border">
               <CardContent className="p-6">
-                <h3 className="font-semibold text-white mb-3">
+                <h3 className="font-semibold text-foreground mb-3">
                   Do you have international support?
                 </h3>
-                <p className="text-slate-400 text-sm leading-relaxed">
+                <p className="text-muted-foreground text-sm leading-relaxed">
                   Yes, we provide support in multiple languages and time zones.
                   Our team is available to help customers worldwide.
                 </p>

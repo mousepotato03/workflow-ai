@@ -32,7 +32,7 @@ export function FileUpload({
     <div
       onClick={handleClick}
       className={cn(
-        "cursor-pointer rounded-md border-2 border-dashed border-gray-300 p-4 hover:border-gray-400",
+        "cursor-pointer rounded-md border-2 border-dashed border-border p-4 hover:border-muted-foreground",
         className
       )}
       {...props}

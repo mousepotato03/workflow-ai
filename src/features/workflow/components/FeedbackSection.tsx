@@ -85,15 +85,15 @@ export function FeedbackSection({
   }
 
   return (
-    <Card className="border border-slate-700 bg-slate-800">
+    <Card className="border border-border bg-card">
       <CardHeader className="pb-4">
         <div className="flex items-center space-x-2">
           <Heart className="w-5 h-5 text-pink-400" />
-          <CardTitle className="text-lg text-white">
+          <CardTitle className="text-lg text-foreground">
             Was this recommendation helpful?
           </CardTitle>
         </div>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted-foreground">
           Your feedback greatly helps improve AI recommendation quality.
         </p>
       </CardHeader>
@@ -101,7 +101,7 @@ export function FeedbackSection({
       <CardContent className="space-y-6">
         {/* Star Rating */}
         <div className="space-y-3">
-          <Label className="text-sm font-medium text-white">
+          <Label className="text-sm font-medium text-foreground">
             Please rate your satisfaction (1-5 stars)
           </Label>
           <div className="flex items-center space-x-2">
@@ -120,14 +120,14 @@ export function FeedbackSection({
                     className={`w-8 h-8 transition-colors ${
                       value <= (hoveredRating || rating)
                         ? "text-yellow-400 fill-yellow-400"
-                        : "text-slate-600"
+                        : "text-muted"
                     }`}
                   />
                 </button>
               ))}
             </div>
             {(hoveredRating || rating) > 0 && (
-              <span className="text-sm text-slate-400 ml-3">
+              <span className="text-sm text-muted-foreground ml-3">
                 {getRatingText(hoveredRating || rating)}
               </span>
             )}
@@ -138,14 +138,14 @@ export function FeedbackSection({
         <div className="space-y-2">
           <Label
             htmlFor="feedback-comment"
-            className="text-sm font-medium text-white"
+            className="text-sm font-medium text-foreground"
           >
             Additional Comments (Optional)
           </Label>
           <Textarea
             id="feedback-comment"
             placeholder="Feel free to share your thoughts or suggestions..."
-            className="min-h-[80px] resize-none bg-slate-900 border-slate-700 text-white placeholder:text-slate-400"
+            className="min-h-[80px] resize-none bg-input border-border text-foreground placeholder:text-muted-foreground"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             disabled={isSubmitting}
@@ -172,7 +172,7 @@ export function FeedbackSection({
         </Button>
 
         {rating === 0 && (
-          <p className="text-xs text-slate-500 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Please select a rating
           </p>
         )}

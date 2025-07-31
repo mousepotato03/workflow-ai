@@ -46,7 +46,7 @@ export default function CenteredLoginSection({
           onClick={handleSignIn}
           disabled={signingIn}
           size="lg"
-          className="gap-3 px-8 py-4 h-14 bg-white hover:bg-gray-50 border border-gray-300 hover:border-gray-400 text-gray-700 font-medium shadow-sm text-base"
+          className="gap-3 px-8 py-4 h-14 bg-card hover:bg-muted border border-border hover:border-muted-foreground text-foreground font-medium shadow-sm text-base"
         >
           <GoogleIcon size={24} />
           {signingIn ? "로그인 중..." : "Sign in with Google"}

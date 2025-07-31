@@ -44,7 +44,7 @@ const recommendedWorkflows = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-background">
       {/* Navigation */}
       <Navigation />
 
@@ -52,15 +52,15 @@ export default function Home() {
       <main className="max-w-4xl mx-auto px-6 py-16">
         {/* Hero Section */}
         <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 tracking-tight">
             Describe your goal, we design the workflow
           </h1>
-          <p className="text-xl text-slate-400 mb-12">
+          <p className="text-xl text-muted-foreground mb-12 leading-relaxed">
             AI-powered tool recommendations to get your work done faster
           </p>
 
           {/* Input Form */}
-          <div className="bg-slate-900 rounded-2xl p-8 mb-16">
+          <div className="bg-card border border-border rounded-2xl p-8 mb-16 shadow-sm">
             <WorkflowInputForm />
           </div>
 
@@ -70,7 +70,7 @@ export default function Home() {
 
         {/* Recommended Workflow Section */}
         <div className="mt-24">
-          <h2 className="text-3xl font-bold text-white text-center mb-12">
+          <h2 className="text-3xl font-bold text-foreground text-center mb-12 tracking-tight">
             Recommended Workflow
           </h2>
 
@@ -78,17 +78,17 @@ export default function Home() {
             {recommendedWorkflows.map((workflow) => (
               <div
                 key={workflow.id}
-                className="bg-slate-900 rounded-xl p-6 hover:bg-slate-800 transition-colors"
+                className="bg-card border border-border rounded-xl p-6 hover:shadow-md transition-all duration-200 group"
               >
                 <div className="flex items-start space-x-4 mb-6">
-                  <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                  <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-bold text-lg shadow-sm">
                     {workflow.id}
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-xl font-bold text-white mb-3">
+                    <h3 className="text-xl font-bold text-card-foreground mb-3">
                       {workflow.title}
                     </h3>
-                    <p className="text-slate-400 leading-relaxed">
+                    <p className="text-muted-foreground leading-relaxed">
                       {workflow.description}
                     </p>
                   </div>
@@ -97,11 +97,11 @@ export default function Home() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <span className="text-lg">{workflow.toolIcon}</span>
-                    <span className="text-white font-medium">
+                    <span className="text-card-foreground font-medium">
                       {workflow.tool}
                     </span>
                   </div>
-                  <button className="text-blue-400 hover:text-blue-300 transition-colors flex items-center space-x-1">
+                  <button className="text-primary hover:text-primary/80 transition-colors flex items-center space-x-1 group-hover:translate-x-1 transition-transform">
                     <span>Learn More</span>
                     <svg
                       className="w-4 h-4"

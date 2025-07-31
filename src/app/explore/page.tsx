@@ -151,28 +151,28 @@ export default function ExplorePage() {
     });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <Navigation />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
             Explore AI Tools
           </h1>
-          <p className="text-xl text-slate-400 mb-8">
+          <p className="text-xl text-muted-foreground mb-8">
             Discover the best tools to boost your productivity and creativity
           </p>
 
           {/* Search and Filters */}
           <div className="flex flex-col md:flex-row gap-4 max-w-4xl mx-auto mb-8">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
               <Input
                 placeholder="Search tools..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-slate-900 border-slate-700 text-white placeholder-slate-400"
+                className="pl-10 bg-input border-input text-foreground placeholder-muted-foreground"
               />
             </div>
 
@@ -180,7 +180,7 @@ export default function ExplorePage() {
               value={selectedCategory}
               onValueChange={setSelectedCategory}
             >
-              <SelectTrigger className="w-full md:w-48 bg-slate-900 border-slate-700">
+              <SelectTrigger className="w-full md:w-48 bg-input border-input">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -193,7 +193,7 @@ export default function ExplorePage() {
             </Select>
 
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-full md:w-48 bg-slate-900 border-slate-700">
+              <SelectTrigger className="w-full md:w-48 bg-input border-input">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -209,7 +209,7 @@ export default function ExplorePage() {
 
         {/* Results Count */}
         <div className="mb-6">
-          <p className="text-slate-400">
+          <p className="text-muted-foreground">
             Showing {filteredTools.length} tools
             {selectedCategory !== "All" && <span> in {selectedCategory}</span>}
             {searchQuery && <span> for "{searchQuery}"</span>}
@@ -221,7 +221,7 @@ export default function ExplorePage() {
           {filteredTools.map((tool) => (
             <Card
               key={tool.id}
-              className="bg-slate-900 border-slate-700 hover:border-slate-600 transition-colors"
+              className="bg-card border-border hover:border-muted-foreground transition-colors"
             >
               <CardHeader>
                 <div className="flex items-start space-x-4">
@@ -231,7 +231,7 @@ export default function ExplorePage() {
                     className="w-12 h-12 rounded-lg"
                   />
                   <div className="flex-1">
-                    <CardTitle className="text-white text-lg mb-1">
+                    <CardTitle className="text-foreground text-lg mb-1">
                       {tool.name}
                     </CardTitle>
                     <div className="flex flex-wrap gap-1 mb-2">
@@ -250,13 +250,13 @@ export default function ExplorePage() {
               </CardHeader>
 
               <CardContent>
-                <CardDescription className="text-slate-400 mb-4 line-clamp-3">
+                <CardDescription className="text-muted-foreground mb-4 line-clamp-3">
                   {tool.description}
                 </CardDescription>
 
                 {/* Stats */}
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-4 text-sm text-slate-400">
+                  <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                     <div className="flex items-center space-x-1">
                       <Heart className="w-4 h-4" />
                       <span>{tool.likes}</span>
@@ -272,7 +272,7 @@ export default function ExplorePage() {
                 <div className="flex space-x-2">
                   <Button
                     size="sm"
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    className="flex-1 bg-primary hover:bg-primary/90"
                     onClick={() => window.open(tool.url, "_blank")}
                   >
                     <ExternalLink className="w-4 h-4 mr-1" />
@@ -281,14 +281,14 @@ export default function ExplorePage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                    className="border-border text-muted-foreground hover:bg-muted"
                   >
                     <Heart className="w-4 h-4" />
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-slate-600 text-slate-300 hover:bg-slate-800"
+                    className="border-border text-muted-foreground hover:bg-muted"
                   >
                     <MessageSquare className="w-4 h-4" />
                   </Button>
@@ -301,7 +301,7 @@ export default function ExplorePage() {
         {/* No Results */}
         {filteredTools.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-slate-400 mb-4">
+            <div className="text-muted-foreground mb-4">
               <Filter className="w-16 h-16 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">No tools found</h3>
               <p>
@@ -314,7 +314,7 @@ export default function ExplorePage() {
                 setSelectedCategory("All");
               }}
               variant="outline"
-              className="border-slate-600 text-slate-300 hover:bg-slate-800"
+              className="border-border text-muted-foreground hover:bg-muted"
             >
               Clear Filters
             </Button>
