@@ -21,7 +21,7 @@ export function Navigation() {
   return (
     <header className="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <Link
             href="/"
@@ -30,7 +30,9 @@ export function Navigation() {
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <GitBranch className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">FlowGenius</span>
+            <span className="text-xl font-bold text-foreground">
+              FlowGenius
+            </span>
           </Link>
 
           {/* Navigation Menu */}
@@ -39,7 +41,7 @@ export function Navigation() {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`text-sm font-medium transition-colors ${
+                className={`text-base font-bold transition-colors ${
                   pathname === item.href
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
@@ -52,11 +54,7 @@ export function Navigation() {
 
           {/* Right Side Actions */}
           <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-            >
+            <Button variant="ghost" size="icon" className="h-9 w-9">
               <Bell className="w-4 h-4" />
             </Button>
             <ThemeToggle />

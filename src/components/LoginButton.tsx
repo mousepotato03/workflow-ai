@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,38 +12,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogIn, LogOut, User, Loader2 } from "lucide-react";
 import { GoogleIcon } from "@/components/ui/google-icon";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 export default function LoginButton() {
-  const { signInWithGoogle, signOut } = useAuth();
-  const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, signInWithGoogle, signOut } = useAuth();
   const [signingIn, setSigningIn] = useState(false);
-  const supabase = createClient();
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      setLoading(false);
-    };
-
-    checkUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase.auth]);
 
   const handleSignIn = async () => {
     try {
       setSigningIn(true);
       await signInWithGoogle();
     } catch (error) {
-      // Handle login error silently
+      console.error("Sign in error:", error);
     } finally {
       setSigningIn(false);
     }
@@ -54,7 +32,7 @@ export default function LoginButton() {
     try {
       await signOut();
     } catch (error) {
-      // Handle logout error silently
+      console.error("Sign out error:", error);
     }
   };
 
