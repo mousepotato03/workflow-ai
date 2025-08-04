@@ -2,17 +2,19 @@ import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { SupabaseVectorStore } from "@langchain/community/vectorstores/supabase";
 import { createClient } from "@supabase/supabase-js";
 import { Document } from "@langchain/core/documents";
+import { toolSearchCache, CacheUtils } from "@/lib/cache/memory-cache";
+import { getEnvVar } from "@/lib/config/env-validation";
 
-// Initialize Supabase client with service role key for server-side operations
+// Initialize Supabase client with validated environment variables
 const supabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  getEnvVar("NEXT_PUBLIC_SUPABASE_URL"),
+  getEnvVar("SUPABASE_SERVICE_ROLE_KEY")
 );
 
-// Initialize Google AI embeddings
+// Initialize Google AI embeddings with consistent model
 const embeddings = new GoogleGenerativeAIEmbeddings({
-  model: "gemini-embedding-001",
-  apiKey: process.env.GOOGLE_API_KEY,
+  model: "text-embedding-004", // Latest model for consistency
+  apiKey: getEnvVar("GOOGLE_API_KEY"),
 });
 
 // Create vector store instance
@@ -105,31 +107,172 @@ export const searchToolsByKeywords = async (
   }
 };
 
-// Enhanced retriever with fallback (temporarily using keyword search only)
-export const getRelevantTools = async (
+// Smart search using advanced database functions with multiple strategies
+export const smartSearchTools = async (
   query: string,
-  k: number = 3
+  k: number = 3,
+  userPreferences?: {
+    categories?: string[];
+    difficulty_level?: string;
+    budget_range?: string;
+  }
 ): Promise<Document[]> => {
-  // Temporarily disable vector search until match_tools function is properly set up
-  return await searchToolsByKeywords(query, k);
-
-  /* TODO: Re-enable vector search once match_tools function is properly configured
   try {
-    // Try vector search first
-    const vectorRetriever = createToolRetriever(k);
-    const results = await vectorRetriever.getRelevantDocuments(query);
+    // Generate embedding for the query
+    const queryEmbedding = await embeddings.embedQuery(query);
 
-    if (results.length > 0) {
-      return results;
+    // Use smart_search_tools database function
+    const { data: results, error } = await supabaseClient.rpc(
+      "smart_search_tools",
+      {
+        query_text: query,
+        query_embedding: `[${queryEmbedding.join(",")}]`,
+        match_count: k,
+        user_preferences: userPreferences
+          ? JSON.stringify(userPreferences)
+          : "{}",
+      }
+    );
+
+    if (error) throw error;
+
+    if (results && results.length > 0) {
+      return results.map(
+        (result: any) =>
+          new Document({
+            pageContent: result.description || result.name,
+            metadata: {
+              id: result.id,
+              name: result.name,
+              description: result.description,
+              url: result.url,
+              logo_url: result.logo_url || "",
+              categories: result.categories || [],
+              pros: [],
+              cons: [],
+              recommendation_tip: "",
+              search_strategy: result.search_strategy,
+              score: result.score,
+            },
+          })
+      );
     }
 
     // Fallback to keyword search
     return await searchToolsByKeywords(query, k);
   } catch (error) {
-    // Fallback to keyword search
+    console.warn("Smart search failed, falling back to keyword search:", error);
     return await searchToolsByKeywords(query, k);
   }
-  */
+};
+
+// Hybrid search combining vector and text search
+export const hybridSearchTools = async (
+  query: string,
+  k: number = 3
+): Promise<Document[]> => {
+  try {
+    // Generate embedding for the query
+    const queryEmbedding = await embeddings.embedQuery(query);
+
+    // Use hybrid_search_tools database function
+    const { data: results, error } = await supabaseClient.rpc(
+      "hybrid_search_tools",
+      {
+        query_text: query,
+        query_embedding: `[${queryEmbedding.join(",")}]`,
+        match_count: k,
+        vector_weight: 0.7,
+        text_weight: 0.3,
+      }
+    );
+
+    if (error) throw error;
+
+    if (results && results.length > 0) {
+      return results.map(
+        (result: any) =>
+          new Document({
+            pageContent: result.description || result.name,
+            metadata: {
+              id: result.id,
+              name: result.name,
+              description: result.description,
+              url: result.url,
+              logo_url: result.logo_url || "",
+              categories: result.categories || [],
+              pros: [],
+              cons: [],
+              recommendation_tip: "",
+              hybrid_score: result.hybrid_score,
+              vector_similarity: result.vector_similarity,
+              text_similarity: result.text_similarity,
+            },
+          })
+      );
+    }
+
+    // Fallback to keyword search
+    return await searchToolsByKeywords(query, k);
+  } catch (error) {
+    console.warn(
+      "Hybrid search failed, falling back to keyword search:",
+      error
+    );
+    return await searchToolsByKeywords(query, k);
+  }
+};
+
+// Enhanced retriever with smart fallback strategies and caching
+export const getRelevantTools = async (
+  query: string,
+  k: number = 3,
+  userPreferences?: {
+    categories?: string[];
+    difficulty_level?: string;
+    budget_range?: string;
+  }
+): Promise<Document[]> => {
+  // Generate cache key based on query and preferences
+  const cacheKey = CacheUtils.generateKey({
+    query: query.toLowerCase().trim(),
+    k,
+    userPreferences,
+  });
+
+  // Try to get from cache first
+  return await CacheUtils.withCache(toolSearchCache, cacheKey, async () => {
+    // Strategy 1: Skip smart search for now (function not implemented)
+    // TODO: Implement smart_search_tools function in database
+    // if (userPreferences && Object.keys(userPreferences).length > 0) {
+    //   const smartResults = await smartSearchTools(query, k, userPreferences);
+    //   if (smartResults.length > 0) {
+    //     return smartResults;
+    //   }
+    // }
+
+    // Strategy 2: Try hybrid search
+    const hybridResults = await hybridSearchTools(query, k);
+    if (hybridResults.length > 0) {
+      return hybridResults;
+    }
+
+    // Strategy 3: Fallback to original vector search
+    try {
+      const vectorRetriever = createToolRetriever(k);
+      const results = await vectorRetriever.getRelevantDocuments(query);
+
+      if (results.length > 0) {
+        return results;
+      }
+    } catch (error) {
+      console.warn("Vector search failed:", error);
+    }
+
+    // Strategy 4: Final fallback to keyword search
+    console.warn("All advanced searches failed, using keyword search");
+    return await searchToolsByKeywords(query, k);
+  });
 };
 
 // Helper function to add tools to vector store

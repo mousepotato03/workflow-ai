@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
-import {
-  createTaskDecomposerChain,
-  createToolRecommenderChain,
-  formatToolsContext,
-  parseToolRecommendation,
-} from "@/lib/langchain/chains";
-import { getRelevantTools } from "@/lib/supabase/vector-store";
+import { createTaskDecomposerChain } from "@/lib/langchain/chains";
 import { WorkflowRequest, WorkflowResponse } from "@/types/workflow";
+import { logger, extractUserContext } from "@/lib/logger/structured-logger";
+import { workflowCache, CacheUtils } from "@/lib/cache/memory-cache";
+import { getEnvVar } from "@/lib/config/env-validation";
+import {
+  processTasksInParallel,
+  batchSaveRecommendations,
+  getUserPreferences,
+} from "@/lib/services/workflow-service";
+import { withAuth, createAuthErrorResponse } from "@/lib/middleware/auth";
+import {
+  withRateLimit,
+  workflowRateLimiter,
+  createRateLimitResponse,
+} from "@/lib/middleware/rate-limiter";
 
 // Request validation schema
 const workflowRequestSchema = z.object({
@@ -19,22 +27,82 @@ const workflowRequestSchema = z.object({
   language: z.string().min(2).max(10),
 });
 
-// Initialize Supabase client
+// Initialize Supabase client with validated environment
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  getEnvVar("NEXT_PUBLIC_SUPABASE_URL"),
+  getEnvVar("SUPABASE_SERVICE_ROLE_KEY")
 );
 
 export async function POST(request: NextRequest) {
+  // Apply rate limiting
+  const rateLimitCheck = withRateLimit(workflowRateLimiter);
+  const rateLimitResult = rateLimitCheck(request);
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(rateLimitResult.resetTime);
+  }
+
+  // Apply authentication (optional for now)
+  const authCheck = withAuth({ requireAuth: false, allowLocalhost: true });
+  const authResult = authCheck(request);
+  if (!authResult.authenticated) {
+    return createAuthErrorResponse(authResult.reason);
+  }
+
+  const startTime = Date.now();
+  const baseContext = extractUserContext(request);
+  const userContext = {
+    ...baseContext,
+    sessionId: baseContext.requestId || crypto.randomUUID(),
+    language: "ko", // Will be updated after validation
+    requestId: baseContext.requestId || crypto.randomUUID(),
+  };
+  const workflowId = crypto.randomUUID();
+
+  logger.apiRequest("POST", "/api/workflow", 0, 0, userContext);
+  logger.workflowStart(workflowId, "", userContext);
+
   try {
     // Parse and validate request body
     const body: WorkflowRequest = await request.json();
     const validatedData = workflowRequestSchema.parse(body);
 
+    // Update userContext with validated language
+    userContext.language = validatedData.language;
+
+    logger.info("Workflow request validated", {
+      ...userContext,
+      workflowId,
+      goal: validatedData.goal.substring(0, 100), // Truncate for logging
+      language: validatedData.language,
+    });
+
+    // Check cache for similar workflow requests
+    const cacheKey = CacheUtils.generateKey({
+      goal: validatedData.goal.toLowerCase().trim(),
+      language: validatedData.language,
+    });
+
+    const cachedResult = workflowCache.get(cacheKey);
+    if (cachedResult) {
+      logger.cacheHit("workflow", cacheKey, userContext);
+
+      const duration = Date.now() - startTime;
+      logger.apiRequest("POST", "/api/workflow", duration, 200, userContext);
+
+      return NextResponse.json({
+        ...cachedResult,
+        workflowId: workflowId, // Use new ID for tracking
+        fromCache: true,
+      });
+    }
+
+    logger.cacheMiss("workflow", cacheKey, userContext);
+
     // Create workflow record
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
       .insert({
+        id: workflowId,
         goal: validatedData.goal,
         language: validatedData.language,
         status: "processing",
@@ -43,10 +111,18 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (workflowError || !workflow) {
-      throw new Error("워크플로우 생성 실패: " + workflowError?.message);
+      const error = new Error(
+        "워크플로우 생성 실패: " + workflowError?.message
+      );
+      logger.workflowError(workflowId, error, {
+        ...userContext,
+        stage: "workflow_creation",
+      });
+      throw error;
     }
 
     // Step 1: Decompose goal into tasks using LangChain
+    logger.info("Starting task decomposition", { ...userContext, workflowId });
     const taskDecomposer = createTaskDecomposerChain();
     const taskResult = await taskDecomposer.invoke({
       goal: validatedData.goal,
@@ -54,10 +130,22 @@ export async function POST(request: NextRequest) {
     });
 
     if (!taskResult.tasks || !Array.isArray(taskResult.tasks)) {
-      throw new Error(
+      const error = new Error(
         "작업 분해 실패: 올바른 형식의 작업 목록을 생성할 수 없습니다."
       );
+      logger.workflowError(workflowId, error, {
+        ...userContext,
+        stage: "task_decomposition",
+      });
+      throw error;
     }
+
+    logger.info("Task decomposition completed", {
+      ...userContext,
+      workflowId,
+      taskCount: taskResult.tasks.length,
+      tasks: taskResult.tasks,
+    });
 
     // Insert tasks into database
     const tasksToInsert = taskResult.tasks.map(
@@ -75,127 +163,52 @@ export async function POST(request: NextRequest) {
       .select();
 
     if (tasksError || !tasks) {
-      throw new Error("작업 저장 실패: " + tasksError?.message);
+      const error = new Error("작업 저장 실패: " + tasksError?.message);
+      logger.workflowError(workflowId, error, {
+        ...userContext,
+        stage: "task_saving",
+      });
+      throw error;
     }
 
-    // Step 2: Get tool recommendations for each task
-    const toolRecommender = createToolRecommenderChain();
-    const recommendations = [];
+    // Step 2: Get tool recommendations for each task (optimized with parallel processing)
+    logger.info("Starting tool recommendations", {
+      ...userContext,
+      workflowId,
+      taskCount: tasks.length,
+    });
 
-    for (const task of tasks) {
-      try {
-        // Retrieve similar tools using enhanced search with fallback
-        const relevantTools = await getRelevantTools(task.name, 3);
+    const userPreferences = getUserPreferences(validatedData);
+    const taskRecommendations = await processTasksInParallel(
+      tasks.map((task) => ({ id: task.id, name: task.name })),
+      userPreferences,
+      userContext,
+      workflowId
+    );
 
-        if (relevantTools.length === 0) {
-          // No tools found, create recommendation with no tool
-          const { error: recError } = await supabase
-            .from("recommendations")
-            .insert({
-              task_id: task.id,
-              tool_id: null,
-              reason: "해당 작업에 적합한 도구를 찾을 수 없습니다.",
-              confidence_score: 0,
-            });
+    // Batch save recommendations
+    await batchSaveRecommendations(
+      taskRecommendations,
+      userContext,
+      workflowId
+    );
 
-          if (recError) {
-            // Handle recommendation save error silently
+    // Format recommendations for response
+    const recommendations = taskRecommendations.map((rec) => ({
+      id: rec.taskId,
+      name: rec.taskName,
+      order: tasks.find((t) => t.id === rec.taskId)?.order_index || 0,
+      recommendedTool: rec.toolId
+        ? {
+            id: rec.toolId,
+            name: rec.toolName,
+            logoUrl: "",
+            url: "",
           }
-
-          recommendations.push({
-            id: task.id,
-            name: task.name,
-            order: task.order_index,
-            recommendedTool: null,
-            recommendationReason: "해당 작업에 적합한 도구를 찾을 수 없습니다.",
-            confidence: 0,
-          });
-          continue;
-        }
-
-        // Format tools context for LLM
-        const context = formatToolsContext(relevantTools);
-
-        // Get recommendation from LLM
-        const recommendationResult = await toolRecommender.invoke({
-          task: task.name,
-          context,
-          language: validatedData.language,
-        });
-
-        const { toolName, reason } =
-          parseToolRecommendation(recommendationResult);
-
-        // Find the recommended tool in relevant tools
-        let recommendedTool = null;
-        let confidence = 0.5; // Default confidence
-
-        if (toolName) {
-          const matchedTool = relevantTools.find(
-            (tool) =>
-              tool.metadata.name.toLowerCase() === toolName.toLowerCase()
-          );
-
-          if (matchedTool) {
-            recommendedTool = {
-              id: matchedTool.metadata.id,
-              name: matchedTool.metadata.name,
-              logoUrl: matchedTool.metadata.logo_url || "",
-              url: matchedTool.metadata.url || "",
-            };
-            confidence = 0.8; // Higher confidence when tool is found
-          }
-        }
-
-        // Save recommendation to database
-        const { error: recError } = await supabase
-          .from("recommendations")
-          .insert({
-            task_id: task.id,
-            tool_id: recommendedTool?.id || null,
-            reason: reason || "추천 이유를 생성할 수 없습니다.",
-            confidence_score: confidence,
-          });
-
-        if (recError) {
-          // Handle recommendation save error silently
-        }
-
-        recommendations.push({
-          id: task.id,
-          name: task.name,
-          order: task.order_index,
-          recommendedTool,
-          recommendationReason: reason || "추천 이유를 생성할 수 없습니다.",
-          confidence,
-        });
-      } catch (error) {
-        // Handle tool recommendation error silently
-
-        // Save failed recommendation
-        const { error: recError } = await supabase
-          .from("recommendations")
-          .insert({
-            task_id: task.id,
-            tool_id: null,
-            reason: "도구 추천 중 오류가 발생했습니다.",
-            confidence_score: 0,
-          });
-
-        if (recError) {
-          // Handle failed recommendation save error silently
-        }
-
-        recommendations.push({
-          id: task.id,
-          name: task.name,
-          order: task.order_index,
-          recommendedTool: null,
-          recommendationReason: "도구 추천 중 오류가 발생했습니다.",
-          confidence: 0,
-        });
-      }
-    }
+        : null,
+      recommendationReason: rec.reason,
+      confidence: rec.confidenceScore,
+    }));
 
     // Update workflow status to completed
     await supabase
@@ -210,21 +223,61 @@ export async function POST(request: NextRequest) {
       status: "completed",
     };
 
+    // Cache the successful result
+    workflowCache.set(cacheKey, response);
+
+    const duration = Date.now() - startTime;
+    logger.workflowComplete(
+      workflowId,
+      duration,
+      recommendations.length,
+      userContext
+    );
+    logger.apiRequest("POST", "/api/workflow", duration, 200, userContext);
+
     return NextResponse.json(response);
   } catch (error) {
-    // Handle workflow API error silently
+    const duration = Date.now() - startTime;
 
     if (error instanceof z.ZodError) {
+      logger.warn("Validation error in workflow API", {
+        ...userContext,
+        workflowId,
+        validationErrors: error.errors,
+      });
+
+      logger.apiRequest("POST", "/api/workflow", duration, 400, userContext);
+
       return NextResponse.json(
-        { error: "입력 데이터가 올바르지 않습니다.", details: error.errors },
+        {
+          error: "입력 데이터가 올바르지 않습니다.",
+          details: error.errors,
+        },
         { status: 400 }
       );
     }
 
+    // Log the error with full context
+    logger.apiError(
+      "POST",
+      "/api/workflow",
+      error instanceof Error ? error : new Error(String(error)),
+      { ...userContext, workflowId }
+    );
+
+    logger.apiRequest("POST", "/api/workflow", duration, 500, userContext);
+
+    // Return user-friendly error message
+    const userMessage =
+      error instanceof Error && error.message.includes("워크플로우")
+        ? error.message
+        : "서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.";
+
     return NextResponse.json(
       {
-        error: "서버 오류가 발생했습니다.",
-        message: error instanceof Error ? error.message : "Unknown error",
+        error: userMessage,
+        timestamp: new Date().toISOString(),
+        requestId: userContext.requestId,
       },
       { status: 500 }
     );

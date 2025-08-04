@@ -1,17 +1,22 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { JsonOutputParser } from "@langchain/core/output_parsers";
+import {
+  JsonOutputParser,
+  StringOutputParser,
+} from "@langchain/core/output_parsers";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
 import { Document } from "@langchain/core/documents";
+import { taskDecompositionCache, CacheUtils } from "@/lib/cache/memory-cache";
+import { getEnvVar } from "@/lib/config/env-validation";
 
-// Initialize Gemini model
+// Initialize Gemini model with validated environment
 const model = new ChatGoogleGenerativeAI({
   model: "gemini-2.5-pro",
   temperature: 0,
-  apiKey: process.env.GOOGLE_API_KEY,
+  apiKey: getEnvVar("GOOGLE_API_KEY"),
 });
 
-// Task Decomposer Chain
+// Task Decomposer Chain with caching
 export const createTaskDecomposerChain = () => {
   const prompt = PromptTemplate.fromTemplate(`
     You are a highly-skilled project manager. Your task is to break down a user's goal into a list of 2-5 concrete, actionable sub-tasks.
@@ -22,8 +27,48 @@ export const createTaskDecomposerChain = () => {
   `);
 
   const outputParser = new JsonOutputParser();
+  const chain = RunnableSequence.from([prompt, model, outputParser]);
 
-  return RunnableSequence.from([prompt, model, outputParser]);
+  // Return wrapped chain with caching
+  return {
+    async invoke(input: { goal: string; language: string }) {
+      const cacheKey = CacheUtils.generateKey({
+        goal: input.goal.toLowerCase().trim(),
+        language: input.language,
+      });
+
+      return await CacheUtils.withCache(
+        taskDecompositionCache,
+        cacheKey,
+        async () => {
+          try {
+            const result = await chain.invoke(input);
+
+            // Validate the result
+            if (!result || !result.tasks || !Array.isArray(result.tasks)) {
+              throw new Error("Invalid task decomposition result format");
+            }
+
+            if (result.tasks.length < 2 || result.tasks.length > 5) {
+              throw new Error(
+                `Invalid number of tasks: ${result.tasks.length}. Expected 2-5 tasks.`
+              );
+            }
+
+            return result;
+          } catch (error) {
+            // Enhanced error logging
+            console.error("Task decomposition failed:", {
+              error: error instanceof Error ? error.message : "Unknown error",
+              input,
+              timestamp: new Date().toISOString(),
+            });
+            throw error;
+          }
+        }
+      );
+    },
+  };
 };
 
 // Tool Recommender Chain
@@ -44,7 +89,9 @@ export const createToolRecommenderChain = () => {
     Reason: [explanation why this tool is best]
   `);
 
-  return RunnableSequence.from([prompt, model]);
+  const outputParser = new StringOutputParser();
+
+  return RunnableSequence.from([prompt, model, outputParser]);
 };
 
 // Helper function to format tools context for the recommender
@@ -65,12 +112,24 @@ Recommendation Tip: ${metadata.recommendation_tip}
 
 // Helper function to parse tool recommendation response
 export const parseToolRecommendation = (
-  response: string
+  response: string | any
 ): {
   toolName: string | null;
   reason: string;
 } => {
-  const lines = response.split("\n");
+  // Handle different response types from LangChain
+  let responseText: string;
+
+  if (typeof response === "string") {
+    responseText = response;
+  } else if (response && typeof response === "object") {
+    // Handle AIMessage or similar objects
+    responseText = response.content || response.text || String(response);
+  } else {
+    responseText = String(response);
+  }
+
+  const lines = responseText.split("\n");
   let toolName: string | null = null;
   let reason = "";
 
@@ -84,7 +143,7 @@ export const parseToolRecommendation = (
 
   // If no structured response, treat entire response as reason
   if (!toolName && !reason) {
-    reason = response.trim();
+    reason = responseText.trim();
   }
 
   return { toolName, reason };
