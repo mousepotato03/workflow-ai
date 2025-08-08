@@ -211,8 +211,6 @@ export class ToolEmbeddingStrategy {
     description: string;
     categories: string[];
     use_cases: string[];
-    pros: string[];
-    cons: string[];
   }): Promise<{ embeddingText: string; embedding: number[] }> {
     // Create comprehensive embedding text
     const embeddingText = this.createToolEmbeddingText(tool);
@@ -229,16 +227,12 @@ export class ToolEmbeddingStrategy {
     description: string;
     categories: string[];
     use_cases: string[];
-    pros: string[];
-    cons: string[];
   }): string {
     const parts = [
       `Tool: ${tool.name}`,
       `Description: ${tool.description}`,
       `Categories: ${tool.categories.join(", ")}`,
       `Use Cases: ${tool.use_cases.join(", ")}`,
-      `Strengths: ${tool.pros.join(", ")}`,
-      `Limitations: ${tool.cons.join(", ")}`,
     ];
 
     return parts

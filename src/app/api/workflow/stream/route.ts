@@ -5,10 +5,22 @@ import { createTaskDecomposerChain } from "@/lib/langchain/chains";
 import { WorkflowRequest } from "@/types/workflow";
 import { logger, extractUserContext } from "@/lib/logger/structured-logger";
 import { getEnvVar } from "@/lib/config/env-validation";
-import { processTasksInParallel, batchSaveRecommendations, getUserPreferences } from "@/lib/services/workflow-service";
-import { createManagedStream, SSE_HEADERS, ManagedReadableStream } from "@/lib/services/stream-service";
+import {
+  processTasksInParallel,
+  batchSaveRecommendations,
+  getUserPreferences,
+} from "@/lib/services/workflow-service";
+import {
+  createManagedStream,
+  SSE_HEADERS,
+  ManagedReadableStream,
+} from "@/lib/services/stream-service";
 import { withAuth, createAuthErrorResponse } from "@/lib/middleware/auth";
-import { withRateLimit, workflowRateLimiter, createRateLimitResponse } from "@/lib/middleware/rate-limiter";
+import {
+  withRateLimit,
+  workflowRateLimiter,
+  createRateLimitResponse,
+} from "@/lib/middleware/rate-limiter";
 
 // Request validation schema
 const workflowRequestSchema = z.object({
@@ -46,11 +58,11 @@ export async function POST(request: NextRequest) {
 
   // Create managed stream with proper resource handling
   const managedStream = createManagedStream(workflowId, userContext);
-  
+
   // Start background processing
   processWorkflow(managedStream, request).catch((error) => {
     managedStream.sendError("Processing failed", {
-      error: error instanceof Error ? error.message : "Unknown error"
+      error: error instanceof Error ? error.message : "Unknown error",
     });
   });
 
@@ -61,9 +73,12 @@ export async function POST(request: NextRequest) {
 }
 
 // Background workflow processing function
-async function processWorkflow(managedStream: ManagedReadableStream, request: NextRequest) {
+async function processWorkflow(
+  managedStream: ManagedReadableStream,
+  request: NextRequest
+) {
   const userContext = extractUserContext(request);
-  
+
   try {
     // Parse and validate request body
     const body: WorkflowRequest = await request.json();
@@ -92,7 +107,11 @@ async function processWorkflow(managedStream: ManagedReadableStream, request: Ne
 
     if (workflowError || !workflow) {
       const error = "워크플로우 생성 실패: " + workflowError?.message;
-      logger.workflowError(workflow?.id || "unknown", new Error(error), userContext);
+      logger.workflowError(
+        workflow?.id || "unknown",
+        new Error(error),
+        userContext
+      );
       managedStream.sendError(error);
       return;
     }
@@ -105,7 +124,11 @@ async function processWorkflow(managedStream: ManagedReadableStream, request: Ne
     if (!managedStream.isActive()) return;
 
     // Step 1: Decompose goal into tasks
-    managedStream.sendProgress("task_decomposition_start", 25, "작업 분해 시작 중...");
+    managedStream.sendProgress(
+      "task_decomposition_start",
+      25,
+      "작업 분해 시작 중..."
+    );
 
     const taskDecomposer = createTaskDecomposerChain();
     const taskResult = await taskDecomposer.invoke({
@@ -114,7 +137,8 @@ async function processWorkflow(managedStream: ManagedReadableStream, request: Ne
     });
 
     if (!taskResult.tasks || !Array.isArray(taskResult.tasks)) {
-      const error = "작업 분해 실패: 올바른 형식의 작업 목록을 생성할 수 없습니다.";
+      const error =
+        "작업 분해 실패: 올바른 형식의 작업 목록을 생성할 수 없습니다.";
       logger.workflowError(workflow.id, new Error(error), userContext);
       managedStream.sendError(error);
       return;
@@ -133,11 +157,13 @@ async function processWorkflow(managedStream: ManagedReadableStream, request: Ne
     // Step 2: Save tasks to database
     managedStream.sendProgress("task_saving", 45, "작업 저장 중...");
 
-    const tasksToInsert = taskResult.tasks.map((taskName: string, index: number) => ({
-      workflow_id: workflow.id,
-      name: taskName,
-      order_index: index,
-    }));
+    const tasksToInsert = taskResult.tasks.map(
+      (taskName: string, index: number) => ({
+        workflow_id: workflow.id,
+        name: taskName,
+        order_index: index + 1,
+      })
+    );
 
     const { data: savedTasks, error: taskError } = await supabase
       .from("tasks")
@@ -157,7 +183,11 @@ async function processWorkflow(managedStream: ManagedReadableStream, request: Ne
     if (!managedStream.isActive()) return;
 
     // Step 3: Get tool recommendations (parallel processing)
-    managedStream.sendProgress("recommendations_start", 55, "도구 추천 시작 중...");
+    managedStream.sendProgress(
+      "recommendations_start",
+      55,
+      "도구 추천 시작 중..."
+    );
 
     const userPreferences = getUserPreferences(validatedData);
     const taskRecommendations = await processTasksInParallel(
@@ -170,15 +200,27 @@ async function processWorkflow(managedStream: ManagedReadableStream, request: Ne
     // Early return if stream is aborted
     if (!managedStream.isActive()) return;
 
-    managedStream.sendProgress("recommendations_processing", 75, "추천 결과 저장 중...");
+    managedStream.sendProgress(
+      "recommendations_processing",
+      75,
+      "추천 결과 저장 중..."
+    );
 
     // Batch save recommendations
-    await batchSaveRecommendations(taskRecommendations, userContext, workflow.id);
+    await batchSaveRecommendations(
+      taskRecommendations,
+      userContext,
+      workflow.id
+    );
 
     // Early return if stream is aborted
     if (!managedStream.isActive()) return;
 
-    managedStream.sendProgress("recommendations_complete", 90, "도구 추천 완료");
+    managedStream.sendProgress(
+      "recommendations_complete",
+      90,
+      "도구 추천 완료"
+    );
 
     // Step 4: Update workflow status
     await supabase
@@ -187,16 +229,18 @@ async function processWorkflow(managedStream: ManagedReadableStream, request: Ne
       .eq("id", workflow.id);
 
     // Format final response
-    const recommendations = taskRecommendations.map(rec => ({
+    const recommendations = taskRecommendations.map((rec) => ({
       id: rec.taskId,
       name: rec.taskName,
-      order: savedTasks.find(t => t.id === rec.taskId)?.order_index || 0,
-      recommendedTool: rec.toolId ? {
-        id: rec.toolId,
-        name: rec.toolName,
-        logoUrl: "",
-        url: "",
-      } : null,
+      order: savedTasks.find((t) => t.id === rec.taskId)?.order_index || 0,
+      recommendedTool: rec.toolId
+        ? {
+            id: rec.toolId,
+            name: rec.toolName,
+            logoUrl: "",
+            url: "",
+          }
+        : null,
       recommendationReason: rec.reason,
       confidence: rec.confidenceScore,
     }));
@@ -210,14 +254,14 @@ async function processWorkflow(managedStream: ManagedReadableStream, request: Ne
     managedStream.sendComplete(finalResult);
 
     logger.workflowComplete(workflow.id, userContext);
-
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     logger.error("Streaming workflow failed", {
       ...userContext,
       error: errorMessage,
     });
-    
+
     managedStream.sendError("워크플로우 처리 중 오류가 발생했습니다.", {
       error: errorMessage,
     });

@@ -1,6 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
-import { DataPipeline } from '../data-pipeline/etl-pipeline';
-import { createEmbeddingStrategies } from '../embeddings/multi-embedding-strategy';
+import { createClient } from "@supabase/supabase-js";
+import { DataPipeline } from "../data-pipeline/etl-pipeline";
+import { createEmbeddingStrategies } from "../embeddings/multi-embedding-strategy";
 
 interface MaintenanceConfig {
   supabaseUrl: string;
@@ -19,7 +19,7 @@ interface MaintenanceConfig {
 
 interface MaintenanceReport {
   timestamp: string;
-  type: 'daily' | 'weekly' | 'monthly';
+  type: "daily" | "weekly" | "monthly";
   dataQuality: {
     totalTools: number;
     toolsWithEmbeddings: number;
@@ -30,7 +30,7 @@ interface MaintenanceReport {
   performance: {
     averageSearchTime: number;
     searchSuccessRate: number;
-    topSearchStrategies: Array<{strategy: string; usage: number}>;
+    topSearchStrategies: Array<{ strategy: string; usage: number }>;
   };
   updates: {
     newToolsAdded: number;
@@ -38,7 +38,7 @@ interface MaintenanceReport {
     errorCount: number;
   };
   recommendations: string[];
-  alerts: Array<{level: 'info' | 'warning' | 'error'; message: string}>;
+  alerts: Array<{ level: "info" | "warning" | "error"; message: string }>;
 }
 
 export class DataMaintenanceSystem {
@@ -64,11 +64,11 @@ export class DataMaintenanceSystem {
 
   // Daily maintenance routine
   async runDailyMaintenance(): Promise<MaintenanceReport> {
-    console.log('Starting daily maintenance routine...');
-    
+    console.log("Starting daily maintenance routine...");
+
     const report: MaintenanceReport = {
       timestamp: new Date().toISOString(),
-      type: 'daily',
+      type: "daily",
       dataQuality: {
         totalTools: 0,
         toolsWithEmbeddings: 0,
@@ -126,30 +126,29 @@ export class DataMaintenanceSystem {
       // 7. Clean Up Old Data
       await this.cleanupOldData();
 
-      console.log('Daily maintenance completed successfully');
-      
+      console.log("Daily maintenance completed successfully");
     } catch (error) {
-      console.error('Daily maintenance failed:', error);
+      console.error("Daily maintenance failed:", error);
       report.alerts.push({
-        level: 'error',
-        message: `Daily maintenance failed: ${error}`
+        level: "error",
+        message: `Daily maintenance failed: ${error}`,
       });
     }
 
     // Send notifications
     await this.sendMaintenanceReport(report);
-    
+
     return report;
   }
 
   // Weekly maintenance routine
   async runWeeklyMaintenance(): Promise<MaintenanceReport> {
-    console.log('Starting weekly maintenance routine...');
-    
+    console.log("Starting weekly maintenance routine...");
+
     const dailyReport = await this.runDailyMaintenance();
     const report: MaintenanceReport = {
       ...dailyReport,
-      type: 'weekly',
+      type: "weekly",
     };
 
     try {
@@ -171,13 +170,14 @@ export class DataMaintenanceSystem {
       // 6. Backup Critical Data
       await this.backupCriticalData();
 
-      report.recommendations.push('Weekly deep maintenance completed successfully');
-      
+      report.recommendations.push(
+        "Weekly deep maintenance completed successfully"
+      );
     } catch (error) {
-      console.error('Weekly maintenance failed:', error);
+      console.error("Weekly maintenance failed:", error);
       report.alerts.push({
-        level: 'error',
-        message: `Weekly maintenance failed: ${error}`
+        level: "error",
+        message: `Weekly maintenance failed: ${error}`,
       });
     }
 
@@ -187,12 +187,12 @@ export class DataMaintenanceSystem {
 
   // Monthly maintenance routine
   async runMonthlyMaintenance(): Promise<MaintenanceReport> {
-    console.log('Starting monthly maintenance routine...');
-    
+    console.log("Starting monthly maintenance routine...");
+
     const weeklyReport = await this.runWeeklyMaintenance();
     const report: MaintenanceReport = {
       ...weeklyReport,
-      type: 'monthly',
+      type: "monthly",
     };
 
     try {
@@ -214,13 +214,14 @@ export class DataMaintenanceSystem {
       // 6. Generate Monthly Analytics Report
       await this.generateMonthlyAnalytics();
 
-      report.recommendations.push('Monthly comprehensive maintenance completed');
-      
+      report.recommendations.push(
+        "Monthly comprehensive maintenance completed"
+      );
     } catch (error) {
-      console.error('Monthly maintenance failed:', error);
+      console.error("Monthly maintenance failed:", error);
       report.alerts.push({
-        level: 'error',
-        message: `Monthly maintenance failed: ${error}`
+        level: "error",
+        message: `Monthly maintenance failed: ${error}`,
       });
     }
 
@@ -228,9 +229,12 @@ export class DataMaintenanceSystem {
     return report;
   }
 
-  private async analyzePerformance(): Promise<MaintenanceReport['performance']> {
-    const { data: performanceData } = await this.supabase
-      .rpc('analyze_search_performance');
+  private async analyzePerformance(): Promise<
+    MaintenanceReport["performance"]
+  > {
+    const { data: performanceData } = await this.supabase.rpc(
+      "analyze_search_performance"
+    );
 
     if (!performanceData || performanceData.length === 0) {
       return {
@@ -240,10 +244,16 @@ export class DataMaintenanceSystem {
       };
     }
 
-    const totalSearches = performanceData.reduce((sum: number, row: any) => sum + row.total_searches, 0);
-    const weightedAverageTime = performanceData.reduce(
-      (sum: number, row: any) => sum + (row.avg_duration_ms * row.total_searches), 0
-    ) / totalSearches;
+    const totalSearches = performanceData.reduce(
+      (sum: number, row: any) => sum + row.total_searches,
+      0
+    );
+    const weightedAverageTime =
+      performanceData.reduce(
+        (sum: number, row: any) =>
+          sum + row.avg_duration_ms * row.total_searches,
+        0
+      ) / totalSearches;
 
     return {
       averageSearchTime: weightedAverageTime,
@@ -253,8 +263,8 @@ export class DataMaintenanceSystem {
         .slice(0, 3)
         .map((row: any) => ({
           strategy: row.search_type,
-          usage: row.total_searches
-        }))
+          usage: row.total_searches,
+        })),
     };
   }
 
@@ -263,68 +273,86 @@ export class DataMaintenanceSystem {
 
     // Quality-based recommendations
     if (report.dataQuality.qualityScore < 0.8) {
-      recommendations.push('Data quality is below 80%. Consider running embedding regeneration for tools with missing data.');
+      recommendations.push(
+        "Data quality is below 80%. Consider running embedding regeneration for tools with missing data."
+      );
     }
 
     if (report.dataQuality.duplicates > 5) {
-      recommendations.push(`Found ${report.dataQuality.duplicates} duplicate tools. Review and merge duplicates.`);
+      recommendations.push(
+        `Found ${report.dataQuality.duplicates} duplicate tools. Review and merge duplicates.`
+      );
     }
 
     // Performance-based recommendations
     if (report.performance.averageSearchTime > 500) {
-      recommendations.push('Average search time is above 500ms. Consider optimizing vector indexes.');
+      recommendations.push(
+        "Average search time is above 500ms. Consider optimizing vector indexes."
+      );
     }
 
     // Update-based recommendations
     if (report.updates.errorCount > 0) {
-      recommendations.push(`${report.updates.errorCount} errors occurred during updates. Review error logs.`);
+      recommendations.push(
+        `${report.updates.errorCount} errors occurred during updates. Review error logs.`
+      );
     }
 
-    if (report.updates.newToolsAdded === 0 && report.updates.toolsUpdated === 0) {
-      recommendations.push('No new tools or updates found. Verify data source connections.');
+    if (
+      report.updates.newToolsAdded === 0 &&
+      report.updates.toolsUpdated === 0
+    ) {
+      recommendations.push(
+        "No new tools or updates found. Verify data source connections."
+      );
     }
 
     report.recommendations = recommendations;
   }
 
   private generateAlerts(report: MaintenanceReport): void {
-    const alerts: Array<{level: 'info' | 'warning' | 'error'; message: string}> = [];
+    const alerts: Array<{
+      level: "info" | "warning" | "error";
+      message: string;
+    }> = [];
 
     // Critical alerts
     if (report.dataQuality.qualityScore < 0.5) {
       alerts.push({
-        level: 'error',
-        message: 'Critical: Data quality is below 50%. Immediate action required.'
+        level: "error",
+        message:
+          "Critical: Data quality is below 50%. Immediate action required.",
       });
     }
 
     if (report.performance.averageSearchTime > 1000) {
       alerts.push({
-        level: 'error',
-        message: 'Critical: Search performance is severely degraded (>1000ms average).'
+        level: "error",
+        message:
+          "Critical: Search performance is severely degraded (>1000ms average).",
       });
     }
 
     // Warning alerts
     if (report.dataQuality.qualityScore < 0.8) {
       alerts.push({
-        level: 'warning',
-        message: 'Data quality is below optimal threshold (80%).'
+        level: "warning",
+        message: "Data quality is below optimal threshold (80%).",
       });
     }
 
     if (report.updates.errorCount > 10) {
       alerts.push({
-        level: 'warning',
-        message: `High number of update errors: ${report.updates.errorCount}`
+        level: "warning",
+        message: `High number of update errors: ${report.updates.errorCount}`,
       });
     }
 
     // Info alerts
     if (report.updates.newToolsAdded > 50) {
       alerts.push({
-        level: 'info',
-        message: `Significant number of new tools added: ${report.updates.newToolsAdded}`
+        level: "info",
+        message: `Significant number of new tools added: ${report.updates.newToolsAdded}`,
       });
     }
 
@@ -334,35 +362,34 @@ export class DataMaintenanceSystem {
   private async autoFixIssues(qualityResults: any): Promise<void> {
     // Fix tools with missing embeddings
     const toolsNeedingEmbeddings = qualityResults.missingData
-      .filter((item: any) => item.issues.includes('embedding'))
+      .filter((item: any) => item.issues.includes("embedding"))
       .slice(0, 20); // Limit to prevent API overuse
 
     for (const tool of toolsNeedingEmbeddings) {
       try {
         const { data: toolData } = await this.supabase
-          .from('tools')
-          .select('*')
-          .eq('id', tool.id)
+          .from("tools")
+          .select("*")
+          .eq("id", tool.id)
           .single();
 
         if (toolData) {
-          const { embeddingText, embedding } = await this.embeddings.toolEmbedder.embedToolData({
-            name: toolData.name,
-            description: toolData.description || '',
-            categories: toolData.categories || [],
-            use_cases: toolData.use_cases || [],
-            pros: toolData.pros || [],
-            cons: toolData.cons || [],
-          });
+          const { embeddingText, embedding } =
+            await this.embeddings.toolEmbedder.embedToolData({
+              name: toolData.name,
+              description: toolData.description || "",
+              categories: toolData.categories || [],
+              use_cases: toolData.use_cases || [],
+            });
 
           await this.supabase
-            .from('tools')
+            .from("tools")
             .update({
               embedding_text: embeddingText,
               embedding: embedding,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', tool.id);
+            .eq("id", tool.id);
 
           console.log(`Fixed embedding for tool: ${tool.name}`);
         }
@@ -371,42 +398,48 @@ export class DataMaintenanceSystem {
       }
 
       // Rate limiting
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
   }
 
   private async optimizeVectorIndexes(): Promise<void> {
     try {
-      await this.supabase.rpc('optimize_vector_indexes');
-      console.log('Vector indexes optimized successfully');
+      await this.supabase.rpc("optimize_vector_indexes");
+      console.log("Vector indexes optimized successfully");
     } catch (error) {
-      console.error('Failed to optimize vector indexes:', error);
+      console.error("Failed to optimize vector indexes:", error);
     }
   }
 
   private async cleanupOldData(): Promise<void> {
     // Clean up old search analytics (keep only last 30 days)
     await this.supabase
-      .from('search_analytics')
+      .from("search_analytics")
       .delete()
-      .lt('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+      .lt(
+        "created_at",
+        new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      );
 
     // Archive old workflows (keep only last 90 days)
     await this.supabase
-      .from('workflows')
+      .from("workflows")
       .update({ metadata: { archived: true } })
-      .lt('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
-      .eq('status', 'completed');
+      .lt(
+        "created_at",
+        new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+      )
+      .eq("status", "completed");
 
-    console.log('Old data cleanup completed');
+    console.log("Old data cleanup completed");
   }
 
   private async performDeepQualityAnalysis(): Promise<void> {
     // Analyze embedding quality by comparing similar tools
     const { data: tools } = await this.supabase
-      .from('tools')
-      .select('id, name, embedding, categories')
-      .not('embedding', 'is', null)
+      .from("tools")
+      .select("id, name, embedding, categories")
+      .not("embedding", "is", null)
       .limit(1000);
 
     if (!tools) return;
@@ -417,25 +450,43 @@ export class DataMaintenanceSystem {
 
     for (let i = 0; i < tools.length - 1; i++) {
       for (let j = i + 1; j < Math.min(i + 10, tools.length); j++) {
-        const similarity = this.calculateCosineSimilarity(tools[i].embedding, tools[j].embedding);
-        
+        const similarity = this.calculateCosineSimilarity(
+          tools[i].embedding,
+          tools[j].embedding
+        );
+
         if (similarity > 0.98 && tools[i].name !== tools[j].name) {
-          suspiciouslyHigh.push({ tool1: tools[i], tool2: tools[j], similarity });
+          suspiciouslyHigh.push({
+            tool1: tools[i],
+            tool2: tools[j],
+            similarity,
+          });
         }
-        
-        if (similarity < 0.1 && tools[i].categories.some(cat => tools[j].categories.includes(cat))) {
-          suspiciouslyLow.push({ tool1: tools[i], tool2: tools[j], similarity });
+
+        if (
+          similarity < 0.1 &&
+          tools[i].categories.some((cat) => tools[j].categories.includes(cat))
+        ) {
+          suspiciouslyLow.push({
+            tool1: tools[i],
+            tool2: tools[j],
+            similarity,
+          });
         }
       }
     }
 
     // Log findings for manual review
     if (suspiciouslyHigh.length > 0) {
-      console.warn(`Found ${suspiciouslyHigh.length} tool pairs with suspiciously high similarity`);
+      console.warn(
+        `Found ${suspiciouslyHigh.length} tool pairs with suspiciously high similarity`
+      );
     }
-    
+
     if (suspiciouslyLow.length > 0) {
-      console.warn(`Found ${suspiciouslyLow.length} tool pairs with suspiciously low similarity despite shared categories`);
+      console.warn(
+        `Found ${suspiciouslyLow.length} tool pairs with suspiciously low similarity despite shared categories`
+      );
     }
   }
 
@@ -449,9 +500,9 @@ export class DataMaintenanceSystem {
   private async reembedLowQualityTools(): Promise<void> {
     // Re-embed tools that have received poor feedback
     const { data: lowQualityTools } = await this.supabase
-      .from('tool_performance_stats')
-      .select('id, name')
-      .eq('quality_tier', 'low_quality')
+      .from("tool_performance_stats")
+      .select("id, name")
+      .eq("quality_tier", "low_quality")
       .limit(50);
 
     if (!lowQualityTools) return;
@@ -459,22 +510,28 @@ export class DataMaintenanceSystem {
     for (const tool of lowQualityTools) {
       try {
         const { data: toolData } = await this.supabase
-          .from('tools')
-          .select('*')
-          .eq('id', tool.id)
+          .from("tools")
+          .select("*")
+          .eq("id", tool.id)
           .single();
 
         if (toolData) {
-          const { embeddingText, embedding } = await this.embeddings.toolEmbedder.embedToolData(toolData);
-          
+          const { embeddingText, embedding } =
+            await this.embeddings.toolEmbedder.embedToolData({
+              name: toolData.name,
+              description: toolData.description || "",
+              categories: toolData.categories || [],
+              use_cases: toolData.use_cases || [],
+            });
+
           await this.supabase
-            .from('tools')
+            .from("tools")
             .update({
               embedding_text: embeddingText,
               embedding: embedding,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', tool.id);
+            .eq("id", tool.id);
 
           console.log(`Re-embedded low quality tool: ${tool.name}`);
         }
@@ -482,68 +539,71 @@ export class DataMaintenanceSystem {
         console.error(`Failed to re-embed tool ${tool.name}:`, error);
       }
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
   }
 
   private async updateToolRelationships(): Promise<void> {
     // Update tool relationships based on usage patterns
-    const { data: coOccurrenceData } = await this.supabase
-      .rpc('get_tool_co_occurrence_patterns');
+    const { data: coOccurrenceData } = await this.supabase.rpc(
+      "get_tool_co_occurrence_patterns"
+    );
 
     // This would analyze which tools are frequently recommended together
     // and update the tool_relationships table accordingly
-    console.log('Tool relationships updated based on usage patterns');
+    console.log("Tool relationships updated based on usage patterns");
   }
 
   private async refreshMaterializedViews(): Promise<void> {
-    await this.supabase.rpc('refresh_popular_combinations');
-    await this.supabase.rpc('refresh_tool_performance_stats');
-    console.log('Materialized views refreshed');
+    await this.supabase.rpc("refresh_popular_combinations");
+    await this.supabase.rpc("refresh_tool_performance_stats");
+    console.log("Materialized views refreshed");
   }
 
   private async optimizePerformance(): Promise<void> {
     // Analyze and optimize query performance
-    await this.supabase.rpc('schedule_vector_maintenance');
-    console.log('Performance optimization completed');
+    await this.supabase.rpc("schedule_vector_maintenance");
+    console.log("Performance optimization completed");
   }
 
   private async backupCriticalData(): Promise<void> {
     // This would typically integrate with your backup system
-    console.log('Critical data backup initiated');
+    console.log("Critical data backup initiated");
   }
 
   private async performFullDataAudit(): Promise<void> {
     // Comprehensive audit of all data
-    console.log('Full data audit completed');
+    console.log("Full data audit completed");
   }
 
   private async reviewModelPerformance(): Promise<void> {
     // Review embedding model performance and consider updates
-    console.log('Model performance review completed');
+    console.log("Model performance review completed");
   }
 
   private async analyzeCosts(): Promise<void> {
     // Analyze API costs and usage patterns
-    console.log('Cost analysis completed');
+    console.log("Cost analysis completed");
   }
 
   private async performSecurityAudit(): Promise<void> {
     // Security audit of data access patterns
-    console.log('Security audit completed');
+    console.log("Security audit completed");
   }
 
   private async checkSchemaUpdates(): Promise<void> {
     // Check if schema updates are needed
-    console.log('Schema update check completed');
+    console.log("Schema update check completed");
   }
 
   private async generateMonthlyAnalytics(): Promise<void> {
     // Generate comprehensive monthly analytics
-    console.log('Monthly analytics report generated');
+    console.log("Monthly analytics report generated");
   }
 
-  private async sendMaintenanceReport(report: MaintenanceReport): Promise<void> {
+  private async sendMaintenanceReport(
+    report: MaintenanceReport
+  ): Promise<void> {
     // Send notifications based on configuration
     if (this.config.slackWebhookUrl) {
       await this.sendSlackNotification(report);
@@ -554,62 +614,92 @@ export class DataMaintenanceSystem {
     }
 
     // Store report in database for historical tracking
-    await this.supabase
-      .from('maintenance_reports')
-      .insert({
-        type: report.type,
-        report_data: report,
-        created_at: new Date().toISOString(),
-      });
+    await this.supabase.from("maintenance_reports").insert({
+      type: report.type,
+      report_data: report,
+      created_at: new Date().toISOString(),
+    });
   }
 
-  private async sendSlackNotification(report: MaintenanceReport): Promise<void> {
+  private async sendSlackNotification(
+    report: MaintenanceReport
+  ): Promise<void> {
     if (!this.config.slackWebhookUrl) return;
 
-    const color = report.alerts.some(a => a.level === 'error') ? 'danger' : 
-                  report.alerts.some(a => a.level === 'warning') ? 'warning' : 'good';
+    const color = report.alerts.some((a) => a.level === "error")
+      ? "danger"
+      : report.alerts.some((a) => a.level === "warning")
+      ? "warning"
+      : "good";
 
     const message = {
-      attachments: [{
-        color,
-        title: `${report.type.charAt(0).toUpperCase() + report.type.slice(1)} Maintenance Report`,
-        fields: [
-          { title: 'Data Quality Score', value: `${(report.dataQuality.qualityScore * 100).toFixed(1)}%`, short: true },
-          { title: 'Total Tools', value: report.dataQuality.totalTools.toString(), short: true },
-          { title: 'New Tools Added', value: report.updates.newToolsAdded.toString(), short: true },
-          { title: 'Errors', value: report.updates.errorCount.toString(), short: true },
-        ],
-        text: report.alerts.length > 0 ? 
-          `Alerts: ${report.alerts.map(a => `${a.level.toUpperCase()}: ${a.message}`).join('\n')}` : 
-          'No alerts'
-      }]
+      attachments: [
+        {
+          color,
+          title: `${
+            report.type.charAt(0).toUpperCase() + report.type.slice(1)
+          } Maintenance Report`,
+          fields: [
+            {
+              title: "Data Quality Score",
+              value: `${(report.dataQuality.qualityScore * 100).toFixed(1)}%`,
+              short: true,
+            },
+            {
+              title: "Total Tools",
+              value: report.dataQuality.totalTools.toString(),
+              short: true,
+            },
+            {
+              title: "New Tools Added",
+              value: report.updates.newToolsAdded.toString(),
+              short: true,
+            },
+            {
+              title: "Errors",
+              value: report.updates.errorCount.toString(),
+              short: true,
+            },
+          ],
+          text:
+            report.alerts.length > 0
+              ? `Alerts: ${report.alerts
+                  .map((a) => `${a.level.toUpperCase()}: ${a.message}`)
+                  .join("\n")}`
+              : "No alerts",
+        },
+      ],
     };
 
     try {
       await fetch(this.config.slackWebhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(message)
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(message),
       });
     } catch (error) {
-      console.error('Failed to send Slack notification:', error);
+      console.error("Failed to send Slack notification:", error);
     }
   }
 
-  private async sendEmailNotification(report: MaintenanceReport): Promise<void> {
+  private async sendEmailNotification(
+    report: MaintenanceReport
+  ): Promise<void> {
     // Email notification implementation would go here
-    console.log('Email notification sent');
+    console.log("Email notification sent");
   }
 }
 
 // Factory function to create maintenance system
-export function createMaintenanceSystem(config: MaintenanceConfig): DataMaintenanceSystem {
+export function createMaintenanceSystem(
+  config: MaintenanceConfig
+): DataMaintenanceSystem {
   return new DataMaintenanceSystem(config);
 }
 
 // Cron job configurations for different maintenance schedules
 export const MAINTENANCE_SCHEDULES = {
-  daily: '0 2 * * *',      // 2 AM daily
-  weekly: '0 3 * * SUN',   // 3 AM every Sunday
-  monthly: '0 4 1 * *',    // 4 AM on the 1st of every month
+  daily: "0 2 * * *", // 2 AM daily
+  weekly: "0 3 * * SUN", // 3 AM every Sunday
+  monthly: "0 4 1 * *", // 4 AM on the 1st of every month
 };

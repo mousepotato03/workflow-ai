@@ -4,26 +4,10 @@ export interface User {
   avatar_url?: string;
   created_at: string;
   updated_at: string;
+  plan?: "free" | "plus";
 }
 
-export interface ToolInteraction {
-  id: number;
-  user_id: string;
-  tool_id: string;
-  interaction_type: -1 | 1; // -1: dislike, 1: like
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Review {
-  id: number;
-  user_id: string;
-  tool_id: string;
-  content: string;
-  created_at: string;
-  updated_at: string;
-  user?: User; // Optional user profile for displaying reviews
-}
+// Removed ToolInteraction and Review types due to schema cleanup
 
 export interface AuthContextType {
   signInWithGoogle: () => Promise<void>;

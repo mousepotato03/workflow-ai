@@ -18,65 +18,47 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useWorkflowStore } from "../hooks/useWorkflowStore";
-import { FeedbackRequest, FeedbackResponse } from "@/types/workflow";
+// import { FeedbackRequest, FeedbackResponse } from "@/types/workflow";
 import { TaskCard } from "./TaskCard";
-import { FeedbackSection } from "./FeedbackSection";
+// Feedback removed per schema cleanup
 
-const submitFeedbackMutation = async (
-  data: FeedbackRequest
-): Promise<FeedbackResponse> => {
-  const response = await fetch("/api/feedback", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "Failed to submit feedback.");
-  }
-
-  return response.json();
-};
+// Feedback API removed
 
 export function WorkflowResultDisplay() {
   const { workflowResult, isLoading, clearWorkflow } = useWorkflowStore();
   const { toast } = useToast();
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  // const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  const feedbackMutation = useMutation({
-    mutationFn: submitFeedbackMutation,
-    onSuccess: (data) => {
-      setFeedbackSubmitted(true);
-      toast({
-        title: "Feedback Submitted",
-        description: data.message,
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to Submit Feedback",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  // const feedbackMutation = useMutation({
+  //   mutationFn: submitFeedbackMutation,
+  //   onSuccess: (data) => {
+  //     setFeedbackSubmitted(true);
+  //     toast({
+  //       title: "Feedback Submitted",
+  //       description: data.message,
+  //     });
+  //   },
+  //   onError: (error) => {
+  //     toast({
+  //       title: "Failed to Submit Feedback",
+  //       description: error.message,
+  //       variant: "destructive",
+  //     });
+  //   },
+  // });
 
-  const handleFeedbackSubmit = (rating: number, comment?: string) => {
-    if (!workflowResult) return;
-
-    feedbackMutation.mutate({
-      workflowId: workflowResult.workflowId,
-      rating,
-      comment,
-    });
-  };
+  // const handleFeedbackSubmit = (rating: number, comment?: string) => {
+  //   if (!workflowResult) return;
+  //   feedbackMutation.mutate({
+  //     workflowId: workflowResult.workflowId,
+  //     rating,
+  //     comment,
+  //   });
+  // };
 
   const handleStartOver = () => {
     clearWorkflow();
-    setFeedbackSubmitted(false);
+    // setFeedbackSubmitted(false);
   };
 
   // Loading state
@@ -118,38 +100,48 @@ export function WorkflowResultDisplay() {
   return (
     <div className="mt-8 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-            <CheckCircle2 className="w-6 h-6 text-white" />
+      <div className="flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/30 dark:to-blue-950/30 rounded-lg p-6 border border-green-200 dark:border-green-800">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
+            <CheckCircle2 className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-foreground">Workflow Complete!</h3>
-            <p className="text-sm text-muted-foreground">
-              Check {workflowResult.tasks.length} task steps and recommended
-              tools
+            <h3 className="text-2xl font-bold text-foreground">
+              Your Workflow is Ready!
+            </h3>
+            <p className="text-muted-foreground mt-1">
+              Follow {workflowResult.tasks.length} personalized steps with
+              recommended tools and guidance
             </p>
           </div>
         </div>
         <Button
           onClick={handleStartOver}
           variant="outline"
-          size="sm"
+          size="default"
           className="flex items-center space-x-2 border-border text-muted-foreground hover:bg-muted"
         >
           <RefreshCw className="w-4 h-4" />
-          <span>Start Over</span>
+          <span>Start New Workflow</span>
         </Button>
       </div>
 
       {/* Tasks */}
-      <div className="space-y-4">
-        <div className="flex items-center space-x-2">
-          <Target className="w-5 h-5 text-primary" />
-          <h4 className="font-semibold text-foreground">Recommended Task Steps</h4>
+      <div className="space-y-6">
+        <div className="flex items-center space-x-3">
+          <Target className="w-6 h-6 text-primary" />
+          <div>
+            <h4 className="text-xl font-semibold text-foreground">
+              Your Step-by-Step Guide
+            </h4>
+            <p className="text-sm text-muted-foreground mt-1">
+              Each step includes specific tools and actionable guidance tailored
+              to your goal
+            </p>
+          </div>
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-6">
           {workflowResult.tasks.map((task) => (
             <TaskCard key={task.id} task={task} />
           ))}
@@ -158,50 +150,44 @@ export function WorkflowResultDisplay() {
 
       <Separator className="my-6 bg-border" />
 
-      {/* Feedback Section */}
-      <FeedbackSection
-        onSubmit={handleFeedbackSubmit}
-        isSubmitting={feedbackMutation.isPending}
-        isSubmitted={feedbackSubmitted}
-      />
+      {/* Feedback Section removed */}
 
-      {/* Summary Stats */}
+      {/* Workflow Summary */}
       <Card className="bg-card border border-border">
         <CardContent className="p-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div>
+          <div className="flex items-center space-x-3 mb-4">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <h4 className="font-semibold text-foreground">Workflow Summary</h4>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
               <div className="text-2xl font-bold text-primary">
                 {workflowResult.tasks.length}
               </div>
               <div className="text-sm text-muted-foreground">Task Steps</div>
+              <div className="text-xs text-muted-foreground/70">
+                Structured approach to reach your goal
+              </div>
             </div>
-            <div>
+            <div className="space-y-2">
               <div className="text-2xl font-bold text-accent">
                 {workflowResult.tasks.filter((t) => t.recommendedTool).length}
               </div>
-              <div className="text-sm text-muted-foreground">Recommended Tools</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-green-400">
-                {Math.round(
-                  (workflowResult.tasks.reduce(
-                    (acc, task) => acc + task.confidence,
-                    0
-                  ) /
-                    workflowResult.tasks.length) *
-                    100
-                )}
-                %
+              <div className="text-sm text-muted-foreground">
+                Recommended Tools
               </div>
-              <div className="text-sm text-muted-foreground">Average Confidence</div>
+              <div className="text-xs text-muted-foreground/70">
+                Curated tools to help you succeed
+              </div>
             </div>
-            <div>
-              <div className="text-2xl font-bold text-orange-400">
-                {workflowResult.status === "completed"
-                  ? "Complete"
-                  : "Processing"}
+            <div className="space-y-2">
+              <div className="text-2xl font-bold text-green-400">
+                {workflowResult.status === "completed" ? "Ready" : "Processing"}
               </div>
               <div className="text-sm text-muted-foreground">Status</div>
+              <div className="text-xs text-muted-foreground/70">
+                Your personalized workflow is ready to use
+              </div>
             </div>
           </div>
         </CardContent>

@@ -153,7 +153,6 @@ export async function POST(request: NextRequest) {
         workflow_id: workflow.id,
         name: taskName,
         order_index: index + 1,
-        description: `${validatedData.goal}를 위한 ${index + 1}번째 작업`,
       })
     );
 

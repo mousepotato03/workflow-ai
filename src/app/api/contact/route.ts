@@ -27,9 +27,9 @@ export async function POST(request: NextRequest) {
     // 사용자가 로그인되어 있다면 user_id를 포함, 아니면 null
     const user_id = !authError && user ? user.id : null;
 
-    // inquiries 테이블에 데이터 삽입
+    // contact 테이블에 데이터 삽입 (renamed)
     const { data: inquiry, error: insertError } = await supabase
-      .from("inquiries")
+      .from("contact")
       .insert({
         inquiry_type: validatedData.inquiry_type,
         email: validatedData.email,

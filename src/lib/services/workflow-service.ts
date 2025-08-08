@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { getEnvVar } from "@/lib/config/env-validation";
 import { getRelevantTools } from "@/lib/supabase/vector-store";
-import { createToolRecommenderChain, formatToolsContext, parseToolRecommendation } from "@/lib/langchain/chains";
 import { logger } from "@/lib/logger/structured-logger";
 
 // Initialize Supabase client
@@ -27,6 +26,64 @@ export interface UserPreferences {
   budget_range?: string;
 }
 
+interface PolicyWeights {
+  bench: number;
+  domain: number;
+  cost: number;
+}
+
+interface ToolMetrics {
+  id: string;
+  name: string;
+  bench_score: number | null;
+  domains: string[] | null;
+  cost_index: number | null;
+  url?: string | null;
+  logo_url?: string | null;
+}
+
+async function getPolicyWeights(): Promise<PolicyWeights> {
+  try {
+    const { data } = await supabase
+      .from("recommendation_policy")
+      .select("weights")
+      .limit(1)
+      .single();
+    const weights = (data?.weights as PolicyWeights) || {
+      bench: 0.6,
+      domain: 0.3,
+      cost: 0.1,
+    };
+    return weights;
+  } catch {
+    return { bench: 0.6, domain: 0.3, cost: 0.1 };
+  }
+}
+
+function computeDomainMatch(
+  query: string,
+  domains: string[] | null | undefined
+): number {
+  const q = query.toLowerCase();
+  const isCode =
+    q.includes("code") || q.includes("implement") || q.includes("함수");
+  if (isCode && (domains || []).includes("code")) return 1.0;
+  return 0.0;
+}
+
+function computeScore(
+  query: string,
+  tool: ToolMetrics,
+  weights: PolicyWeights
+): { score: number; bench: number; domain: number; cost: number } {
+  const bench = Number(tool.bench_score ?? 0);
+  const domain = computeDomainMatch(query, tool.domains ?? []);
+  const cost = Number(tool.cost_index ?? 0);
+  const score =
+    bench * weights.bench + domain * weights.domain + cost * weights.cost;
+  return { score, bench, domain, cost };
+}
+
 /**
  * Process multiple tasks in parallel for tool recommendations
  * Resolves N+1 query problem by batching operations
@@ -37,12 +94,12 @@ export async function processTasksInParallel(
   userContext: { userId?: string; sessionId: string; language: string },
   workflowId: string
 ): Promise<TaskRecommendation[]> {
-  const toolRecommender = createToolRecommenderChain();
-  
+  const weights = await getPolicyWeights();
+
   // Process all tasks in parallel
   const taskPromises = tasks.map(async (task) => {
     const taskStartTime = Date.now();
-    
+
     try {
       logger.debug("Processing task for recommendations", {
         ...userContext,
@@ -60,7 +117,7 @@ export async function processTasksInParallel(
 
       const searchEndTime = Date.now();
       const searchDuration = searchEndTime - taskStartTime;
-      
+
       logger.searchPerformance(
         "tool_search",
         task.name,
@@ -86,33 +143,65 @@ export async function processTasksInParallel(
         };
       }
 
-      // Get LLM recommendation
+      // Minimal policy-based scoring on candidate tools
       const recommendationStartTime = Date.now();
-      const toolsContext = formatToolsContext(relevantTools);
-      const recommendation = await toolRecommender.invoke({
-        task: task.name,
-        context: toolsContext,
-        language: userContext.language,
-      });
+      const candidateIds = relevantTools
+        .map((d) => d.metadata.id)
+        .filter(Boolean);
+
+      let bestTool: {
+        metrics: ToolMetrics;
+        score: number;
+        bench: number;
+        domain: number;
+        cost: number;
+      } | null = null;
+
+      if (candidateIds.length > 0) {
+        const { data: metricsList } = await supabase
+          .from("tools")
+          .select("id,name,bench_score,domains,cost_index,url,logo_url")
+          .in("id", candidateIds);
+
+        (metricsList as ToolMetrics[] | null)?.forEach((m) => {
+          const scored = computeScore(task.name, m, weights);
+          if (!bestTool || scored.score > bestTool.score) {
+            bestTool = { metrics: m, ...scored };
+          }
+        });
+      }
 
       const recommendationEndTime = Date.now();
-      const recommendationDuration = recommendationEndTime - recommendationStartTime;
+      const recommendationDuration =
+        recommendationEndTime - recommendationStartTime;
 
-      const { toolName, reason } = parseToolRecommendation(recommendation);
+      if (!bestTool) {
+        return {
+          taskId: task.id,
+          taskName: task.name,
+          toolId: null,
+          toolName: null,
+          reason: "해당 작업에 적합한 도구를 찾을 수 없습니다.",
+          confidenceScore: 0,
+          searchDuration,
+          recommendationDuration,
+        };
+      }
 
-      // Find the recommended tool in relevant tools
-      const recommendedTool = relevantTools.find(
-        (tool) => tool.metadata.name === toolName
-      );
-
-      const confidenceScore = recommendedTool ? 0.8 : 0.3;
+      const reason = `Score ${bestTool.score.toFixed(
+        3
+      )} (bench ${bestTool.bench.toFixed(2)}*${
+        weights.bench
+      } + domain ${bestTool.domain.toFixed(2)}*${
+        weights.domain
+      } + cost ${bestTool.cost.toFixed(2)}*${weights.cost})`;
 
       logger.debug("Task recommendation completed", {
         ...userContext,
         workflowId,
         taskId: task.id,
-        recommendedTool: toolName,
-        confidenceScore,
+        recommendedTool: bestTool.metrics.name,
+        confidenceScore: bestTool.score,
         searchDuration,
         recommendationDuration,
       });
@@ -120,14 +209,13 @@ export async function processTasksInParallel(
       return {
         taskId: task.id,
         taskName: task.name,
-        toolId: recommendedTool?.metadata.id || null,
-        toolName: toolName,
-        reason: reason || "추천된 도구입니다.",
-        confidenceScore,
+        toolId: bestTool.metrics.id,
+        toolName: bestTool.metrics.name,
+        reason,
+        confidenceScore: Math.max(0, Math.min(1, bestTool.score)),
         searchDuration,
         recommendationDuration,
       };
-
     } catch (error) {
       logger.error("Task recommendation failed", {
         error: error instanceof Error ? error.message : "Unknown error",
@@ -151,14 +239,21 @@ export async function processTasksInParallel(
 
   // Wait for all tasks to complete
   const recommendations = await Promise.all(taskPromises);
-  
+
   logger.info("All task recommendations completed", {
     ...userContext,
     workflowId,
     totalTasks: tasks.length,
-    successfulRecommendations: recommendations.filter(r => r.toolId !== null).length,
-    totalSearchDuration: recommendations.reduce((sum, r) => sum + r.searchDuration, 0),
-    totalRecommendationDuration: recommendations.reduce((sum, r) => sum + r.recommendationDuration, 0),
+    successfulRecommendations: recommendations.filter((r) => r.toolId !== null)
+      .length,
+    totalSearchDuration: recommendations.reduce(
+      (sum, r) => sum + r.searchDuration,
+      0
+    ),
+    totalRecommendationDuration: recommendations.reduce(
+      (sum, r) => sum + r.recommendationDuration,
+      0
+    ),
   });
 
   return recommendations;
@@ -174,7 +269,7 @@ export async function batchSaveRecommendations(
   workflowId: string
 ): Promise<void> {
   try {
-    const recommendationsToSave = recommendations.map(rec => ({
+    const recommendationsToSave = recommendations.map((rec) => ({
       task_id: rec.taskId,
       tool_id: rec.toolId,
       reason: rec.reason,
@@ -194,7 +289,6 @@ export async function batchSaveRecommendations(
       workflowId,
       recommendationsCount: recommendations.length,
     });
-
   } catch (error) {
     logger.error("Failed to save recommendations", {
       error: error instanceof Error ? error.message : "Unknown error",
@@ -211,7 +305,8 @@ export async function batchSaveRecommendations(
  */
 export function getUserPreferences(requestData?: any): UserPreferences {
   return {
-    difficulty_level: requestData?.preferences?.difficulty_level || "intermediate",
+    difficulty_level:
+      requestData?.preferences?.difficulty_level || "intermediate",
     budget_range: requestData?.preferences?.budget_range || "mixed",
     categories: requestData?.preferences?.categories || [],
   };

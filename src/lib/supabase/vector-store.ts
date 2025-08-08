@@ -95,9 +95,9 @@ export const searchToolsByKeywords = async (
             url: tool.url,
             logo_url: tool.logo_url,
             categories: tool.categories,
-            pros: tool.pros,
-            cons: tool.cons,
-            recommendation_tip: tool.recommendation_tip,
+            pros: [],
+            cons: [],
+            recommendation_tip: "",
           },
         })
     );
@@ -284,10 +284,7 @@ export const addToolsToVectorStore = async (
     url: string;
     logoUrl: string;
     categories: string[];
-    pros: string[];
-    cons: string[];
     embeddingText: string;
-    recommendationTip: string;
   }[]
 ) => {
   const vectorStore = createVectorStore();
@@ -303,9 +300,9 @@ export const addToolsToVectorStore = async (
           url: tool.url,
           logo_url: tool.logoUrl,
           categories: tool.categories,
-          pros: tool.pros,
-          cons: tool.cons,
-          recommendation_tip: tool.recommendationTip,
+          pros: [],
+          cons: [],
+          recommendation_tip: "",
         },
       })
   );

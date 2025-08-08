@@ -16,6 +16,7 @@ export interface WorkflowResponse {
       url: string;
     } | null;
     recommendationReason: string;
+    usageGuidance?: string; // New field for user-focused guidance
     confidence: number;
   }[];
   status: "completed" | "processing" | "failed";
@@ -39,8 +40,5 @@ export interface Tool {
   url: string;
   logoUrl: string;
   categories: string[];
-  pros: string[];
-  cons: string[];
   embeddingText: string;
-  recommendationTip: string;
 }

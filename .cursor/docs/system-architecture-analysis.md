@@ -563,7 +563,32 @@ CREATE INDEX IF NOT EXISTS idx_feedback_created_at ON feedback(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_active_tools_embedding ON active_tools_with_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 5);
 ```
 
-### 3.6 Row Level Security (RLS)
+### 3.6 MVP 추천 확장 (최소 변경)
+
+```sql
+-- tools 최소 확장
+ALTER TABLE tools
+ADD COLUMN IF NOT EXISTS bench_score NUMERIC,
+ADD COLUMN IF NOT EXISTS domains TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS cost_index NUMERIC;
+
+-- 간단 정책 테이블
+CREATE TABLE IF NOT EXISTS recommendation_policy (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  weights JSONB NOT NULL, -- {"bench":0.6, "domain":0.3, "cost":0.1}
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 기본 정책
+INSERT INTO recommendation_policy (name, weights)
+VALUES ('default_mvp', '{"bench":0.6, "domain":0.3, "cost":0.1}')
+ON CONFLICT (name) DO NOTHING;
+```
+
+점수화: `score = bench*w_bench + domain*w_domain + cost*w_cost`. `domain`은 간단 매칭(0/1)부터 시작해도 됨.
+
+### 3.7 Row Level Security (RLS)
 
 ```sql
 -- RLS 활성화
@@ -576,6 +601,11 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tool_interactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inquiries ENABLE ROW LEVEL SECURITY;
+
+-- 정책 테이블 RLS (service_role 전용)
+ALTER TABLE recommendation_policy ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "Service role read" ON recommendation_policy FOR SELECT USING (auth.role() = 'service_role');
+CREATE POLICY IF NOT EXISTS "Service role write" ON recommendation_policy FOR INSERT WITH CHECK (auth.role() = 'service_role');
 
 -- 공개 읽기 (MVP 범위)
 CREATE POLICY IF NOT EXISTS "Public read access" ON workflows FOR SELECT USING (true);
@@ -608,22 +638,22 @@ CREATE POLICY IF NOT EXISTS "Anyone can create inquiries" ON inquiries FOR INSER
 CREATE POLICY IF NOT EXISTS "Users can view their own inquiries" ON inquiries FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
 ```
 
-### 3.7 테이블 관계도
+### 3.8 테이블 관계도
 
 ```mermaid
 graph TB
-  A[auth.users] --> B[users]
-  B --> C[tool_interactions]
-  B --> D[reviews]
-  B --> E[inquiries]
+    A[auth.users] --> B[users]
+    B --> C[tool_interactions]
+    B --> D[reviews]
+    B --> E[inquiries]
 
-  F[workflows] --> G[tasks]
-  F --> H[feedback]
-  G --> I[recommendations]
-  I --> J[tools]
+    F[workflows] --> G[tasks]
+    F --> H[feedback]
+    G --> I[recommendations]
+    I --> J[tools]
 
-  C --> J
-  D --> J
+    C --> J
+    D --> J
 ```
 
 ---

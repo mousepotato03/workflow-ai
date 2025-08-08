@@ -23,50 +23,83 @@ export function TaskCard({ task }: TaskCardProps) {
     }
   };
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8)
-      return "text-green-400 bg-green-900/30 border-green-700";
-    if (confidence >= 0.6)
-      return "text-yellow-400 bg-yellow-900/30 border-yellow-700";
-    return "text-red-400 bg-red-900/30 border-red-700";
+  const getRecommendationStatus = (hasRecommendation: boolean) => {
+    if (hasRecommendation) {
+      return {
+        text: "Tool Recommended",
+        className: "text-green-400 bg-green-900/30 border-green-700"
+      };
+    }
+    return {
+      text: "Manual Approach",
+      className: "text-blue-400 bg-blue-900/30 border-blue-700"
+    };
   };
 
-  const getConfidenceText = (confidence: number) => {
-    if (confidence === 0) return "No Recommendation";
-    if (confidence >= 0.8) return "High Confidence";
-    if (confidence >= 0.6) return "Medium Confidence";
-    return "Low Confidence";
+  const generateUsageGuidance = (task: any) => {
+    // Use dedicated usage guidance if available
+    if (task.usageGuidance) {
+      return task.usageGuidance;
+    }
+    
+    if (!task.recommendedTool) {
+      return task.recommendationReason || "Consider manual approaches, research specialized tools, or consult with experts for this step.";
+    }
+    
+    // Transform technical reason into user-focused guidance
+    const reason = task.recommendationReason || "";
+    const toolName = task.recommendedTool.name;
+    const taskName = task.name.toLowerCase();
+    
+    // Generate actionable guidance based on the task and tool
+    let guidance = `Open ${toolName} and follow these steps to ${taskName}:`;
+    
+    // Try to extract actionable steps from the recommendation reason
+    const cleanedReason = reason
+      .replace(/because|since|due to|as it|this tool|the tool/gi, "")
+      .replace(/is ideal|is perfect|is good|works well/gi, "helps you")
+      .trim();
+    
+    if (cleanedReason) {
+      guidance += ` ${cleanedReason.charAt(0).toUpperCase() + cleanedReason.slice(1)}.`;
+    }
+    
+    return guidance;
   };
 
   return (
     <Card className="border border-border bg-card hover:border-muted-foreground transition-colors duration-200">
       <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-6">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-sm font-semibold text-primary-foreground">
               {task.order}
             </div>
             <div>
               <h3 className="font-semibold text-foreground text-lg">{task.name}</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Step {task.order} of your workflow
+              </p>
             </div>
           </div>
           <Badge
             variant="secondary"
-            className={`${getConfidenceColor(task.confidence)} border`}
+            className={`${getRecommendationStatus(!!task.recommendedTool).className} border`}
           >
-            {getConfidenceText(task.confidence)}
+            {getRecommendationStatus(!!task.recommendedTool).text}
           </Badge>
         </div>
 
         {task.recommendedTool ? (
-          <div className="bg-muted rounded-lg p-4 space-y-4 border border-border">
+          <div className="bg-muted rounded-lg p-5 space-y-4 border border-border">
+            {/* Tool Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 {task.recommendedTool.logoUrl ? (
                   <img
                     src={task.recommendedTool.logoUrl}
                     alt={`${task.recommendedTool.name} logo`}
-                    className="w-10 h-10 rounded-lg object-cover border border-border"
+                    className="w-12 h-12 rounded-lg object-cover border border-border"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.style.display = "none";
@@ -75,46 +108,63 @@ export function TaskCard({ task }: TaskCardProps) {
                   />
                 ) : null}
                 <div
-                  className={`w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-lg flex items-center justify-center ${
+                  className={`w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-lg flex items-center justify-center ${
                     task.recommendedTool.logoUrl ? "hidden" : ""
                   }`}
                 >
-                  <ImageIcon className="w-5 h-5 text-white" />
+                  <ImageIcon className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-foreground">
+                  <h4 className="font-semibold text-foreground text-lg">
                     {task.recommendedTool.name}
                   </h4>
-                  <p className="text-sm text-muted-foreground">Recommended Tool</p>
+                  <p className="text-sm text-muted-foreground">Recommended for this step</p>
                 </div>
               </div>
 
               <Button
                 onClick={handleToolClick}
-                size="sm"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                size="lg"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground px-6"
               >
                 <ExternalLink className="w-4 h-4 mr-2" />
-                Open
+                Start Using
               </Button>
             </div>
 
-            <div className="border-t border-border pt-3">
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                <span className="font-medium text-foreground">Why recommended:</span>{" "}
-                {task.recommendationReason}
-              </p>
+            {/* Usage Guidance */}
+            <div className="bg-card rounded-md p-4 border border-border">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h5 className="font-medium text-foreground mb-2">How to use this tool:</h5>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {generateUsageGuidance(task)}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         ) : (
-          <div className="bg-orange-900/30 border border-orange-700 rounded-lg p-4 flex items-start space-x-3">
-            <AlertCircle className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-orange-300">
-                No suitable tool found
-              </p>
-              <p className="text-sm text-orange-400 mt-1">
-                {task.recommendationReason}
+          <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-5 space-y-3">
+            <div className="flex items-start space-x-3">
+              <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <AlertCircle className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1">
+                <h5 className="font-medium text-blue-200 mb-2">
+                  Manual approach recommended
+                </h5>
+                <p className="text-sm text-blue-300 leading-relaxed">
+                  {generateUsageGuidance(task)}
+                </p>
+              </div>
+            </div>
+            <div className="bg-blue-800/30 rounded-md p-3 border border-blue-600">
+              <p className="text-xs text-blue-200">
+                <strong>Tip:</strong> Consider researching specialized tools or consulting with experts for this step.
               </p>
             </div>
           </div>
