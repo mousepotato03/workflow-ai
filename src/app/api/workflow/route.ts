@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
 import { createTaskDecomposerChain } from "@/lib/langchain/chains";
 import { WorkflowRequest, WorkflowResponse } from "@/types/workflow";
 import { logger, extractUserContext } from "@/lib/logger/structured-logger";
 import { workflowCache, CacheUtils } from "@/lib/cache/memory-cache";
-import { getEnvVar } from "@/lib/config/env-validation";
 import {
   processTasksInParallel,
   batchSaveRecommendations,
@@ -27,11 +25,7 @@ const workflowRequestSchema = z.object({
   language: z.string().min(2).max(10),
 });
 
-// Initialize Supabase client with validated environment
-const supabase = createClient(
-  getEnvVar("NEXT_PUBLIC_SUPABASE_URL"),
-  getEnvVar("SUPABASE_SERVICE_ROLE_KEY")
-);
+// Note: This endpoint now runs statelessly without persisting workflows/tasks
 
 export async function POST(request: NextRequest) {
   // Apply rate limiting
@@ -98,28 +92,7 @@ export async function POST(request: NextRequest) {
 
     logger.cacheMiss("workflow", cacheKey, userContext);
 
-    // Create workflow record
-    const { data: workflow, error: workflowError } = await supabase
-      .from("workflows")
-      .insert({
-        id: workflowId,
-        goal: validatedData.goal,
-        language: validatedData.language,
-        status: "processing",
-      })
-      .select()
-      .single();
-
-    if (workflowError || !workflow) {
-      const error = new Error(
-        "워크플로우 생성 실패: " + workflowError?.message
-      );
-      logger.workflowError(workflowId, error, {
-        ...userContext,
-        stage: "workflow_creation",
-      });
-      throw error;
-    }
+    // Stateless: no DB workflow record created
 
     // Step 1: Decompose goal into tasks using LangChain
     logger.info("Starting task decomposition", { ...userContext, workflowId });
@@ -148,27 +121,12 @@ export async function POST(request: NextRequest) {
     });
 
     // Insert tasks into database
-    const tasksToInsert = taskResult.tasks.map(
-      (taskName: string, index: number) => ({
-        workflow_id: workflow.id,
-        name: taskName,
-        order_index: index + 1,
-      })
-    );
-
-    const { data: tasks, error: tasksError } = await supabase
-      .from("tasks")
-      .insert(tasksToInsert)
-      .select();
-
-    if (tasksError || !tasks) {
-      const error = new Error("작업 저장 실패: " + tasksError?.message);
-      logger.workflowError(workflowId, error, {
-        ...userContext,
-        stage: "task_saving",
-      });
-      throw error;
-    }
+    // Stateless: build tasks in-memory
+    const tasks = taskResult.tasks.map((taskName: string, index: number) => ({
+      id: crypto.randomUUID(),
+      name: taskName,
+      order_index: index + 1,
+    }));
 
     // Step 2: Get tool recommendations for each task (optimized with parallel processing)
     logger.info("Starting tool recommendations", {
@@ -209,15 +167,11 @@ export async function POST(request: NextRequest) {
       confidence: rec.confidenceScore,
     }));
 
-    // Update workflow status to completed
-    await supabase
-      .from("workflows")
-      .update({ status: "completed" })
-      .eq("id", workflow.id);
+    // Stateless: no DB status update
 
     // Return response
     const response: WorkflowResponse = {
-      workflowId: workflow.id,
+      workflowId: workflowId,
       tasks: recommendations.sort((a, b) => a.order - b.order),
       status: "completed",
     };

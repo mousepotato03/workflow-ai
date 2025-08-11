@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
 import { createTaskDecomposerChain } from "@/lib/langchain/chains";
 import { WorkflowRequest } from "@/types/workflow";
 import { logger, extractUserContext } from "@/lib/logger/structured-logger";
@@ -31,11 +30,7 @@ const workflowRequestSchema = z.object({
   language: z.string().min(2).max(10),
 });
 
-// Initialize Supabase client with validated environment
-const supabase = createClient(
-  getEnvVar("NEXT_PUBLIC_SUPABASE_URL"),
-  getEnvVar("SUPABASE_SERVICE_ROLE_KEY")
-);
+// Stateless streaming endpoint (no workflows/tasks persistence)
 
 // Server-Sent Events stream for real-time workflow processing
 export async function POST(request: NextRequest) {
@@ -94,30 +89,9 @@ async function processWorkflow(
     // Early return if stream is aborted
     if (!managedStream.isActive()) return;
 
-    // Create workflow record
-    const { data: workflow, error: workflowError } = await supabase
-      .from("workflows")
-      .insert({
-        goal: validatedData.goal,
-        language: validatedData.language,
-        status: "processing",
-      })
-      .select()
-      .single();
-
-    if (workflowError || !workflow) {
-      const error = "워크플로우 생성 실패: " + workflowError?.message;
-      logger.workflowError(
-        workflow?.id || "unknown",
-        new Error(error),
-        userContext
-      );
-      managedStream.sendError(error);
-      return;
-    }
-
+    const workflowId = crypto.randomUUID();
     managedStream.sendProgress("workflow_created", 20, "워크플로우 생성 완료", {
-      workflowId: workflow.id,
+      workflowId,
     });
 
     // Early return if stream is aborted
@@ -157,27 +131,19 @@ async function processWorkflow(
     // Step 2: Save tasks to database
     managedStream.sendProgress("task_saving", 45, "작업 저장 중...");
 
-    const tasksToInsert = taskResult.tasks.map(
+    const savedTasks = taskResult.tasks.map(
       (taskName: string, index: number) => ({
-        workflow_id: workflow.id,
+        id: crypto.randomUUID(),
         name: taskName,
         order_index: index + 1,
       })
     );
 
-    const { data: savedTasks, error: taskError } = await supabase
-      .from("tasks")
-      .insert(tasksToInsert)
-      .select();
-
-    if (taskError || !savedTasks) {
-      const error = "작업 저장 실패: " + taskError?.message;
-      logger.workflowError(workflow.id, new Error(error), userContext);
-      managedStream.sendError(error);
-      return;
-    }
-
-    managedStream.sendProgress("task_saving_complete", 50, "작업 저장 완료");
+    managedStream.sendProgress(
+      "task_saving_complete",
+      50,
+      "작업 목록 준비 완료"
+    );
 
     // Early return if stream is aborted
     if (!managedStream.isActive()) return;
@@ -194,7 +160,7 @@ async function processWorkflow(
       savedTasks,
       userPreferences,
       userContext,
-      workflow.id
+      workflowId
     );
 
     // Early return if stream is aborted
@@ -222,11 +188,7 @@ async function processWorkflow(
       "도구 추천 완료"
     );
 
-    // Step 4: Update workflow status
-    await supabase
-      .from("workflows")
-      .update({ status: "completed" })
-      .eq("id", workflow.id);
+    // Stateless: no DB workflow status update
 
     // Format final response
     const recommendations = taskRecommendations.map((rec) => ({
@@ -246,7 +208,7 @@ async function processWorkflow(
     }));
 
     const finalResult = {
-      workflowId: workflow.id,
+      workflowId,
       tasks: recommendations.sort((a, b) => a.order - b.order),
     };
 

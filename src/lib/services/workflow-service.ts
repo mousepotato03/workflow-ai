@@ -43,21 +43,8 @@ interface ToolMetrics {
 }
 
 async function getPolicyWeights(): Promise<PolicyWeights> {
-  try {
-    const { data } = await supabase
-      .from("recommendation_policy")
-      .select("weights")
-      .limit(1)
-      .single();
-    const weights = (data?.weights as PolicyWeights) || {
-      bench: 0.6,
-      domain: 0.3,
-      cost: 0.1,
-    };
-    return weights;
-  } catch {
-    return { bench: 0.6, domain: 0.3, cost: 0.1 };
-  }
+  // DB table removed. Use static defaults.
+  return { bench: 0.6, domain: 0.3, cost: 0.1 };
 }
 
 function computeDomainMatch(
@@ -268,36 +255,13 @@ export async function batchSaveRecommendations(
   userContext: { userId?: string; sessionId: string },
   workflowId: string
 ): Promise<void> {
-  try {
-    const recommendationsToSave = recommendations.map((rec) => ({
-      task_id: rec.taskId,
-      tool_id: rec.toolId,
-      reason: rec.reason,
-      confidence_score: rec.confidenceScore,
-    }));
-
-    const { error } = await supabase
-      .from("recommendations")
-      .insert(recommendationsToSave);
-
-    if (error) {
-      throw error;
-    }
-
-    logger.info("Batch recommendations saved successfully", {
-      ...userContext,
-      workflowId,
-      recommendationsCount: recommendations.length,
-    });
-  } catch (error) {
-    logger.error("Failed to save recommendations", {
-      error: error instanceof Error ? error.message : "Unknown error",
-      ...userContext,
-      workflowId,
-      recommendationsCount: recommendations.length,
-    });
-    throw error;
-  }
+  // Persistence disabled: recommendations table removed.
+  logger.info("Recommendations persistence disabled (no-op)", {
+    ...userContext,
+    workflowId,
+    recommendationsCount: recommendations.length,
+  });
+  return;
 }
 
 /**
