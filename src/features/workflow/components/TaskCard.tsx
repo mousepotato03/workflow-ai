@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,18 +9,27 @@ import {
   AlertCircle,
   CheckCircle2,
   Image as ImageIcon,
+  BookOpen,
+  Sparkles,
 } from "lucide-react";
 import { WorkflowResponse } from "@/types/workflow";
+import { GuideModal } from "@/components/GuideModal";
 
 interface TaskCardProps {
   task: WorkflowResponse["tasks"][0];
 }
 
 export function TaskCard({ task }: TaskCardProps) {
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+
   const handleToolClick = () => {
     if (task.recommendedTool?.url) {
       window.open(task.recommendedTool.url, "_blank", "noopener,noreferrer");
     }
+  };
+
+  const handleGuideClick = () => {
+    setIsGuideModalOpen(true);
   };
 
   const getRecommendationStatus = (hasRecommendation: boolean) => {
@@ -122,14 +131,25 @@ export function TaskCard({ task }: TaskCardProps) {
                 </div>
               </div>
 
-              <Button
-                onClick={handleToolClick}
-                size="lg"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground px-6"
-              >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Start Using
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleGuideClick}
+                  variant="outline"
+                  size="lg"
+                  className="px-4"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  상세 가이드
+                </Button>
+                <Button
+                  onClick={handleToolClick}
+                  size="lg"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-6"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Start Using
+                </Button>
+              </div>
             </div>
 
             {/* Usage Guidance */}
@@ -168,6 +188,19 @@ export function TaskCard({ task }: TaskCardProps) {
               </p>
             </div>
           </div>
+        )}
+
+        {/* Guide Modal */}
+        {task.recommendedTool && (
+          <GuideModal
+            isOpen={isGuideModalOpen}
+            onClose={() => setIsGuideModalOpen(false)}
+            toolId={task.recommendedTool.id}
+            toolName={task.recommendedTool.name}
+            toolUrl={task.recommendedTool.url}
+            toolLogoUrl={task.recommendedTool.logoUrl}
+            taskContext={task.name}
+          />
         )}
       </CardContent>
     </Card>
