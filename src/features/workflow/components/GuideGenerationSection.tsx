@@ -16,29 +16,27 @@ import {
   ExternalLink,
   Download,
   Clock,
+  Sparkles,
 } from "lucide-react";
-
-interface Tool {
-  id: string;
-  name: string;
-  description?: string;
-  category?: string;
-  url?: string;
-  logo_url?: string;
-  confidence_score?: number;
-}
+import { WorkflowResponse } from "@/types/workflow";
 
 interface Task {
   id: string;
   name: string;
-  description: string;
-  tools: Tool[];
-  estimated_duration?: string;
-  priority?: "high" | "medium" | "low";
+  order: number;
+  recommendedTool: {
+    id: string;
+    name: string;
+    logoUrl: string;
+    url: string;
+  } | null;
+  recommendationReason: string;
+  usageGuidance?: string;
+  confidence: number;
 }
 
 interface GuideGenerationSectionProps {
-  tasks: Task[];
+  tasks: WorkflowResponse["tasks"];
   onGuideGenerated: (taskId: string, guide: string) => void;
 }
 
@@ -71,15 +69,13 @@ export function GuideGenerationSection({
   };
 
   const generateGuideForTask = async (task: Task) => {
-    if (!task.tools || task.tools.length === 0) {
+    if (!task.recommendedTool) {
       updateTaskStatus(task.id, {
         status: "error",
         error: "이 작업에는 추천된 도구가 없습니다.",
       });
       return;
     }
-
-    const primaryTool = task.tools[0]; // Use the first tool as primary
 
     updateTaskStatus(task.id, {
       status: "generating",
@@ -89,8 +85,8 @@ export function GuideGenerationSection({
     try {
       // First check if cached guide exists
       const cachedResponse = await fetch(
-        `/api/tools/${primaryTool.id}/guide?taskContext=${encodeURIComponent(
-          task.description
+        `/api/tools/${task.recommendedTool.id}/guide?taskContext=${encodeURIComponent(
+          task.name
         )}&language=ko`
       );
 
@@ -100,108 +96,64 @@ export function GuideGenerationSection({
           cachedGuide,
           task
         );
-
+        
         updateTaskStatus(task.id, {
           status: "completed",
           progress: 100,
           guide: markdownGuide,
         });
-
+        
         onGuideGenerated(task.id, markdownGuide);
         return;
       }
 
-      // If no cached guide, generate new one with streaming
-      const streamResponse = await fetch(
-        `/api/tools/${primaryTool.id}/guide/stream`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            taskContext: task.description,
-            language: "ko",
-          }),
-        }
-      );
+      // Generate new guide if no cache
+      const response = await fetch(`/api/tools/${task.recommendedTool.id}/guide`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          taskContext: task.name,
+          language: "ko",
+        }),
+      });
 
-      if (!streamResponse.ok) {
+      if (!response.ok) {
         throw new Error("가이드 생성 요청에 실패했습니다.");
       }
 
-      const reader = streamResponse.body?.getReader();
-      if (!reader) {
-        throw new Error("스트림을 읽을 수 없습니다.");
-      }
+      updateTaskStatus(task.id, {
+        status: "generating",
+        progress: 50,
+      });
 
-      const decoder = new TextDecoder();
-      let buffer = "";
+      const guideData = await response.json();
+      const markdownGuide = convertStructuredGuideToMarkdown(guideData, task);
 
-      try {
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
+      updateTaskStatus(task.id, {
+        status: "completed",
+        progress: 100,
+        guide: markdownGuide,
+      });
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+      onGuideGenerated(task.id, markdownGuide);
 
-          let currentEvent = "";
-          for (const line of lines) {
-            if (line.trim() === "") continue;
+      toast({
+        title: "가이드 생성 완료",
+        description: `${task.name}에 대한 상세 가이드가 생성되었습니다.`,
+      });
 
-            if (line.startsWith("event: ")) {
-              currentEvent = line.slice(7).trim();
-            } else if (line.startsWith("data: ")) {
-              try {
-                const dataStr = line.slice(6).trim();
-                const data = JSON.parse(dataStr);
-
-                if (currentEvent === "progress") {
-                  updateTaskStatus(task.id, {
-                    status: "generating",
-                    progress: data.progress,
-                  });
-                } else if (currentEvent === "complete") {
-                  const markdownGuide = convertStructuredGuideToMarkdown(
-                    data,
-                    task
-                  );
-
-                  updateTaskStatus(task.id, {
-                    status: "completed",
-                    progress: 100,
-                    guide: markdownGuide,
-                  });
-
-                  onGuideGenerated(task.id, markdownGuide);
-                  return;
-                } else if (currentEvent === "error") {
-                  throw new Error(data.error);
-                }
-              } catch (parseError) {
-                console.warn("Failed to parse stream data:", line, parseError);
-              }
-            }
-          }
-        }
-      } finally {
-        reader.releaseLock();
-      }
     } catch (error) {
-      console.error("Guide generation error:", error);
+      console.error("Guide generation error for task:", task.id, error);
       updateTaskStatus(task.id, {
         status: "error",
-        error:
-          error instanceof Error
-            ? error.message
-            : "알 수 없는 오류가 발생했습니다.",
+        error: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
       });
 
       toast({
         title: "가이드 생성 실패",
-        description: `${task.name} 작업의 가이드 생성에 실패했습니다.`,
+        description: `${task.name}에 대한 가이드 생성 중 오류가 발생했습니다.`,
         variant: "destructive",
       });
     }
@@ -209,34 +161,36 @@ export function GuideGenerationSection({
 
   const generateAllGuides = async () => {
     setIsGeneratingAll(true);
-
+    
     try {
       // Initialize all tasks as pending
-      const initialStatuses: Record<string, GuideGenerationStatus> = {};
-      tasks.forEach((task) => {
-        initialStatuses[task.id] = {
-          taskId: task.id,
+      for (const task of tasks) {
+        updateTaskStatus(task.id, {
           status: "pending",
           progress: 0,
-        };
-      });
-      setGenerationStatuses(initialStatuses);
+        });
+      }
 
-      // Generate guides sequentially to avoid rate limiting
+      // Generate guides sequentially for each task
       for (const task of tasks) {
         await generateGuideForTask(task);
-        // Add small delay between requests
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        
+        // Add delay between requests to avoid rate limiting
+        if (task.id !== tasks[tasks.length - 1].id) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
 
       toast({
-        title: "가이드 생성 완료",
-        description: "모든 작업의 상세 가이드가 생성되었습니다.",
+        title: "모든 가이드 생성 완료",
+        description: "모든 작업에 대한 상세 가이드가 생성되었습니다.",
       });
+
     } catch (error) {
+      console.error("Batch guide generation error:", error);
       toast({
-        title: "가이드 생성 중 오류",
-        description: "일부 가이드 생성에 실패했습니다.",
+        title: "가이드 생성 실패",
+        description: "일부 가이드 생성 중 오류가 발생했습니다.",
         variant: "destructive",
       });
     } finally {
@@ -244,435 +198,359 @@ export function GuideGenerationSection({
     }
   };
 
-  const convertStructuredGuideToMarkdown = (
-    guideData: any,
-    task: Task
-  ): string => {
-    let markdown = `# ${task.name} - 상세 실행 가이드\n\n`;
+  const retryGuideGeneration = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
 
-    // Add task description
-    markdown += `## 📋 작업 개요\n${task.description}\n\n`;
+    updateTaskStatus(taskId, {
+      status: "generating",
+      progress: 0,
+    });
 
-    // Add tool information
-    if (task.tools && task.tools.length > 0) {
-      markdown += `## 🛠️ 추천 도구\n`;
-      task.tools.forEach((tool) => {
-        markdown += `- **${tool.name}**: ${
-          tool.description || "이 작업에 최적화된 도구"
-        }\n`;
-        if (tool.url) {
-          markdown += `  - 링크: ${tool.url}\n`;
-        }
+    try {
+      if (!task.recommendedTool) {
+        throw new Error("추천된 도구가 없습니다.");
+      }
+
+      const response = await fetch(`/api/tools/${task.recommendedTool.id}/guide`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          taskContext: task.name,
+          language: "ko",
+          forceRefresh: true, // Force new generation
+        }),
       });
-      markdown += "\n";
-    }
 
-    // Add summary if available
-    if (guideData.guide?.summary) {
-      markdown += `## 📝 요약\n${guideData.guide.summary}\n\n`;
-    }
+      if (!response.ok) {
+        throw new Error("가이드 생성 요청에 실패했습니다.");
+      }
 
-    // Add sections
-    if (guideData.guide?.sections) {
-      guideData.guide.sections.forEach((section: any) => {
-        markdown += `## ${section.title}\n`;
+      updateTaskStatus(taskId, {
+        status: "generating",
+        progress: 50,
+      });
 
-        if (section.content) {
-          markdown += `${section.content}\n\n`;
-        }
+      const guideData = await response.json();
+      const markdownGuide = convertStructuredGuideToMarkdown(guideData, task);
 
-        if (section.steps && section.steps.length > 0) {
-          section.steps.forEach((step: string, index: number) => {
-            markdown += `${index + 1}. ${step}\n`;
-          });
-          markdown += "\n";
-        }
+      updateTaskStatus(taskId, {
+        status: "completed",
+        progress: 100,
+        guide: markdownGuide,
+      });
+
+      onGuideGenerated(taskId, markdownGuide);
+
+      toast({
+        title: "가이드 재생성 완료",
+        description: `${task.name}에 대한 가이드가 재생성되었습니다.`,
+      });
+
+    } catch (error) {
+      console.error("Guide retry error for task:", taskId, error);
+      updateTaskStatus(taskId, {
+        status: "error",
+        error: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
+      });
+
+      toast({
+        title: "가이드 재생성 실패",
+        description: `${task.name}에 대한 가이드 재생성 중 오류가 발생했습니다.`,
+        variant: "destructive",
       });
     }
-
-    // Add source information
-    if (guideData.sourceUrls && guideData.sourceUrls.length > 0) {
-      markdown += `## 📚 참고 자료\n`;
-      guideData.sourceUrls.forEach((url: string) => {
-        markdown += `- [참고 링크](${url})\n`;
-      });
-      markdown += "\n";
-    }
-
-    // Add metadata
-    const confidencePercentage = Math.round(
-      (guideData.confidenceScore || 0.6) * 100
-    );
-    markdown += `---\n*이 가이드는 AI에 의해 생성되었으며 (신뢰도: ${confidencePercentage}%), 실제 상황에 맞게 조정하여 사용하시기 바랍니다.*`;
-
-    return markdown;
   };
 
-  const completedCount = Object.values(generationStatuses).filter(
-    (s) => s.status === "completed"
-  ).length;
-  const totalCount = tasks.length;
+  const getStatusIcon = (status: GuideGenerationStatus["status"]) => {
+    switch (status) {
+      case "pending":
+        return <Clock className="w-4 h-4 text-muted-foreground" />;
+      case "generating":
+        return <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />;
+      case "completed":
+        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+      case "error":
+        return <AlertTriangle className="w-4 h-4 text-red-500" />;
+      default:
+        return <Clock className="w-4 h-4 text-muted-foreground" />;
+    }
+  };
+
+  const getStatusText = (status: GuideGenerationStatus["status"]) => {
+    switch (status) {
+      case "pending":
+        return "대기 중";
+      case "generating":
+        return "생성 중";
+      case "completed":
+        return "완료";
+      case "error":
+        return "오류";
+      default:
+        return "대기 중";
+    }
+  };
+
+  const getStatusColor = (status: GuideGenerationStatus["status"]) => {
+    switch (status) {
+      case "pending":
+        return "bg-muted text-muted-foreground";
+      case "generating":
+        return "bg-blue-500/10 text-blue-500 border-blue-500/20";
+      case "completed":
+        return "bg-green-500/10 text-green-500 border-green-500/20";
+      case "error":
+        return "bg-red-500/10 text-red-500 border-red-500/20";
+      default:
+        return "bg-muted text-muted-foreground";
+    }
+  };
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8 }}
     >
-      <Card className="border-2 border-blue-500/20 bg-gradient-to-br from-blue-900/20 to-purple-900/20">
-        <CardHeader>
+      <Card className="border-2 border-blue-500/20 bg-gradient-to-br from-blue-900/20 to-indigo-900/20 backdrop-blur-sm">
+        <CardHeader className="text-center space-y-4">
           <motion.div
-            className="flex items-center justify-between"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
+            className="flex justify-center"
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.6, type: "spring" }}
           >
-            <div className="flex items-center gap-3">
-              <motion.div
-                className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center"
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ duration: 0.5, delay: 0.2, type: "spring" }}
-              >
-                <BookOpen className="w-5 h-5 text-white" />
-              </motion.div>
-              <div>
-                <motion.div
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, delay: 0.3 }}
-                >
-                  <CardTitle className="text-xl text-blue-400">
-                    Detailed Guide Generation
-                  </CardTitle>
-                </motion.div>
-                <motion.p
-                  className="text-sm text-blue-300/80"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, delay: 0.4 }}
-                >
-                  Generate step-by-step guides for each task with AI-powered
-                  insights
-                </motion.p>
-              </div>
-            </div>
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, delay: 0.3 }}
-              whileHover={{ scale: isGeneratingAll ? 1 : 1.05 }}
-              whileTap={{ scale: isGeneratingAll ? 1 : 0.95 }}
+              className="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center shadow-lg"
+              animate={{
+                scale: [1, 1.05, 1],
+                boxShadow: [
+                  "0 8px 16px rgba(59, 130, 246, 0.2)",
+                  "0 16px 32px rgba(59, 130, 246, 0.4)",
+                  "0 8px 16px rgba(59, 130, 246, 0.2)",
+                ],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                repeatType: "reverse",
+              }}
             >
-              <Button
-                onClick={generateAllGuides}
-                disabled={isGeneratingAll}
-                size="lg"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 relative overflow-hidden"
-              >
-                <AnimatePresence mode="wait">
-                  {isGeneratingAll ? (
-                    <motion.span
-                      key="generating"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className="flex items-center"
-                    >
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Generating...
-                    </motion.span>
-                  ) : (
-                    <motion.span
-                      key="ready"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className="flex items-center"
-                    >
-                      <BookOpen className="w-4 h-4 mr-2" />
-                      Generate All Guides
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-
-                {/* Generating background effect */}
-                {isGeneratingAll && (
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-blue-400/20 -translate-x-full"
-                    animate={{ translateX: "200%" }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "linear",
-                    }}
-                  />
-                )}
-              </Button>
+              <BookOpen className="w-8 h-8 text-white" />
             </motion.div>
           </motion.div>
 
-          {totalCount > 0 && (
-            <motion.div
-              className="mt-4"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              transition={{ duration: 0.5, delay: 0.4 }}
+          <motion.div
+            className="space-y-3"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            <h2 className="text-2xl font-bold text-blue-400">
+              상세 실행 가이드 생성
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              각 작업에 대한 단계별 상세 가이드를 생성하여 성공률을 높이고 효율성을 극대화하세요.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Button
+              onClick={generateAllGuides}
+              disabled={isGeneratingAll}
+              size="lg"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 text-lg font-medium shadow-lg disabled:opacity-50"
             >
-              <motion.div
-                className="flex items-center justify-between text-sm text-muted-foreground mb-2"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3, delay: 0.6 }}
-              >
-                <span>Progress</span>
-                <motion.span
-                  key={`${completedCount}-${totalCount}`}
-                  initial={{ scale: 1.2, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {completedCount} / {totalCount} completed
-                </motion.span>
-              </motion.div>
-              <Progress
-                value={(completedCount / totalCount) * 100}
-                className="h-2"
-              />
-            </motion.div>
-          )}
+              {isGeneratingAll ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                  모든 가이드 생성 중...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5 mr-3" />
+                  모든 가이드 생성하기
+                </>
+              )}
+            </Button>
+          </motion.div>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          <motion.div
-            variants={{
-              show: {
-                transition: {
-                  staggerChildren: 0.1,
-                },
-              },
-            }}
-            initial="hidden"
-            animate="show"
-          >
+        <CardContent className="space-y-6">
+          <div className="grid gap-4">
             {tasks.map((task, index) => {
-              const status = generationStatuses[task.id];
-              const primaryTool = task.tools?.[0];
+              const status = generationStatuses[task.id] || {
+                status: "pending" as const,
+                progress: 0,
+                taskId: task.id,
+              };
 
               return (
                 <motion.div
                   key={task.id}
-                  variants={{
-                    hidden: { opacity: 0, y: 20 },
-                    show: { opacity: 1, y: 0 },
-                  }}
-                  layout
-                  transition={{ duration: 0.4 }}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
                 >
-                  <Card className="border border-border/50 overflow-hidden">
-                    <CardContent className="p-4 relative">
-                      {/* Status color indicator */}
-                      <motion.div
-                        className={`absolute left-0 top-0 bottom-0 w-1 ${
-                          status?.status === "completed"
-                            ? "bg-green-500"
-                            : status?.status === "generating"
-                            ? "bg-blue-500"
-                            : status?.status === "error"
-                            ? "bg-red-500"
-                            : "bg-muted-foreground/20"
-                        }`}
-                        initial={{ scaleY: 0 }}
-                        animate={{ scaleY: 1 }}
-                        transition={{ duration: 0.3, delay: 0.1 }}
-                        style={{ originY: 0 }}
-                      />
-
-                      <motion.div
-                        className="flex items-start justify-between pl-4"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3, delay: 0.2 }}
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <motion.h4
-                              className="font-semibold"
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ duration: 0.3, delay: 0.3 }}
+                  <Card className="border border-border/50 bg-card/50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
+                            {getStatusIcon(status.status)}
+                            <Badge
+                              variant="outline"
+                              className={`${getStatusColor(status.status)}`}
                             >
-                              {task.name}
-                            </motion.h4>
-
-                            <AnimatePresence mode="wait">
-                              {status?.status === "completed" && (
-                                <motion.div
-                                  key="completed"
-                                  initial={{ scale: 0, opacity: 0 }}
-                                  animate={{ scale: 1, opacity: 1 }}
-                                  exit={{ scale: 0, opacity: 0 }}
-                                  transition={{ duration: 0.3, type: "spring" }}
-                                >
-                                  <Badge
-                                    variant="default"
-                                    className="bg-green-500/20 text-green-400 border-green-500/30"
-                                  >
-                                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                                    Complete
-                                  </Badge>
-                                </motion.div>
-                              )}
-                              {status?.status === "error" && (
-                                <motion.div
-                                  key="error"
-                                  initial={{
-                                    scale: 0,
-                                    opacity: 0,
-                                    rotate: -10,
-                                  }}
-                                  animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                                  exit={{ scale: 0, opacity: 0 }}
-                                  transition={{ duration: 0.3, type: "spring" }}
-                                >
-                                  <Badge variant="destructive">
-                                    <AlertTriangle className="w-3 h-3 mr-1" />
-                                    Error
-                                  </Badge>
-                                </motion.div>
-                              )}
-                              {status?.status === "generating" && (
-                                <motion.div
-                                  key="generating"
-                                  initial={{ scale: 0, opacity: 0 }}
-                                  animate={{ scale: 1, opacity: 1 }}
-                                  exit={{ scale: 0, opacity: 0 }}
-                                  transition={{ duration: 0.3, type: "spring" }}
-                                >
-                                  <Badge variant="secondary">
-                                    <motion.div
-                                      animate={{ rotate: 360 }}
-                                      transition={{
-                                        duration: 1,
-                                        repeat: Infinity,
-                                        ease: "linear",
-                                      }}
-                                    >
-                                      <Loader2 className="w-3 h-3 mr-1" />
-                                    </motion.div>
-                                    Generating
-                                  </Badge>
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
+                              {getStatusText(status.status)}
+                            </Badge>
                           </div>
-
-                          <motion.p
-                            className="text-sm text-muted-foreground mb-2"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.3, delay: 0.4 }}
-                          >
-                            {task.description}
-                          </motion.p>
-
-                          {primaryTool && (
-                            <motion.div
-                              className="flex items-center gap-2 text-xs text-muted-foreground"
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.3, delay: 0.5 }}
-                            >
-                              <span>Primary Tool:</span>
-                              <Badge variant="outline" className="text-xs">
-                                {primaryTool.name}
-                              </Badge>
-                            </motion.div>
-                          )}
-
-                          <AnimatePresence>
-                            {status?.status === "generating" && (
-                              <motion.div
-                                className="mt-3"
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: "auto" }}
-                                exit={{ opacity: 0, height: 0 }}
-                                transition={{ duration: 0.3 }}
-                              >
-                                <Progress
-                                  value={status.progress}
-                                  className="h-1"
-                                />
-                                <motion.p
-                                  className="text-xs text-muted-foreground mt-1"
-                                  key={status.progress}
-                                  initial={{ scale: 1.1, opacity: 0 }}
-                                  animate={{ scale: 1, opacity: 1 }}
-                                  transition={{ duration: 0.2 }}
-                                >
-                                  {status.progress}% complete
-                                </motion.p>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-
-                          <AnimatePresence>
-                            {status?.error && (
-                              <motion.div
-                                className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-xs text-destructive"
-                                initial={{ opacity: 0, scale: 0.95, x: -10 }}
-                                animate={{ opacity: 1, scale: 1, x: 0 }}
-                                exit={{ opacity: 0, scale: 0.95, x: -10 }}
-                                transition={{ duration: 0.3 }}
-                              >
-                                {status.error}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                          <h4 className="font-medium text-foreground">
+                            {task.name}
+                          </h4>
                         </div>
 
+                        <div className="flex items-center space-x-2">
+                          {task.recommendedTool && (
+                            <Badge variant="secondary" className="text-xs">
+                              {task.recommendedTool.name}
+                            </Badge>
+                          )}
+                          {status.status === "error" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => retryGuideGeneration(task.id)}
+                              className="text-xs"
+                            >
+                              재시도
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {status.status === "generating" && (
+                        <div className="space-y-2">
+                          <Progress value={status.progress} className="h-2" />
+                          <p className="text-xs text-muted-foreground text-center">
+                            가이드 생성 중... {status.progress}%
+                          </p>
+                        </div>
+                      )}
+
+                      {status.status === "completed" && (
                         <motion.div
-                          className="flex gap-2 ml-4"
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.3, delay: 0.3 }}
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          className="space-y-3"
                         >
-                          <AnimatePresence>
-                            {(!status ||
-                              status.status === "pending" ||
-                              status.status === "error") && (
-                              <motion.div
-                                initial={{ scale: 0, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                              >
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => generateGuideForTask(task)}
-                                  disabled={!primaryTool || isGeneratingAll}
-                                >
-                                  <BookOpen className="w-3 h-3 mr-1" />
-                                  Generate
-                                </Button>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                          <div className="flex items-center justify-between">
+                            <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              가이드 생성 완료
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (status.guide) {
+                                  onGuideGenerated(task.id, status.guide);
+                                }
+                              }}
+                              className="text-xs"
+                            >
+                              <Download className="w-3 h-3 mr-1" />
+                              다운로드
+                            </Button>
+                          </div>
                         </motion.div>
-                      </motion.div>
+                      )}
+
+                      {status.status === "error" && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          className="space-y-2"
+                        >
+                          <div className="flex items-center space-x-2 text-red-500">
+                            <AlertTriangle className="w-4 h-4" />
+                            <span className="text-sm">{status.error}</span>
+                          </div>
+                        </motion.div>
+                      )}
                     </CardContent>
                   </Card>
                 </motion.div>
               );
             })}
-          </motion.div>
+          </div>
         </CardContent>
       </Card>
     </motion.div>
   );
+}
+
+// Helper function to convert structured guide to markdown
+function convertStructuredGuideToMarkdown(guideData: any, task: Task): string {
+  let markdown = `# ${task.name} - 상세 실행 가이드\n\n`;
+  
+  // Add task information
+  markdown += `## 📋 작업 개요\n${task.name}\n\n`;
+  
+  // Add tool information
+  if (task.recommendedTool) {
+    markdown += `## 🛠️ 추천 도구\n`;
+    markdown += `- **${task.recommendedTool.name}**\n`;
+    if (task.recommendedTool.url) {
+      markdown += `  - 링크: ${task.recommendedTool.url}\n`;
+    }
+    markdown += '\n';
+  }
+  
+  // Add summary if available
+  if (guideData.guide?.summary) {
+    markdown += `## 📝 요약\n${guideData.guide.summary}\n\n`;
+  }
+  
+  // Add sections
+  if (guideData.guide?.sections) {
+    guideData.guide.sections.forEach((section: any) => {
+      markdown += `## ${section.title}\n`;
+      
+      if (section.content) {
+        markdown += `${section.content}\n\n`;
+      }
+      
+      if (section.steps && section.steps.length > 0) {
+        section.steps.forEach((step: string, index: number) => {
+          markdown += `${index + 1}. ${step}\n`;
+        });
+        markdown += '\n';
+      }
+    });
+  }
+  
+  // Add source information
+  if (guideData.sourceUrls && guideData.sourceUrls.length > 0) {
+    markdown += `## 📚 참고 자료\n`;
+    guideData.sourceUrls.forEach((url: string) => {
+      markdown += `- [참고 링크](${url})\n`;
+    });
+    markdown += '\n';
+  }
+  
+  // Add metadata
+  const confidencePercentage = Math.round((guideData.confidenceScore || 0.6) * 100);
+  markdown += `---\n*이 가이드는 AI에 의해 생성되었으며 (신뢰도: ${confidencePercentage}%), 실제 상황에 맞게 조정하여 사용하시기 바랍니다.*`;
+  
+  return markdown;
 }

@@ -117,6 +117,18 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
       goal: data.goal,
       language,
     });
+
+    // 워크플로우 생성 시작 시 자동 스크롤
+    setTimeout(() => {
+      const workflowCanvas = document.querySelector("[data-workflow-canvas]");
+      if (workflowCanvas) {
+        workflowCanvas.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+          inline: "nearest",
+        });
+      }
+    }, 100); // 0.1초 후 스크롤 시작
   };
 
   return (
@@ -124,20 +136,20 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
       className="space-y-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
+      transition={{ duration: 0.8, ease: "easeOut" }}
     >
       <motion.form
         onSubmit={handleSubmit(onSubmit)}
         className="space-y-6"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
       >
         <motion.div
           className="space-y-4"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
         >
           <motion.div
             whileFocus={{ scale: 1.02 }}
@@ -166,7 +178,7 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.3 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
           whileHover={{ scale: mutation.isPending ? 1 : 1.02 }}
           whileTap={{ scale: mutation.isPending ? 1 : 0.98 }}
         >
@@ -192,14 +204,14 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
               <motion.span
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.5 }}
                 className="absolute inset-0 flex items-center justify-center"
               >
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 <motion.span
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.2, delay: 0.1 }}
+                  transition={{ duration: 0.4, delay: 0.2 }}
                 >
                   Analyzing...
                 </motion.span>
@@ -212,7 +224,7 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
                 className="absolute inset-0 bg-gradient-to-r from-primary/50 via-primary/30 to-primary/50 -translate-x-full"
                 animate={{ translateX: "200%" }}
                 transition={{
-                  duration: 1.5,
+                  duration: 2.0,
                   repeat: Infinity,
                   ease: "linear",
                 }}

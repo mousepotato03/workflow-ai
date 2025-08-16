@@ -65,9 +65,11 @@ export function WorkflowResultDisplay() {
   };
 
   // No result state
-  if (!workflowResult) {
+  if (!workflowResult || !workflowResult.tasks) {
     return null;
   }
+
+  const taskCount = workflowResult.tasks.length;
 
   // Success state
   return (
@@ -75,13 +77,13 @@ export function WorkflowResultDisplay() {
       className="mt-8 space-y-6"
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
+      transition={{ duration: 0.9, ease: "easeOut" }}
     >
       {/* Workflow Completion Celebration */}
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
+        transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
       >
         <Card className="border-2 border-green-500/20 bg-gradient-to-br from-green-900/20 to-emerald-900/20 backdrop-blur-sm">
           <CardContent className="p-8">
@@ -91,8 +93,8 @@ export function WorkflowResultDisplay() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{
-                  duration: 0.5,
-                  delay: 0.4,
+                  duration: 0.8,
+                  delay: 0.5,
                   type: "spring",
                   stiffness: 200,
                 }}
@@ -121,13 +123,13 @@ export function WorkflowResultDisplay() {
                 className="space-y-3"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.6 }}
+                transition={{ duration: 0.8, delay: 0.7 }}
               >
                 <motion.h2
                   className="text-3xl font-bold text-green-400"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.4, delay: 0.7 }}
+                  transition={{ duration: 0.6, delay: 0.8 }}
                 >
                   Workflow Complete!
                 </motion.h2>
@@ -135,11 +137,11 @@ export function WorkflowResultDisplay() {
                   className="text-lg text-green-300/80 max-w-2xl mx-auto"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.4, delay: 0.8 }}
+                  transition={{ duration: 0.6, delay: 0.9 }}
                 >
-                  Your workflow has been successfully created with{" "}
-                  {workflowResult.tasks.length} optimized tasks. Each step
-                  includes recommended tools and basic guidance.
+                  Your workflow has been successfully created with {taskCount}{" "}
+                  optimized tasks. Each step includes recommended tools and
+                  basic guidance.
                 </motion.p>
               </motion.div>
 
@@ -148,13 +150,13 @@ export function WorkflowResultDisplay() {
                   className="bg-card/80 rounded-xl p-6 border border-green-500/30 max-w-2xl mx-auto"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.9 }}
+                  transition={{ duration: 0.8, delay: 1.0 }}
                 >
                   <motion.div
                     className="flex items-center justify-center space-x-3 mb-4"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4, delay: 1.0 }}
+                    transition={{ duration: 0.6, delay: 1.1 }}
                   >
                     <motion.div
                       animate={{ rotate: [0, 10, -10, 0] }}
@@ -174,7 +176,7 @@ export function WorkflowResultDisplay() {
                     className="text-muted-foreground mb-6"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ duration: 0.4, delay: 1.1 }}
+                    transition={{ duration: 0.6, delay: 1.2 }}
                   >
                     Generate detailed, step-by-step guides for each task to
                     maximize your success and efficiency.
@@ -182,7 +184,7 @@ export function WorkflowResultDisplay() {
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4, delay: 1.2 }}
+                    transition={{ duration: 0.6, delay: 1.3 }}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
@@ -207,7 +209,7 @@ export function WorkflowResultDisplay() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
         >
           <GuideGenerationSection
             tasks={workflowResult.tasks}
@@ -221,13 +223,13 @@ export function WorkflowResultDisplay() {
         className="space-y-6"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
+        transition={{ duration: 0.8, delay: 0.5 }}
       >
         <motion.div
           className="flex items-center justify-between"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.5 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
         >
           <h3 className="text-2xl font-bold text-foreground">
             Your Workflow Tasks
@@ -235,13 +237,13 @@ export function WorkflowResultDisplay() {
           <motion.div
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.3, delay: 0.6, type: "spring" }}
+            transition={{ duration: 0.5, delay: 0.7, type: "spring" }}
           >
             <Badge
               variant="secondary"
               className="bg-primary/10 text-primary border-primary/20"
             >
-              {workflowResult.tasks.length} Tasks
+              {taskCount} Tasks
             </Badge>
           </motion.div>
         </motion.div>
@@ -250,7 +252,7 @@ export function WorkflowResultDisplay() {
           variants={{
             show: {
               transition: {
-                staggerChildren: 0.1,
+                staggerChildren: 0.15,
               },
             },
           }}
@@ -259,18 +261,18 @@ export function WorkflowResultDisplay() {
         >
           {workflowResult.tasks.map((task, index) => (
             <motion.div
-              key={task.id}
+              key={task.id || `task-${index}`}
               variants={{
                 hidden: { opacity: 0, y: 20 },
                 show: { opacity: 1, y: 0 },
               }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.6 }}
             >
               <TaskCard
                 task={task}
-                hasDetailedGuide={!!generatedGuides[task.id]}
+                hasDetailedGuide={!!generatedGuides[task.id || `task-${index}`]}
                 onDownloadGuide={() =>
-                  handleDownloadTaskGuide(task.id, task.name)
+                  handleDownloadTaskGuide(task.id || `task-${index}`, task.name)
                 }
               />
             </motion.div>
@@ -281,7 +283,7 @@ export function WorkflowResultDisplay() {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.4, delay: 0.8 }}
+        transition={{ duration: 0.6, delay: 0.9 }}
       >
         <Separator className="my-6 bg-border" />
       </motion.div>
@@ -290,7 +292,7 @@ export function WorkflowResultDisplay() {
         className="flex justify-center"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.9 }}
+        transition={{ duration: 0.6, delay: 1.0 }}
       >
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
           <Button
