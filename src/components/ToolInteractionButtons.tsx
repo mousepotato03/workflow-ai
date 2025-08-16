@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
-import LoginRequiredModal from "@/components/LoginRequiredModal";
+import { LoginRequiredModal } from "@/components/LoginRequiredModal";
 import { CreateInteractionRequest } from "@/types/auth";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 

@@ -4,6 +4,31 @@
 - 벡터/하이브리드 검색 함수(`match_tools`, `hybrid_search_tools`)와 인덱스로 추천 성능 최적화
 - **NEW**: 웹 검색 기반 맞춤형 도구 사용법 가이드 생성 및 캐싱 시스템
 
+## API 구조
+
+### Guide Generation APIs
+
+**현재 사용 중인 API:**
+
+1. **`/api/tools/[tool_id]/guide`** (GET/POST)
+   - **용도**: 개별 도구의 사용 가이드 생성 및 조회
+   - **GET**: 캐시된 가이드 조회 (taskContext, language 쿼리 파라미터)
+   - **POST**: 새 가이드 생성 (캐싱, 에러 처리, 레이트 리미팅 포함)
+   - **특징**: 구조화된 JSON 응답 (summary, sections[])
+
+2. **`/api/tools/[tool_id]/guide/stream`** (POST)
+   - **용도**: 실시간 스트리밍 가이드 생성
+   - **특징**: Server-Sent Events로 진행 상황 스트리밍
+   - **단계**: tool_lookup → cache_check → web_search → guide_generation → complete
+
+**권장 사용 패턴:**
+- UI에서 개별 도구 가이드: `/api/tools/[tool_id]/guide` 또는 `/stream` 버전
+- 워크플로우 다중 가이드: 개별 도구 API를 순차 호출
+- 캐싱 활용: GET 요청으로 기존 가이드 확인 후 POST로 생성
+
+**제거된 API:**
+- ~~`/api/workflow/enhance-guides`~~ (중복 기능으로 제거됨)
+
 ---
 ## tools
 

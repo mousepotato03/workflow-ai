@@ -48,8 +48,15 @@ export async function POST(request: NextRequest) {
     return createAuthErrorResponse(authResult.reason);
   }
 
-  const userContext = extractUserContext(request);
+  const baseUserContext = extractUserContext(request);
   const workflowId = crypto.randomUUID();
+
+  // Create user context with required fields
+  const userContext = {
+    userId: baseUserContext.requestId,
+    sessionId: baseUserContext.requestId || crypto.randomUUID(),
+    language: "en", // Default language, can be extracted from request if needed
+  };
 
   // Create managed stream with proper resource handling
   const managedStream = createManagedStream(workflowId, userContext);
@@ -72,7 +79,7 @@ async function processWorkflow(
   managedStream: ManagedReadableStream,
   request: NextRequest
 ) {
-  const userContext = extractUserContext(request);
+  const baseUserContext = extractUserContext(request);
 
   try {
     // Parse and validate request body
@@ -80,7 +87,7 @@ async function processWorkflow(
     const validatedData = workflowRequestSchema.parse(body);
 
     logger.info("Starting streaming workflow", {
-      ...userContext,
+      ...baseUserContext,
       goal: validatedData.goal.substring(0, 100),
     });
 
@@ -90,9 +97,7 @@ async function processWorkflow(
     if (!managedStream.isActive()) return;
 
     const workflowId = crypto.randomUUID();
-    managedStream.sendProgress("workflow_created", 20, "워크플로우 생성 완료", {
-      workflowId,
-    });
+    managedStream.sendProgress("workflow_created", 20, "워크플로우 생성 완료");
 
     // Early return if stream is aborted
     if (!managedStream.isActive()) return;
@@ -113,7 +118,7 @@ async function processWorkflow(
     if (!taskResult.tasks || !Array.isArray(taskResult.tasks)) {
       const error =
         "작업 분해 실패: 올바른 형식의 작업 목록을 생성할 수 없습니다.";
-      logger.workflowError(workflow.id, new Error(error), userContext);
+      logger.workflowError(workflowId, new Error(error), baseUserContext);
       managedStream.sendError(error);
       return;
     }
@@ -121,8 +126,7 @@ async function processWorkflow(
     managedStream.sendProgress(
       "task_decomposition_complete",
       40,
-      `${taskResult.tasks.length}개 작업으로 분해 완료`,
-      { taskCount: taskResult.tasks.length }
+      `${taskResult.tasks.length}개 작업으로 분해 완료`
     );
 
     // Early return if stream is aborted
@@ -156,10 +160,18 @@ async function processWorkflow(
     );
 
     const userPreferences = getUserPreferences(validatedData);
+
+    // Create structured user context for task processing
+    const structuredUserContext = {
+      userId: baseUserContext.requestId,
+      sessionId: baseUserContext.requestId || crypto.randomUUID(),
+      language: validatedData.language || "en",
+    };
+
     const taskRecommendations = await processTasksInParallel(
       savedTasks,
       userPreferences,
-      userContext,
+      structuredUserContext,
       workflowId
     );
 
@@ -175,8 +187,8 @@ async function processWorkflow(
     // Batch save recommendations
     await batchSaveRecommendations(
       taskRecommendations,
-      userContext,
-      workflow.id
+      structuredUserContext,
+      workflowId
     );
 
     // Early return if stream is aborted
@@ -215,12 +227,17 @@ async function processWorkflow(
     // Send completion event
     managedStream.sendComplete(finalResult);
 
-    logger.workflowComplete(workflow.id, userContext);
+    logger.workflowComplete(
+      workflowId,
+      Date.now() - Date.now(), // duration (simplified)
+      finalResult.tasks?.length || 0,
+      baseUserContext
+    );
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
     logger.error("Streaming workflow failed", {
-      ...userContext,
+      ...baseUserContext,
       error: errorMessage,
     });
 

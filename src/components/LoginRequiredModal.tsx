@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Dialog,
@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { AlertCircle, X } from "lucide-react";
 
-export function LoginRequiredModal() {
+function LoginRequiredModalContent() {
   const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -67,5 +67,13 @@ export function LoginRequiredModal() {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function LoginRequiredModal() {
+  return (
+    <Suspense fallback={null}>
+      <LoginRequiredModalContent />
+    </Suspense>
   );
 }

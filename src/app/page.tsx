@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { WorkflowInputForm } from "@/features/workflow/components/WorkflowInputForm";
-import { WorkflowResultDisplay } from "@/features/workflow/components/WorkflowResultDisplay";
+import { WorkflowCanvas } from "@/features/workflow/components/WorkflowCanvas";
 import { Navigation } from "@/components/Navigation";
 import { LoginRequiredModal } from "@/components/LoginRequiredModal";
+import { useWorkflowStore } from "@/features/workflow/hooks/useWorkflowStore";
 
 // Recommended Workflow data matching the image
 const recommendedWorkflows = [
@@ -43,13 +44,20 @@ const recommendedWorkflows = [
 ];
 
 export default function Home() {
+  const [showRecommendations, setShowRecommendations] = useState(true);
+  const { 
+    workflowResult, 
+    isLoading, 
+    userGoal
+  } = useWorkflowStore();
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
       <Navigation />
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-6 py-16">
+      <main className="max-w-6xl mx-auto px-6 py-16">
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 tracking-tight">
@@ -60,69 +68,74 @@ export default function Home() {
           </p>
 
           {/* Input Form */}
-          <div className="bg-card border border-border rounded-2xl p-8 mb-16 shadow-sm">
-            <WorkflowInputForm />
-          </div>
-
-          {/* Results Display */}
-          <WorkflowResultDisplay />
-        </div>
-
-        {/* Recommended Workflow Section */}
-        <div className="mt-24">
-          <h2 className="text-3xl font-bold text-foreground text-center mb-12 tracking-tight">
-            Recommended Workflow
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {recommendedWorkflows.map((workflow) => (
-              <div
-                key={workflow.id}
-                className="bg-card border border-border rounded-xl p-6 hover:shadow-md transition-all duration-200 group"
-              >
-                <div className="flex items-start space-x-4 mb-6">
-                  <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-bold text-lg shadow-sm">
-                    {workflow.id}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold text-card-foreground mb-3">
-                      {workflow.title}
-                    </h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {workflow.description}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-lg">{workflow.toolIcon}</span>
-                    <span className="text-card-foreground font-medium">
-                      {workflow.tool}
-                    </span>
-                  </div>
-                  <button className="text-primary hover:text-primary/80 transition-colors flex items-center space-x-1 group-hover:translate-x-1 transition-transform">
-                    <span>Learn More</span>
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="bg-card border border-border rounded-2xl p-8 mb-8 shadow-sm">
+            <WorkflowInputForm
+              onButtonClick={() => setShowRecommendations(false)}
+            />
           </div>
         </div>
+
+        {/* Recommended Workflow Section - 조건부 렌더링 */}
+        {showRecommendations && !(isLoading || workflowResult) && (
+          <div className="mt-24">
+            <h2 className="text-3xl font-bold text-foreground text-center mb-12 tracking-tight">
+              Recommended Workflow
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {recommendedWorkflows.map((workflow) => (
+                <div
+                  key={workflow.id}
+                  className="bg-card border border-border rounded-xl p-6 hover:shadow-md transition-all duration-200 group"
+                >
+                  <div className="flex items-start space-x-4 mb-6">
+                    <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-bold text-lg shadow-sm">
+                      {workflow.id}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-card-foreground mb-3">
+                        {workflow.title}
+                      </h3>
+                      <p className="text-muted-foreground leading-relaxed">
+                        {workflow.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">{workflow.toolIcon}</span>
+                      <span className="text-card-foreground font-medium">
+                        {workflow.tool}
+                      </span>
+                    </div>
+                    <button className="text-primary hover:text-primary/80 transition-colors flex items-center space-x-1 group-hover:translate-x-1 transition-transform">
+                      <span>Learn More</span>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
+      
+      {/* Full Width Canvas Section */}
+      {(isLoading || workflowResult) && <WorkflowCanvas />}
+
 
       {/* Error Modal */}
       <LoginRequiredModal />
