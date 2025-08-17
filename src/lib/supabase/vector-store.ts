@@ -17,37 +17,41 @@ const embeddings = new GoogleGenerativeAIEmbeddings({
   apiKey: getEnvVar("GOOGLE_API_KEY"),
 });
 
-// Create vector store instance
-export const createVectorStore = () => {
+// Create vector store instance (다국어 지원)
+export const createVectorStore = (language: string = "ko-KR") => {
   return new SupabaseVectorStore(embeddings, {
     client: supabaseClient,
-    tableName: "tools",
-    queryName: "match_tools",
+    tableName: "tool_translations",
+    queryName: language === "ko-KR" ? "match_tools" : "match_tools_multilang",
   });
 };
 
-// Create retriever for tool recommendations
-export const createToolRetriever = (k: number = 3) => {
-  const vectorStore = createVectorStore();
+// Create retriever for tool recommendations (다국어 지원)
+export const createToolRetriever = (
+  k: number = 3,
+  language: string = "ko-KR"
+) => {
+  const vectorStore = createVectorStore(language);
   return vectorStore.asRetriever({ k });
 };
 
-// Fallback: Keyword-based tool search when vector search fails
+// Fallback: Keyword-based tool search when vector search fails (다국어 지원)
 export const searchToolsByKeywords = async (
   query: string,
-  limit: number = 3
+  limit: number = 3,
+  language: string = "ko-KR"
 ): Promise<Document[]> => {
   try {
     // Clean query for safe searching
     const cleanQuery = query.replace(/[%,()]/g, " ").trim();
 
-    // Try different search strategies
+    // Try different search strategies using the new multilang structure
     let tools = null;
     let error = null;
 
-    // Strategy 1: Simple name and description search
+    // Strategy 1: Search in tool name
     ({ data: tools, error } = await supabaseClient
-      .from("tools")
+      .from("tools_ko") // Use the Korean view for backward compatibility
       .select("*")
       .eq("is_active", true)
       .ilike("name", `%${cleanQuery}%`)
@@ -56,7 +60,7 @@ export const searchToolsByKeywords = async (
     if (error || !tools || tools.length === 0) {
       // Strategy 2: Search in description
       ({ data: tools, error } = await supabaseClient
-        .from("tools")
+        .from("tools_ko")
         .select("*")
         .eq("is_active", true)
         .ilike("description", `%${cleanQuery}%`)
@@ -66,7 +70,7 @@ export const searchToolsByKeywords = async (
     if (error || !tools || tools.length === 0) {
       // Strategy 3: Search in embedding_text
       ({ data: tools, error } = await supabaseClient
-        .from("tools")
+        .from("tools_ko")
         .select("*")
         .eq("is_active", true)
         .ilike("embedding_text", `%${cleanQuery}%`)
@@ -74,9 +78,36 @@ export const searchToolsByKeywords = async (
     }
 
     if (error || !tools || tools.length === 0) {
-      // Ultimate fallback: return all active tools
+      // Strategy 4: Direct join search for specific language
       ({ data: tools, error } = await supabaseClient
         .from("tools")
+        .select(
+          `
+          id, name, url, logo_url, cost_index, bench_score, is_active,
+          tool_translations!inner(description, categories, domains, embedding_text)
+        `
+        )
+        .eq("is_active", true)
+        .eq("tool_translations.language", language)
+        .ilike("tool_translations.description", `%${cleanQuery}%`)
+        .limit(limit));
+
+      // Flatten the joined data
+      if (tools) {
+        tools = tools.map((tool) => ({
+          ...tool,
+          description: tool.tool_translations[0]?.description,
+          categories: tool.tool_translations[0]?.categories,
+          domains: tool.tool_translations[0]?.domains,
+          embedding_text: tool.tool_translations[0]?.embedding_text,
+        }));
+      }
+    }
+
+    if (error || !tools || tools.length === 0) {
+      // Ultimate fallback: return all active tools in the specified language
+      ({ data: tools, error } = await supabaseClient
+        .from("tools_ko")
         .select("*")
         .eq("is_active", true)
         .limit(limit));
@@ -95,6 +126,7 @@ export const searchToolsByKeywords = async (
             url: tool.url,
             logo_url: tool.logo_url,
             categories: tool.categories,
+            domains: tool.domains,
             pros: [],
             cons: [],
             recommendation_tip: "",
@@ -102,6 +134,7 @@ export const searchToolsByKeywords = async (
         })
     );
   } catch (error) {
+    console.warn("Keyword search failed:", error);
     // Final fallback: return empty array
     return [];
   }
@@ -166,26 +199,29 @@ export const smartSearchTools = async (
   }
 };
 
-// Hybrid search combining vector and text search
+// Hybrid search combining vector and text search (다국어 지원)
 export const hybridSearchTools = async (
   query: string,
-  k: number = 3
+  k: number = 3,
+  language: string = "ko-KR"
 ): Promise<Document[]> => {
   try {
     // Generate embedding for the query
     const queryEmbedding = await embeddings.embedQuery(query);
 
-    // Use hybrid_search_tools database function
-    const { data: results, error } = await supabaseClient.rpc(
-      "hybrid_search_tools",
-      {
-        query_text: query,
-        query_embedding: `[${queryEmbedding.join(",")}]`,
-        match_count: k,
-        vector_weight: 0.7,
-        text_weight: 0.3,
-      }
-    );
+    // Use the multilang hybrid search function
+    const functionName =
+      language === "ko-KR"
+        ? "hybrid_search_tools"
+        : "hybrid_search_tools_multilang";
+    const { data: results, error } = await supabaseClient.rpc(functionName, {
+      query_text: query,
+      query_embedding: `[${queryEmbedding.join(",")}]`,
+      match_count: k,
+      vector_weight: 0.7,
+      text_weight: 0.3,
+      target_language: language,
+    });
 
     if (error) throw error;
 
@@ -201,29 +237,29 @@ export const hybridSearchTools = async (
               url: result.url,
               logo_url: result.logo_url || "",
               categories: result.categories || [],
+              domains: result.domains || [],
               pros: [],
               cons: [],
               recommendation_tip: "",
-              hybrid_score: result.hybrid_score,
-              vector_similarity: result.vector_similarity,
-              text_similarity: result.text_similarity,
+              combined_score: result.combined_score,
+              language: language,
             },
           })
       );
     }
 
     // Fallback to keyword search
-    return await searchToolsByKeywords(query, k);
+    return await searchToolsByKeywords(query, k, language);
   } catch (error) {
     console.warn(
       "Hybrid search failed, falling back to keyword search:",
       error
     );
-    return await searchToolsByKeywords(query, k);
+    return await searchToolsByKeywords(query, k, language);
   }
 };
 
-// Enhanced retriever with smart fallback strategies and caching
+// Enhanced retriever with smart fallback strategies and caching (다국어 지원)
 export const getRelevantTools = async (
   query: string,
   k: number = 3,
@@ -231,13 +267,15 @@ export const getRelevantTools = async (
     categories?: string[];
     difficulty_level?: string;
     budget_range?: string;
-  }
+  },
+  language: string = "ko-KR"
 ): Promise<Document[]> => {
-  // Generate cache key based on query and preferences
+  // Generate cache key based on query, preferences, and language
   const cacheKey = CacheUtils.generateKey({
     query: query.toLowerCase().trim(),
     k,
     userPreferences,
+    language,
   });
 
   // Try to get from cache first
@@ -251,15 +289,15 @@ export const getRelevantTools = async (
     //   }
     // }
 
-    // Strategy 2: Try hybrid search
-    const hybridResults = await hybridSearchTools(query, k);
+    // Strategy 2: Try hybrid search with language support
+    const hybridResults = await hybridSearchTools(query, k, language);
     if (hybridResults.length > 0) {
       return hybridResults;
     }
 
     // Strategy 3: Fallback to original vector search
     try {
-      const vectorRetriever = createToolRetriever(k);
+      const vectorRetriever = createToolRetriever(k, language);
       const results = await vectorRetriever.getRelevantDocuments(query);
 
       if (results.length > 0) {
@@ -271,7 +309,7 @@ export const getRelevantTools = async (
 
     // Strategy 4: Final fallback to keyword search
     console.warn("All advanced searches failed, using keyword search");
-    return await searchToolsByKeywords(query, k);
+    return await searchToolsByKeywords(query, k, language);
   });
 };
 

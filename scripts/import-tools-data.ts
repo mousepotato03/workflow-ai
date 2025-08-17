@@ -1,12 +1,12 @@
-import { config } from 'dotenv';
-import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { parse } from 'csv-parse/sync';
-import fs from 'fs';
-import path from 'path';
+import { config } from "dotenv";
+import { createClient } from "@supabase/supabase-js";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { parse } from "csv-parse/sync";
+import fs from "fs";
+import path from "path";
 
 // Load environment variables from .env.local
-config({ path: path.resolve(__dirname, '../.env.local') });
+config({ path: path.resolve(__dirname, "../.env.local") });
 
 // Initialize clients
 const supabase = createClient(
@@ -15,118 +15,244 @@ const supabase = createClient(
 );
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
-const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
+const embeddingModel = genAI.getGenerativeModel({
+  model: "text-embedding-004",
+});
 
-interface ToolData {
+// 새로운 다국어 구조 인터페이스
+interface CoreToolData {
   name: string;
-  description: string;
   url: string;
   logo_url: string;
-  categories: string;
-  domains: string;
   cost_index: string;
   bench_score: string;
+  is_active: string;
+}
+
+interface ToolTranslationData {
+  tool_name: string;
+  language: string;
+  description: string;
+  categories: string;
+  domains: string;
   embedding_text: string;
 }
 
-async function importToolsData() {
-  try {
-    console.log('🚀 도구 데이터 가져오기 시작...');
+// 핵심 도구 정보 처리 함수
+async function importCoreTools(): Promise<Map<string, string>> {
+  console.log("\n🔧 Step 1: 핵심 도구 정보 가져오기...");
 
-    // 1. CSV 파일 읽기
-    const csvFilePath = path.resolve(__dirname, '../supabase/tools-data/20250811000002_tools_data.csv');
-    
-    if (!fs.existsSync(csvFilePath)) {
-      throw new Error(`CSV 파일을 찾을 수 없습니다: ${csvFilePath}`);
+  const csvFilePath = path.resolve(
+    __dirname,
+    "../supabase/tools-data/tools.csv"
+  );
+
+  if (!fs.existsSync(csvFilePath)) {
+    throw new Error(`핵심 도구 CSV 파일을 찾을 수 없습니다: ${csvFilePath}`);
+  }
+
+  const fileContent = fs.readFileSync(csvFilePath, "utf-8");
+  const records: CoreToolData[] = parse(fileContent, {
+    columns: true,
+    skip_empty_lines: true,
+  });
+
+  console.log(`📊 총 ${records.length}개의 핵심 도구 데이터를 읽었습니다.`);
+
+  const toolNameToIdMap = new Map<string, string>();
+  let successCount = 0;
+
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i];
+
+    try {
+      console.log(
+        `\n⚙️  [${i + 1}/${records.length}] "${record.name}" 처리 중...`
+      );
+
+      // tools 테이블에 핵심 정보 삽입/업데이트
+      const { data, error } = await supabase
+        .from("tools")
+        .upsert(
+          {
+            name: record.name,
+            url: record.url || null,
+            logo_url: record.logo_url || null,
+            cost_index: parseFloat(record.cost_index) || null,
+            bench_score: parseFloat(record.bench_score) || null,
+            is_active: record.is_active?.toLowerCase() === "true" || true,
+          },
+          {
+            onConflict: "name",
+            ignoreDuplicates: false,
+          }
+        )
+        .select("id, name");
+
+      if (error) {
+        throw error;
+      }
+
+      if (data && data.length > 0) {
+        toolNameToIdMap.set(record.name, data[0].id);
+        console.log(
+          `  ✅ "${record.name}" 성공적으로 저장됨 (ID: ${data[0].id})`
+        );
+        successCount++;
+      }
+    } catch (error: any) {
+      console.error(`  ❌ "${record.name}" 처리 중 오류 발생:`, error.message);
     }
+  }
 
-    const fileContent = fs.readFileSync(csvFilePath, 'utf-8');
-    const records: ToolData[] = parse(fileContent, {
-      columns: true,
-      skip_empty_lines: true,
-    });
+  console.log(`\n📈 핵심 도구 가져오기 완료! 성공: ${successCount}개`);
+  return toolNameToIdMap;
+}
 
-    console.log(`📊 총 ${records.length}개의 도구 데이터를 읽었습니다.`);
+// 언어별 번역 데이터 처리 함수
+async function importToolTranslations(
+  toolNameToIdMap: Map<string, string>
+): Promise<void> {
+  console.log("\n🌐 Step 2: 한국어 번역 데이터 가져오기...");
 
-    let successCount = 0;
-    let errorCount = 0;
+  const csvFilePath = path.resolve(
+    __dirname,
+    "../supabase/tools-data/tool_translations_ko.csv"
+  );
 
-    // 2. 각 레코드 처리
-    for (let i = 0; i < records.length; i++) {
-      const record = records[i];
-      
-      try {
-        console.log(`\n⚙️  [${i + 1}/${records.length}] "${record.name}" 처리 중...`);
+  if (!fs.existsSync(csvFilePath)) {
+    throw new Error(`번역 CSV 파일을 찾을 수 없습니다: ${csvFilePath}`);
+  }
 
-        // 임베딩 생성
-        console.log('  🧠 임베딩 생성 중...');
-        const embeddingResult = await embeddingModel.embedContent(record.embedding_text);
-        const embedding = embeddingResult.embedding.values;
+  const fileContent = fs.readFileSync(csvFilePath, "utf-8");
+  const records: ToolTranslationData[] = parse(fileContent, {
+    columns: true,
+    skip_empty_lines: true,
+  });
 
-        // 카테고리와 도메인을 배열로 변환
-        const categories = record.categories ? 
-          record.categories.split(',').map(s => s.trim()).filter(s => s.length > 0) : 
-          [];
-        
-        const domains = record.domains ? 
-          record.domains.split(',').map(s => s.trim()).filter(s => s.length > 0) : 
-          [];
+  console.log(`📊 총 ${records.length}개의 번역 데이터를 읽었습니다.`);
 
-        // Supabase에 데이터 삽입/업데이트
-        console.log('  💾 데이터베이스에 저장 중...');
-        const { error } = await supabase.from('tools').upsert({
-          name: record.name,
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i];
+
+    try {
+      console.log(
+        `\n🌍 [${i + 1}/${records.length}] "${record.tool_name}" (${
+          record.language
+        }) 처리 중...`
+      );
+
+      // 해당 도구의 ID 찾기
+      const toolId = toolNameToIdMap.get(record.tool_name);
+      if (!toolId) {
+        throw new Error(`도구 "${record.tool_name}"의 ID를 찾을 수 없습니다.`);
+      }
+
+      // 임베딩 생성
+      console.log("  🧠 임베딩 생성 중...");
+      const embeddingResult = await embeddingModel.embedContent(
+        record.embedding_text
+      );
+      const embedding = embeddingResult.embedding.values;
+
+      // 카테고리와 도메인을 배열로 변환
+      const categories = record.categories
+        ? record.categories
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+        : [];
+
+      const domains = record.domains
+        ? record.domains
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+        : [];
+
+      // tool_translations 테이블에 데이터 삽입/업데이트
+      console.log("  💾 번역 데이터베이스에 저장 중...");
+      const { error } = await supabase.from("tool_translations").upsert(
+        {
+          tool_id: toolId,
+          language: record.language,
           description: record.description,
-          url: record.url,
-          logo_url: record.logo_url,
           categories: categories,
           domains: domains,
-          cost_index: parseFloat(record.cost_index) || 0,
-          bench_score: parseFloat(record.bench_score) || 0,
           embedding_text: record.embedding_text,
           embedding: embedding,
-          is_active: true,
-        }, { 
-          onConflict: 'name',
-          ignoreDuplicates: false 
-        });
-
-        if (error) {
-          throw error;
+        },
+        {
+          onConflict: "tool_id,language",
+          ignoreDuplicates: false,
         }
+      );
 
-        console.log(`  ✅ "${record.name}" 성공적으로 저장됨`);
-        successCount++;
-
-      } catch (error: any) {
-        console.error(`  ❌ "${record.name}" 처리 중 오류 발생:`, error.message);
-        errorCount++;
+      if (error) {
+        throw error;
       }
 
-      // API 속도 제한을 위한 지연
-      if (i < records.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+      console.log(
+        `  ✅ "${record.tool_name}" (${record.language}) 성공적으로 저장됨`
+      );
+      successCount++;
+    } catch (error: any) {
+      console.error(
+        `  ❌ "${record.tool_name}" (${record.language}) 처리 중 오류 발생:`,
+        error.message
+      );
+      errorCount++;
     }
 
-    console.log('\n📈 가져오기 완료!');
-    console.log(`✅ 성공: ${successCount}개`);
-    console.log(`❌ 실패: ${errorCount}개`);
-    console.log(`📊 총합: ${records.length}개`);
+    // API 속도 제한을 위한 지연
+    if (i < records.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
+  console.log(`\n📈 번역 데이터 가져오기 완료!`);
+  console.log(`✅ 성공: ${successCount}개`);
+  console.log(`❌ 실패: ${errorCount}개`);
+}
+
+// 메인 함수
+async function importToolsData() {
+  try {
+    console.log("🚀 다국어 도구 데이터 가져오기 시작...");
+    console.log(
+      "📋 새로운 구조: tools (핵심 정보) + tool_translations (언어별 콘텐츠)"
+    );
+
+    // Step 1: 핵심 도구 정보 가져오기
+    const toolNameToIdMap = await importCoreTools();
+
+    // Step 2: 한국어 번역 데이터 가져오기
+    await importToolTranslations(toolNameToIdMap);
 
     // 최종 통계 확인
-    const { count, error: countError } = await supabase
-      .from('tools')
-      .select('*', { count: 'exact', head: true });
+    console.log("\n📊 최종 통계 확인...");
 
-    if (countError) {
-      console.error('통계 조회 오류:', countError);
+    const { count: toolsCount, error: toolsError } = await supabase
+      .from("tools")
+      .select("*", { count: "exact", head: true });
+
+    const { count: translationsCount, error: translationsError } =
+      await supabase
+        .from("tool_translations")
+        .select("*", { count: "exact", head: true });
+
+    if (toolsError || translationsError) {
+      console.error("통계 조회 오류:", toolsError || translationsError);
     } else {
-      console.log(`\n🗄️  데이터베이스 총 도구 수: ${count}개`);
+      console.log(`🗄️  핵심 도구 수: ${toolsCount}개`);
+      console.log(`🌐 번역 데이터 수: ${translationsCount}개`);
+      console.log(`🎯 다국어 지원 준비 완료!`);
     }
-
   } catch (error: any) {
-    console.error('❌ 가져오기 프로세스 오류:', error.message);
+    console.error("❌ 가져오기 프로세스 오류:", error.message);
     process.exit(1);
   }
 }
@@ -135,11 +261,11 @@ async function importToolsData() {
 if (require.main === module) {
   importToolsData()
     .then(() => {
-      console.log('\n🎉 모든 작업이 완료되었습니다!');
+      console.log("\n🎉 모든 작업이 완료되었습니다!");
       process.exit(0);
     })
     .catch((error) => {
-      console.error('💥 스크립트 실행 오류:', error);
+      console.error("💥 스크립트 실행 오류:", error);
       process.exit(1);
     });
 }

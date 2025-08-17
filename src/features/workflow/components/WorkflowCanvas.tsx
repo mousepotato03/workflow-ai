@@ -69,19 +69,16 @@ export function WorkflowCanvas() {
   };
 
   const handleProceedToGuides = async () => {
-    // Change layout to vertical with smooth transition
+    // Change layout to vertical immediately
     setLayoutMode("vertical");
 
-    // Wait for layout animations to complete
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-
-    // Start guide generation
+    // Start guide generation immediately
     await generateGuides();
 
     // Scroll to guide section after everything is settled
     setTimeout(() => {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
-    }, 300);
+    }, 100);
   };
 
   const getWorkflowStatus = () => {
@@ -489,18 +486,12 @@ export function WorkflowCanvas() {
             {!isLoading && workflowResult && (
               <div className="space-y-8" data-workflow-canvas>
                 {/* Dynamic Layout: Main Node + Subtask Container */}
-                <motion.div
+                <div
                   className={`flex gap-8 items-start ${
                     layoutMode === "vertical"
                       ? "flex-col"
                       : "flex-col lg:flex-row"
                   }`}
-                  layout
-                  transition={{
-                    duration: 1.2,
-                    ease: [0.4, 0.0, 0.2, 1],
-                    delay: 0,
-                  }}
                 >
                   {/* Main Task Node */}
                   <motion.div
@@ -539,10 +530,8 @@ export function WorkflowCanvas() {
                   </motion.div>
 
                   {/* Subtasks and Guide View Container - Vertical Layout Only */}
-                  <AnimatePresence mode="wait">
                     {layoutMode === "vertical" ? (
-                      <motion.div
-                        key="vertical-layout"
+                      <div
                         className="flex flex-col lg:flex-row gap-8 w-full"
                       >
                         {/* Subtasks Container */}
@@ -1231,15 +1220,12 @@ export function WorkflowCanvas() {
                             )}
                           </div>
                         </motion.div>
-                      </motion.div>
+                      </div>
                     ) : null}
-                  </AnimatePresence>
 
                   {/* Horizontal Layout - Original Subtasks Container */}
-                  <AnimatePresence mode="wait">
                     {layoutMode === "horizontal" && (
-                      <motion.div
-                        key="horizontal-layout"
+                      <div
                         className="flex-1"
                       >
                         <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full">
@@ -1588,10 +1574,9 @@ export function WorkflowCanvas() {
                             </div>
                           ) : null}
                         </div>
-                      </motion.div>
+                      </div>
                     )}
-                  </AnimatePresence>
-                </motion.div>
+                </div>
 
                 {/* Completion Celebration */}
                 <AnimatePresence>
