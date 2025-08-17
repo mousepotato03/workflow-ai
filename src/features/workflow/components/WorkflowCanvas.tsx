@@ -25,6 +25,8 @@ import {
   BookOpen,
   FileText,
   Star,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useWorkflowStore } from "../hooks/useWorkflowStore";
 
@@ -57,6 +59,8 @@ export function WorkflowCanvas() {
   const [layoutMode, setLayoutMode] = React.useState<"horizontal" | "vertical">(
     "horizontal"
   );
+  const [leftPanelWidth, setLeftPanelWidth] = React.useState(50); // 50% default
+  const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = React.useState(false);
 
   const handleNewWorkflow = () => {
     clearWorkflow();
@@ -98,6 +102,14 @@ export function WorkflowCanvas() {
     if (!workflowResult) return 0;
     const completed = getCompletedTasksCount();
     return Math.round((completed / workflowResult.tasks.length) * 100);
+  };
+
+  const areAllGuidesCompleted = () => {
+    if (!workflowResult || generatedGuides.size === 0) return false;
+    return workflowResult.tasks.every(task => {
+      const guide = generatedGuides.get(task.id);
+      return guide?.status === "completed";
+    });
   };
 
   // Task editing handlers
@@ -495,13 +507,6 @@ export function WorkflowCanvas() {
                     className={`bg-gradient-to-br from-primary to-primary/80 rounded-2xl p-4 sm:p-6 shadow-2xl border border-primary/20 w-full ${
                       layoutMode === "vertical" ? "max-w-none" : "max-w-sm"
                     }`}
-                    layout
-                    transition={{
-                      layout: {
-                        duration: 1.2,
-                        ease: [0.4, 0.0, 0.2, 1],
-                      },
-                    }}
                     whileHover={{
                       scale: 1.02,
                       transition: { duration: 0.2 },
@@ -539,31 +544,24 @@ export function WorkflowCanvas() {
                       <motion.div
                         key="vertical-layout"
                         className="flex flex-col lg:flex-row gap-8 w-full"
-                        initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -30, scale: 0.95 }}
-                        transition={{
-                          duration: 1.0,
-                          delay: 0.2,
-                          ease: [0.4, 0.0, 0.2, 1],
-                        }}
                       >
                         {/* Subtasks Container */}
                         <motion.div
-                          className="flex-1"
-                          layout
-                          transition={{ duration: 0.9, ease: "easeInOut" }}
+                          className={isLeftPanelCollapsed ? "overflow-hidden" : ""}
+                          style={{ 
+                            width: isLeftPanelCollapsed ? '0%' : `${leftPanelWidth}%`,
+                            minWidth: isLeftPanelCollapsed ? '0px' : '200px'
+                          }}
+                          animate={{
+                            width: isLeftPanelCollapsed ? '0%' : `${leftPanelWidth}%`,
+                            opacity: isLeftPanelCollapsed ? 0 : 1
+                          }}
+                          transition={{
+                            duration: 0.3,
+                            ease: [0.4, 0.0, 0.2, 1]
+                          }}
                         >
-                          <motion.div
-                            className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full"
-                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
-                            transition={{
-                              duration: 0.8,
-                              delay: 0.3,
-                              ease: [0.4, 0.0, 0.2, 1],
-                            }}
-                          >
+                          <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full">
                             <div className="flex items-center justify-between mb-6">
                               <div className="flex items-center space-x-3">
                                 <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
@@ -581,17 +579,24 @@ export function WorkflowCanvas() {
                               </div>
                               <div className="flex items-center space-x-3">
                                 <Button
-                                  onClick={() => setIsAddingTask(true)}
+                                  onClick={() => setIsLeftPanelCollapsed(true)}
                                   size="sm"
-                                  variant="outline"
-                                  className="border-primary/30 text-primary hover:bg-primary/10"
+                                  variant="ghost"
+                                  className="text-muted-foreground hover:text-foreground"
                                 >
-                                  <Plus className="w-4 h-4 mr-1" />
-                                  Add Task
+                                  <ChevronLeft className="w-4 h-4" />
                                 </Button>
-                                <div className="bg-primary/10 text-primary px-4 py-2 rounded-full font-medium shadow-sm">
-                                  {getProgressPercentage()}% Complete
-                                </div>
+                                {(layoutMode as string) === "horizontal" && (
+                                  <Button
+                                    onClick={() => setIsAddingTask(true)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-primary/30 text-primary hover:bg-primary/10"
+                                  >
+                                    <Plus className="w-4 h-4 mr-1" />
+                                    Add Task
+                                  </Button>
+                                )}
                               </div>
                             </div>
 
@@ -603,17 +608,13 @@ export function WorkflowCanvas() {
                                   <div key={task.id} className="relative">
                                     {/* Subtask Node */}
                                     <div
-                                      draggable
-                                      onDragStart={(e) =>
-                                        handleDragStart(e, task.id)
-                                      }
-                                      onDragOver={(e) =>
-                                        handleDragOver(e, task.id)
-                                      }
-                                      onDragLeave={handleDragLeave}
-                                      onDrop={(e) => handleDrop(e, task.id)}
+                                      draggable={(layoutMode as string) === "horizontal"}
+                                      onDragStart={(layoutMode as string) === "horizontal" ? (e) => handleDragStart(e, task.id) : undefined}
+                                      onDragOver={(layoutMode as string) === "horizontal" ? (e) => handleDragOver(e, task.id) : undefined}
+                                      onDragLeave={(layoutMode as string) === "horizontal" ? handleDragLeave : undefined}
+                                      onDrop={(layoutMode as string) === "horizontal" ? (e) => handleDrop(e, task.id) : undefined}
                                       onClick={() => handleTaskClick(task.id)}
-                                      className={`group bg-card border rounded-xl p-5 shadow-lg transition-all duration-200 cursor-pointer ${
+                                      className={`group bg-card border rounded-xl p-5 shadow-lg transition-all duration-200 ${layoutMode === "vertical" ? "cursor-pointer" : "cursor-pointer"} ${
                                         draggedTask === task.id
                                           ? "opacity-50 scale-105 border-primary shadow-2xl"
                                           : dragOverTask === task.id
@@ -671,52 +672,56 @@ export function WorkflowCanvas() {
                                                   {task.name}
                                                 </h4>
                                                 <div className="flex items-center space-x-1">
-                                                  <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() =>
-                                                      handleRematchTool(
-                                                        task.id,
-                                                        task.name
-                                                      )
-                                                    }
-                                                    className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    disabled={rematchingTasks.has(
-                                                      task.id
-                                                    )}
-                                                  >
-                                                    {rematchingTasks.has(
-                                                      task.id
-                                                    ) ? (
-                                                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                                                    ) : (
-                                                      <RefreshCw className="w-4 h-4 text-muted-foreground hover:text-blue-600" />
-                                                    )}
-                                                  </Button>
-                                                  <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() =>
-                                                      handleEditStart(
-                                                        task.id,
-                                                        task.name
-                                                      )
-                                                    }
-                                                    className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                                                  >
-                                                    <Edit3 className="w-4 h-4 text-muted-foreground hover:text-primary" />
-                                                  </Button>
-                                                  <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    onClick={() =>
-                                                      handleDeleteTask(task.id)
-                                                    }
-                                                    className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                                                  >
-                                                    <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
-                                                  </Button>
-                                                  <GripVertical className="w-5 h-5 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-grab active:cursor-grabbing" />
+                                                  {(layoutMode as string) === "horizontal" && (
+                                                    <>
+                                                      <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                          handleRematchTool(
+                                                            task.id,
+                                                            task.name
+                                                          )
+                                                        }
+                                                        className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        disabled={rematchingTasks.has(
+                                                          task.id
+                                                        )}
+                                                      >
+                                                        {rematchingTasks.has(
+                                                          task.id
+                                                        ) ? (
+                                                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                                        ) : (
+                                                          <RefreshCw className="w-4 h-4 text-muted-foreground hover:text-blue-600" />
+                                                        )}
+                                                      </Button>
+                                                      <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                          handleEditStart(
+                                                            task.id,
+                                                            task.name
+                                                          )
+                                                        }
+                                                        className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                                                      >
+                                                        <Edit3 className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                                                      </Button>
+                                                      <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                          handleDeleteTask(task.id)
+                                                        }
+                                                        className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                                                      >
+                                                        <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
+                                                      </Button>
+                                                      <GripVertical className="w-5 h-5 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-grab active:cursor-grabbing" />
+                                                    </>
+                                                  )}
                                                 </div>
                                               </>
                                             )}
@@ -913,37 +918,74 @@ export function WorkflowCanvas() {
                                 </p>
                               </div>
                             ) : null}
-                          </motion.div>
+                          </div>
                         </motion.div>
+
+                        {/* Resizable Divider */}
+                        {!isLeftPanelCollapsed && (
+                          <div
+                            className="relative flex items-center justify-center w-2 cursor-col-resize group hover:bg-primary/20 transition-colors duration-200"
+                            onMouseDown={(e) => {
+                              const startX = e.clientX;
+                              const startWidth = leftPanelWidth;
+                              const containerWidth = e.currentTarget.parentElement?.offsetWidth || 1000;
+
+                              const handleMouseMove = (e: MouseEvent) => {
+                                const deltaX = e.clientX - startX;
+                                const deltaPercentage = (deltaX / containerWidth) * 100;
+                                const newWidth = Math.max(20, Math.min(80, startWidth + deltaPercentage));
+                                setLeftPanelWidth(newWidth);
+                              };
+
+                              const handleMouseUp = () => {
+                                document.removeEventListener('mousemove', handleMouseMove);
+                                document.removeEventListener('mouseup', handleMouseUp);
+                              };
+
+                              document.addEventListener('mousemove', handleMouseMove);
+                              document.addEventListener('mouseup', handleMouseUp);
+                            }}
+                          >
+                            <div className="absolute inset-y-0 left-1/2 transform -translate-x-1/2 w-1 bg-border group-hover:bg-primary transition-colors duration-200 rounded-full" />
+                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-8 bg-background border border-border rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
+                              <GripVertical className="w-3 h-3 text-muted-foreground" />
+                            </div>
+                          </div>
+                        )}
 
                         {/* Guide View Container */}
                         <motion.div
-                          className="flex-1"
-                          layout
-                          transition={{ duration: 0.9, ease: "easeInOut" }}
+                          style={{ 
+                            width: isLeftPanelCollapsed ? '100%' : `${100 - leftPanelWidth}%`,
+                            flex: '1'
+                          }}
                         >
-                          <motion.div
-                            className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full"
-                            initial={{ scale: 0.9, opacity: 0, x: 30 }}
-                            animate={{ scale: 1, opacity: 1, x: 0 }}
-                            transition={{
-                              duration: 0.9,
-                              delay: 0.5,
-                              ease: [0.4, 0.0, 0.2, 1],
-                            }}
-                          >
-                            <div className="flex items-center space-x-3 mb-6">
-                              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-                                <BookOpen className="w-5 h-5 text-white" />
+                          <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full">
+                            <div className="flex items-center justify-between mb-6">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                                  <BookOpen className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                  <h3 className="text-xl font-bold text-foreground">
+                                    Task Guide
+                                  </h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    Detailed implementation guide
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <h3 className="text-xl font-bold text-foreground">
-                                  Task Guide
-                                </h3>
-                                <p className="text-sm text-muted-foreground">
-                                  Detailed implementation guide
-                                </p>
-                              </div>
+                              {isLeftPanelCollapsed && (
+                                <Button
+                                  onClick={() => setIsLeftPanelCollapsed(false)}
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-muted-foreground hover:text-foreground"
+                                >
+                                  <ChevronRight className="w-4 h-4" />
+                                  <span className="ml-1 text-xs">Show Tasks</span>
+                                </Button>
+                              )}
                             </div>
 
                             {/* Guide Content */}
@@ -1187,7 +1229,7 @@ export function WorkflowCanvas() {
                                 )}
                               </div>
                             )}
-                          </motion.div>
+                          </div>
                         </motion.div>
                       </motion.div>
                     ) : null}
@@ -1199,12 +1241,6 @@ export function WorkflowCanvas() {
                       <motion.div
                         key="horizontal-layout"
                         className="flex-1"
-                        initial={{ opacity: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{
-                          duration: 0.7,
-                          ease: "easeInOut",
-                        }}
                       >
                         <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full">
                           <div className="flex items-center justify-between mb-6">
@@ -1231,9 +1267,6 @@ export function WorkflowCanvas() {
                                 <Plus className="w-4 h-4 mr-1" />
                                 Add Task
                               </Button>
-                              <div className="bg-primary/10 text-primary px-4 py-2 rounded-full font-medium shadow-sm">
-                                {getProgressPercentage()}% Complete
-                              </div>
                             </div>
                           </div>
 
@@ -1464,9 +1497,9 @@ export function WorkflowCanvas() {
                                   {index < workflowResult.tasks.length - 1 &&
                                     index % 2 === 0 && (
                                       <motion.div
-                                        className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 lg:hidden"
-                                        initial={{ opacity: 0, y: -10 }}
-                                        animate={{ opacity: 1, y: 0 }}
+                                        className="absolute top-1/2 -right-3 transform -translate-y-1/2 lg:hidden"
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
                                         transition={{
                                           duration: 0.5,
                                           delay: 0.3 + index * 0.1,
@@ -1475,7 +1508,7 @@ export function WorkflowCanvas() {
                                       >
                                         <motion.div
                                           animate={{
-                                            y: [0, -2, 0],
+                                            x: [0, 2, 0],
                                             scale: [1, 1.1, 1],
                                           }}
                                           transition={{
@@ -1485,7 +1518,7 @@ export function WorkflowCanvas() {
                                             delay: index * 0.2,
                                           }}
                                         >
-                                          <ArrowDown className="w-6 h-6 text-indigo-400" />
+                                          <ChevronRight className="w-6 h-6 text-indigo-400" />
                                         </motion.div>
                                       </motion.div>
                                     )}
@@ -1613,7 +1646,7 @@ export function WorkflowCanvas() {
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ duration: 0.5, delay: 0.2 }}
                               >
-                                Planning Complete!
+                                Planning Finished!
                               </motion.h3>
                               <motion.p
                                 className="text-green-700 dark:text-green-300"
@@ -1626,49 +1659,51 @@ export function WorkflowCanvas() {
                               </motion.p>
                             </div>
                           </div>
-                          <motion.div
-                            className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.5, delay: 0.4 }}
-                          >
+                          {!areAllGuidesCompleted() && (
                             <motion.div
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
+                              className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3"
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.5, delay: 0.4 }}
                             >
-                              <Button
-                                onClick={handleProceedToGuides}
-                                disabled={isGeneratingGuides}
-                                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-70 relative overflow-hidden"
+                              <motion.div
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                               >
-                                <AnimatePresence mode="wait">
-                                  {isGeneratingGuides ? (
-                                    <motion.span
-                                      key="generating"
-                                      initial={{ opacity: 0, y: 20 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      exit={{ opacity: 0, y: -20 }}
-                                      className="flex items-center"
-                                    >
-                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                      Generating Guides...
-                                    </motion.span>
-                                  ) : (
-                                    <motion.span
-                                      key="ready"
-                                      initial={{ opacity: 0, y: 20 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      exit={{ opacity: 0, y: -20 }}
-                                      className="flex items-center"
-                                    >
-                                      <BookOpen className="w-4 h-4 mr-2" />
-                                      Generate Detailed Guides
-                                    </motion.span>
-                                  )}
-                                </AnimatePresence>
-                              </Button>
+                                <Button
+                                  onClick={handleProceedToGuides}
+                                  disabled={isGeneratingGuides}
+                                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-70 relative overflow-hidden"
+                                >
+                                  <AnimatePresence mode="wait">
+                                    {isGeneratingGuides ? (
+                                      <motion.span
+                                        key="generating"
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -20 }}
+                                        className="flex items-center"
+                                      >
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Generating Guides...
+                                      </motion.span>
+                                    ) : (
+                                      <motion.span
+                                        key="ready"
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -20 }}
+                                        className="flex items-center"
+                                      >
+                                        <BookOpen className="w-4 h-4 mr-2" />
+                                        Generate Detailed Guides
+                                      </motion.span>
+                                    )}
+                                  </AnimatePresence>
+                                </Button>
+                              </motion.div>
                             </motion.div>
-                          </motion.div>
+                          )}
                         </div>
                       </motion.div>
                     </motion.div>
