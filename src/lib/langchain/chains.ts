@@ -19,7 +19,7 @@ const model = new ChatGoogleGenerativeAI({
 // Task Decomposer Chain with caching
 export const createTaskDecomposerChain = () => {
   const prompt = PromptTemplate.fromTemplate(`
-    You are a highly-skilled project manager. Your task is to break down a user's goal into a list of 2-5 concrete, actionable sub-tasks.
+    You are a highly-skilled project manager. Your task is to break down a user's goal into concrete, actionable sub-tasks.
     The output MUST be a JSON object with a key "tasks", which contains an array of strings.
     IMPORTANT: You MUST respond in the same language as the user's input. The user's goal is provided below in the language: {language}.
     
@@ -48,13 +48,7 @@ export const createTaskDecomposerChain = () => {
             if (!result || !result.tasks || !Array.isArray(result.tasks)) {
               throw new Error("Invalid task decomposition result format");
             }
-
-            if (result.tasks.length < 2 || result.tasks.length > 5) {
-              throw new Error(
-                `Invalid number of tasks: ${result.tasks.length}. Expected 2-5 tasks.`
-              );
-            }
-
+            
             return result;
           } catch (error) {
             // Enhanced error logging
