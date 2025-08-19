@@ -1207,7 +1207,7 @@ export function WorkflowCanvas() {
                                   <p className="text-sm text-muted-foreground max-w-xs">
                                     {generatedGuides.size > 0
                                       ? "Choose a task from the left to see detailed implementation steps and recommendations."
-                                      : "Click 'Generate Detailed Guides' to create AI-powered implementation guides for each task."}
+                                      : "Click 'Generate Guides with Tools' to find tools and create AI-powered implementation guides for each task."}
                                   </p>
                                 </div>
                                 {generatedGuides.size === 0 && (
@@ -1681,7 +1681,7 @@ export function WorkflowCanvas() {
                                         className="flex items-center"
                                       >
                                         <BookOpen className="w-4 h-4 mr-2" />
-                                        Generate Detailed Guides
+                                        Generate Guides with Tools
                                       </motion.span>
                                     )}
                                   </AnimatePresence>

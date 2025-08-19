@@ -4,11 +4,7 @@ import { createTaskDecomposerChain } from "@/lib/langchain/chains";
 import { WorkflowRequest, WorkflowResponse } from "@/types/workflow";
 import { logger, extractUserContext } from "@/lib/logger/structured-logger";
 import { workflowCache, CacheUtils } from "@/lib/cache/memory-cache";
-import {
-  processTasksInParallel,
-  batchSaveRecommendations,
-  getUserPreferences,
-} from "@/lib/services/workflow-service";
+// Tool matching functions moved to guide generation service
 import { withAuth, createAuthErrorResponse } from "@/lib/middleware/auth";
 import {
   withRateLimit,
@@ -120,51 +116,14 @@ export async function POST(request: NextRequest) {
       tasks: taskResult.tasks,
     });
 
-    // Insert tasks into database
-    // Stateless: build tasks in-memory
+    // Build tasks in-memory without tool matching
     const tasks = taskResult.tasks.map((taskName: string, index: number) => ({
       id: crypto.randomUUID(),
       name: taskName,
-      order_index: index + 1,
-    }));
-
-    // Step 2: Get tool recommendations for each task (optimized with parallel processing)
-    logger.info("Starting tool recommendations", {
-      ...userContext,
-      workflowId,
-      taskCount: tasks.length,
-    });
-
-    const userPreferences = getUserPreferences(validatedData);
-    const taskRecommendations = await processTasksInParallel(
-      tasks.map((task) => ({ id: task.id, name: task.name })),
-      userPreferences,
-      userContext,
-      workflowId
-    );
-
-    // Batch save recommendations
-    await batchSaveRecommendations(
-      taskRecommendations,
-      userContext,
-      workflowId
-    );
-
-    // Format recommendations for response
-    const recommendations = taskRecommendations.map((rec) => ({
-      id: rec.taskId,
-      name: rec.taskName,
-      order: tasks.find((t) => t.id === rec.taskId)?.order_index || 0,
-      recommendedTool: rec.toolId
-        ? {
-            id: rec.toolId,
-            name: rec.toolName,
-            logoUrl: "",
-            url: "",
-          }
-        : null,
-      recommendationReason: rec.reason,
-      confidence: rec.confidenceScore,
+      order: index + 1,
+      recommendedTool: null, // No tool matching at creation
+      recommendationReason: "Task created without tool recommendation",
+      confidence: 1.0,
     }));
 
     // Stateless: no DB status update
@@ -172,7 +131,7 @@ export async function POST(request: NextRequest) {
     // Return response
     const response: WorkflowResponse = {
       workflowId: workflowId,
-      tasks: recommendations.sort((a, b) => a.order - b.order),
+      tasks: tasks.sort((a, b) => a.order - b.order),
       status: "completed",
     };
 
@@ -183,7 +142,7 @@ export async function POST(request: NextRequest) {
     logger.workflowComplete(
       workflowId,
       duration,
-      recommendations.length,
+      tasks.length,
       userContext
     );
     logger.apiRequest("POST", "/api/workflow", duration, 200, userContext);

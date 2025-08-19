@@ -73,6 +73,7 @@ function computeScore(
 
 /**
  * Process multiple tasks in parallel for tool recommendations
+ * Used for guide generation - NOT for workflow creation
  * Resolves N+1 query problem by batching operations
  */
 export async function processTasksInParallel(
@@ -248,6 +249,7 @@ export async function processTasksInParallel(
 
 /**
  * Batch save recommendations to database
+ * Used for guide generation - NOT for workflow creation
  * More efficient than individual inserts
  */
 export async function batchSaveRecommendations(
@@ -262,6 +264,125 @@ export async function batchSaveRecommendations(
     recommendationsCount: recommendations.length,
   });
   return;
+}
+
+/**
+ * Get tool recommendation for a single task (used in guide generation)
+ */
+export async function getToolRecommendationForTask(
+  taskName: string,
+  userPreferences: UserPreferences,
+  userContext: { userId?: string; sessionId: string; language: string }
+): Promise<TaskRecommendation> {
+  const weights = await getPolicyWeights();
+  const taskStartTime = Date.now();
+  const taskId = crypto.randomUUID();
+
+  try {
+    // Retrieve similar tools using enhanced search
+    const relevantTools = await getRelevantTools(
+      taskName,
+      3,
+      userPreferences
+    );
+
+    const searchEndTime = Date.now();
+    const searchDuration = searchEndTime - taskStartTime;
+
+    if (relevantTools.length === 0) {
+      return {
+        taskId,
+        taskName,
+        toolId: null,
+        toolName: null,
+        reason: "해당 작업에 적합한 도구를 찾을 수 없습니다.",
+        confidenceScore: 0,
+        searchDuration,
+        recommendationDuration: 0,
+      };
+    }
+
+    // Minimal policy-based scoring on candidate tools
+    const recommendationStartTime = Date.now();
+    const candidateIds = relevantTools
+      .map((d) => d.metadata.id)
+      .filter(Boolean);
+
+    let bestTool: {
+      metrics: ToolMetrics;
+      score: number;
+      bench: number;
+      domain: number;
+      cost: number;
+    } | null = null;
+
+    if (candidateIds.length > 0) {
+      const { data: metricsList } = await supabase
+        .from("tools")
+        .select("id,name,bench_score,domains,cost_index,url,logo_url")
+        .in("id", candidateIds);
+
+      (metricsList as ToolMetrics[] | null)?.forEach((m) => {
+        const scored = computeScore(taskName, m, weights);
+        if (!bestTool || scored.score > bestTool.score) {
+          bestTool = { metrics: m, ...scored };
+        }
+      });
+    }
+
+    const recommendationEndTime = Date.now();
+    const recommendationDuration =
+      recommendationEndTime - recommendationStartTime;
+
+    if (!bestTool) {
+      return {
+        taskId,
+        taskName,
+        toolId: null,
+        toolName: null,
+        reason: "해당 작업에 적합한 도구를 찾을 수 없습니다.",
+        confidenceScore: 0,
+        searchDuration,
+        recommendationDuration,
+      };
+    }
+
+    const reason = `Score ${bestTool.score.toFixed(
+      3
+    )} (bench ${bestTool.bench.toFixed(2)}*${
+      weights.bench
+    } + domain ${bestTool.domain.toFixed(2)}*${
+      weights.domain
+    } + cost ${bestTool.cost.toFixed(2)}*${weights.cost})`;
+
+    return {
+      taskId,
+      taskName,
+      toolId: bestTool.metrics.id,
+      toolName: bestTool.metrics.name,
+      reason,
+      confidenceScore: Math.max(0, Math.min(1, bestTool.score)),
+      searchDuration,
+      recommendationDuration,
+    };
+  } catch (error) {
+    logger.error("Task recommendation failed", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      ...userContext,
+      taskName,
+    });
+
+    return {
+      taskId,
+      taskName,
+      toolId: null,
+      toolName: null,
+      reason: "추천 과정에서 오류가 발생했습니다.",
+      confidenceScore: 0,
+      searchDuration: Date.now() - taskStartTime,
+      recommendationDuration: 0,
+    };
+  }
 }
 
 /**

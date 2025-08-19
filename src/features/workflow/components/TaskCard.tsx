@@ -14,6 +14,7 @@ import {
   Sparkles,
   FileText,
   Download,
+  Search,
 } from "lucide-react";
 import { WorkflowResponse } from "@/types/workflow";
 import { GuideModal } from "@/components/GuideModal";
@@ -22,12 +23,14 @@ interface TaskCardProps {
   task: WorkflowResponse["tasks"][0];
   hasDetailedGuide?: boolean;
   onDownloadGuide?: () => void;
+  onSearchTools?: (taskId: string) => void;
 }
 
 export function TaskCard({
   task,
   hasDetailedGuide = false,
   onDownloadGuide,
+  onSearchTools,
 }: TaskCardProps) {
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
@@ -41,13 +44,27 @@ export function TaskCard({
     setIsGuideModalOpen(true);
   };
 
-  const getRecommendationStatus = (hasRecommendation: boolean) => {
+  const handleSearchTools = () => {
+    if (onSearchTools) {
+      onSearchTools(task.id);
+    }
+  };
+
+  const getRecommendationStatus = (hasRecommendation: boolean, hasToolRecommendation?: boolean) => {
     if (hasRecommendation) {
       return {
         text: "Tool Recommended",
         className: "text-green-400 bg-green-900/30 border-green-700",
       };
     }
+    
+    if (hasToolRecommendation === false) {
+      return {
+        text: "Ready for Tool Search",
+        className: "text-yellow-400 bg-yellow-900/30 border-yellow-700",
+      };
+    }
+    
     return {
       text: "Manual Approach",
       className: "text-blue-400 bg-blue-900/30 border-blue-700",
@@ -60,10 +77,17 @@ export function TaskCard({
       return task.usageGuidance;
     }
 
+    // Handle tasks without tool recommendations
     if (!task.recommendedTool) {
+      // Check if this is a newly created task without tool search
+      if (task.hasToolRecommendation === false) {
+        return "이 작업에 적합한 도구를 찾기 위해 가이드 생성을 시작하세요. 시스템이 관련 도구를 검색하고 추천해드립니다.";
+      }
+      
+      // Default manual approach message
       return (
         task.recommendationReason ||
-        "Consider manual approaches, research specialized tools, or consult with experts for this step."
+        "이 작업은 수동 접근이 권장됩니다. 전문가와 상담하거나 관련 도구를 직접 검색해보세요."
       );
     }
 
@@ -73,18 +97,21 @@ export function TaskCard({
     const taskName = task.name.toLowerCase();
 
     // Generate actionable guidance based on the task and tool
-    let guidance = `Open ${toolName} and follow these steps to ${taskName}:`;
+    let guidance = `${toolName}을(를) 사용하여 ${taskName}을(를) 수행하세요:`;
 
     // Try to extract actionable steps from the recommendation reason
     const cleanedReason = reason
       .replace(/because|since|due to|as it|this tool|the tool/gi, "")
-      .replace(/is ideal|is perfect|is good|works well/gi, "helps you")
+      .replace(/is ideal|is perfect|is good|works well/gi, "도움이 됩니다")
+      .replace(/Score.*?\)/gi, "")
       .trim();
 
-    if (cleanedReason) {
+    if (cleanedReason && cleanedReason.length > 10) {
       guidance += ` ${
         cleanedReason.charAt(0).toUpperCase() + cleanedReason.slice(1)
       }.`;
+    } else {
+      guidance += ` 이 도구는 해당 작업에 적합한 기능을 제공합니다.`;
     }
 
     return guidance;
@@ -151,10 +178,10 @@ export function TaskCard({
               <Badge
                 variant="secondary"
                 className={`${
-                  getRecommendationStatus(!!task.recommendedTool).className
+                  getRecommendationStatus(!!task.recommendedTool, (task as any).hasToolRecommendation).className
                 } border`}
               >
-                {getRecommendationStatus(!!task.recommendedTool).text}
+                {getRecommendationStatus(!!task.recommendedTool, (task as any).hasToolRecommendation).text}
               </Badge>
 
               {hasDetailedGuide && (
@@ -326,60 +353,100 @@ export function TaskCard({
             </motion.div>
           ) : (
             <motion.div
-              className="bg-blue-900/30 border border-blue-700 rounded-lg p-5 space-y-3"
+              className={`${
+                (task as any).hasToolRecommendation === false 
+                  ? "bg-yellow-900/30 border border-yellow-700" 
+                  : "bg-blue-900/30 border border-blue-700"
+              } rounded-lg p-5 space-y-3`}
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
             >
               <motion.div
-                className="flex items-start space-x-3"
+                className="flex items-start justify-between"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.4 }}
               >
-                <motion.div
-                  className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ duration: 0.3, delay: 0.5, type: "spring" }}
-                >
-                  <AlertCircle className="w-4 h-4 text-white" />
-                </motion.div>
-                <div className="flex-1">
-                  <motion.h5
-                    className="font-medium text-blue-200 mb-2"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                <div className="flex items-start space-x-3 flex-1">
+                  <motion.div
+                    className={`w-6 h-6 ${
+                      (task as any).hasToolRecommendation === false 
+                        ? "bg-yellow-600" 
+                        : "bg-blue-600"
+                    } rounded-full flex items-center justify-center flex-shrink-0 mt-0.5`}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.5, type: "spring" }}
+                  >
+                    <AlertCircle className="w-4 h-4 text-white" />
+                  </motion.div>
+                  <div className="flex-1">
+                    <motion.h5
+                      className={`font-medium ${
+                        (task as any).hasToolRecommendation === false 
+                          ? "text-yellow-200" 
+                          : "text-blue-200"
+                      } mb-2`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3, delay: 0.6 }}
+                    >
+                      {(task as any).hasToolRecommendation === false 
+                        ? "도구 검색 가능" 
+                        : "수동 접근 권장"}
+                    </motion.h5>
+                    <motion.p
+                      className={`text-sm ${
+                        (task as any).hasToolRecommendation === false 
+                          ? "text-yellow-300" 
+                          : "text-blue-300"
+                      } leading-relaxed`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3, delay: 0.7 }}
+                    >
+                      {generateUsageGuidance(task)}
+                    </motion.p>
+                  </div>
+                </div>
+                
+                {(task as any).hasToolRecommendation === false && onSearchTools && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: 0.6 }}
                   >
-                    Manual approach recommended
-                  </motion.h5>
+                    <Button
+                      onClick={handleSearchTools}
+                      variant="outline"
+                      size="sm"
+                      className="ml-4 border-yellow-500/50 bg-yellow-900/20 text-yellow-400 hover:bg-yellow-900/30"
+                    >
+                      <Search className="w-4 h-4 mr-2" />
+                      도구 검색
+                    </Button>
+                  </motion.div>
+                )}
+              </motion.div>
+              
+              {(task as any).hasToolRecommendation !== false && (
+                <motion.div
+                  className="bg-blue-800/30 rounded-md p-3 border border-blue-600"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.6 }}
+                >
                   <motion.p
-                    className="text-sm text-blue-300 leading-relaxed"
+                    className="text-xs text-blue-200"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3, delay: 0.7 }}
+                    transition={{ duration: 0.3, delay: 0.8 }}
                   >
-                    {generateUsageGuidance(task)}
+                    <strong>Tip:</strong> 전문 도구를 직접 검색하거나 전문가와 상담하세요.
                   </motion.p>
-                </div>
-              </motion.div>
-              <motion.div
-                className="bg-blue-800/30 rounded-md p-3 border border-blue-600"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.6 }}
-              >
-                <motion.p
-                  className="text-xs text-blue-200"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.8 }}
-                >
-                  <strong>Tip:</strong> Consider researching specialized tools
-                  or consulting with experts for this step.
-                </motion.p>
-              </motion.div>
+                </motion.div>
+              )}
             </motion.div>
           )}
 

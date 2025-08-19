@@ -20,10 +20,19 @@ const model = new ChatGoogleGenerativeAI({
 export const createTaskDecomposerChain = () => {
   const prompt = PromptTemplate.fromTemplate(`
     You are a highly-skilled project manager. Your task is to break down a user's goal into concrete, actionable sub-tasks.
-    The output MUST be a JSON object with a key "tasks", which contains an array of strings.
+    
+    CRITICAL: You MUST return a valid JSON object only. No explanations, no additional text.
+    The JSON must have exactly this format:
+    {{
+      "tasks": ["task1", "task2", "task3"]
+    }}
+    
     IMPORTANT: You MUST respond in the same language as the user's input. The user's goal is provided below in the language: {language}.
     
+    Break down this goal into 3-5 actionable tasks:
     User Goal: {goal}
+    
+    Return only the JSON object:
   `);
 
   const outputParser = new JsonOutputParser();
@@ -42,7 +51,30 @@ export const createTaskDecomposerChain = () => {
         cacheKey,
         async () => {
           try {
-            const result = await chain.invoke(input);
+            // Get raw response first for debugging
+            const rawResponse = await RunnableSequence.from([prompt, model, new StringOutputParser()]).invoke(input);
+            console.log("Raw LLM response:", rawResponse);
+            
+            let result;
+            try {
+              // Try to parse with JsonOutputParser
+              result = await chain.invoke(input);
+            } catch (jsonError) {
+              console.error("JSON parsing failed, attempting manual parsing:", jsonError);
+              
+              // Fallback: try to extract JSON manually from the raw response
+              const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                try {
+                  result = JSON.parse(jsonMatch[0]);
+                } catch (manualParseError) {
+                  console.error("Manual JSON parsing also failed:", manualParseError);
+                  throw new Error(`JSON parsing failed: ${jsonError instanceof Error ? jsonError.message : "Unknown error"}`);
+                }
+              } else {
+                throw new Error(`No valid JSON found in response: ${rawResponse}`);
+              }
+            }
 
             // Validate the result
             if (!result || !result.tasks || !Array.isArray(result.tasks)) {

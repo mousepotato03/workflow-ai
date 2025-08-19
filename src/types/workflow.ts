@@ -3,12 +3,23 @@ export interface WorkflowRequest {
   language: string;
 }
 
+// Subtask interface for workflow creation (without tool recommendations)
+export interface Subtask {
+  id: string;
+  name: string;
+  order: number;
+  recommendedTool: null; // Always null at creation
+  recommendationReason: string;
+  confidence: number; // Confidence in task decomposition
+}
+
 export interface WorkflowResponse {
   workflowId: string;
   tasks: {
     id: string;
     name: string;
     order: number;
+    // Tool recommendation is initially null and populated during guide generation
     recommendedTool: {
       id: string;
       name: string;
@@ -16,8 +27,8 @@ export interface WorkflowResponse {
       url: string;
     } | null;
     recommendationReason: string;
-    usageGuidance?: string; // New field for user-focused guidance
-    confidence: number;
+    usageGuidance?: string; // User-focused guidance text
+    confidence: number; // Confidence in the task decomposition (not tool recommendation)
   }[];
   status: "completed" | "processing" | "failed";
 }
