@@ -10,9 +10,40 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
     const category = searchParams.get("category") || "";
     const pricing = searchParams.get("pricing") || "";
+    const filter = searchParams.get("filter") || "All Tools";
     const sort = searchParams.get("sort") || "Popular";
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
+
+    // 북마크 필터가 적용된 경우 사용자 인증 확인
+    let userBookmarks: string[] = [];
+    if (filter === "Bookmarked Only") {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return NextResponse.json(
+          { error: "북마크 필터를 사용하려면 로그인이 필요합니다." },
+          { status: 401 }
+        );
+      }
+      
+      // 사용자의 북마크 가져오기
+      const { data: bookmarkData } = await supabase
+        .from("bookmarks")
+        .select("tool_id")
+        .eq("user_id", user.id);
+      
+      userBookmarks = bookmarkData?.map(bookmark => bookmark.tool_id) || [];
+      
+      // 북마크가 없는 경우 빈 결과 반환
+      if (userBookmarks.length === 0) {
+        return NextResponse.json({
+          tools: [],
+          categories: [],
+          total: 0,
+          hasMore: false,
+        });
+      }
+    }
 
     // 기본 쿼리 구성 - 별점 정보는 별도로 조회
     let query = supabase
@@ -33,6 +64,11 @@ export async function GET(request: NextRequest) {
       `
       )
       .eq("is_active", true);
+
+    // 북마크 필터 적용
+    if (filter === "Bookmarked Only" && userBookmarks.length > 0) {
+      query = query.in("id", userBookmarks);
+    }
 
     // 검색 필터 적용
     if (search) {

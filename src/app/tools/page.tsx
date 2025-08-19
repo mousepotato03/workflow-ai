@@ -58,14 +58,7 @@ interface ApiResponse {
 const sortOptions = ["Popular", "Latest", "Top Rated", "Most Reviewed"];
 const pricingOptions = ["All", "Free", "Paid"];
 
-interface ToolModalProps {
-  tool: Tool | null;
-  isOpen: boolean;
-  onClose: () => void;
-  onOpenReviews: (tool: Tool) => void;
-}
-
-interface ReviewModalProps {
+interface UnifiedModalProps {
   tool: Tool | null;
   isOpen: boolean;
   onClose: () => void;
@@ -138,13 +131,125 @@ function OptimizedImage({ src, alt, className, size = 64 }: {
   );
 }
 
-function ToolModal({ tool, isOpen, onClose, onOpenReviews }: ToolModalProps) {
+function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModalProps) {
+  const [activeTab, setActiveTab] = useState<'info' | 'reviews'>('info');
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [userRating, setUserRating] = useState<number | null>(null); // User's current rating for this tool
+
+  // Reset to info tab when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab('info');
+    }
+  }, [isOpen]);
+
+  // Fetch review data and user rating
+  const fetchReviews = async () => {
+    if (!tool || activeTab !== 'reviews') return;
+
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/reviews?tool_id=${tool.id}&limit=10`);
+      if (response.ok) {
+        const data = await response.json();
+        setReviews(data.reviews || []);
+        // Check if user has already rated this tool
+        setUserRating(data.userRating || null);
+        if (data.userRating) {
+          setRating(data.userRating);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch reviews:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Submit rating (one-time only)
+  const handleSubmitRating = async () => {
+    if (!tool || rating === 0 || userRating !== null) return;
+
+    try {
+      setSubmitting(true);
+      const response = await fetch("/api/reviews/rating", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tool_id: tool.id,
+          rating,
+        }),
+      });
+
+      if (response.ok) {
+        setUserRating(rating);
+        onReviewSubmitted();
+        fetchReviews(); // Refresh to update overall rating
+      } else {
+        const error = await response.json();
+        alert(error.error || "An error occurred while submitting the rating.");
+      }
+    } catch (error) {
+      console.error("Failed to submit rating:", error);
+      alert("An error occurred while submitting the rating.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Submit comment (multiple allowed)
+  const handleSubmitComment = async () => {
+    if (!tool || !comment.trim()) return;
+
+    try {
+      setSubmittingComment(true);
+      const response = await fetch("/api/reviews/comment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tool_id: tool.id,
+          comment: comment.trim(),
+        }),
+      });
+
+      if (response.ok) {
+        setComment("");
+        fetchReviews(); // Refresh reviews to show new comment
+      } else {
+        const error = await response.json();
+        alert(error.error || "An error occurred while submitting the comment.");
+      }
+    } catch (error) {
+      console.error("Failed to submit comment:", error);
+      alert("An error occurred while submitting the comment.");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  // Fetch reviews when switching to reviews tab
+  useEffect(() => {
+    if (activeTab === 'reviews' && tool) {
+      fetchReviews();
+    }
+  }, [activeTab, tool]);
+
   if (!isOpen || !tool) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl w-[1200px] h-[750px] overflow-y-auto border border-slate-700 shadow-2xl">
-        <div className="p-6">
+      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl w-[1200px] h-[750px] overflow-hidden border border-slate-700 shadow-2xl">
+        {/* Fixed Header */}
+        <div className="p-6 border-b border-slate-700">
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center space-x-4">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-xl flex items-center justify-center">
@@ -176,332 +281,273 @@ function ToolModal({ tool, isOpen, onClose, onOpenReviews }: ToolModalProps) {
               <ExternalLink className="w-4 h-4" />
             </Button>
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-1 text-slate-400">
-                <Users className="w-4 h-4" />
-                <span>{tool.reviewCount}</span>
+              <div className="flex items-center space-x-3 text-slate-400">
+                <div className="flex items-center space-x-1">
+                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                  <span className="text-white font-semibold">
+                    {tool.rating.toFixed(1)}
+                  </span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Users className="w-4 h-4" />
+                  <span>{tool.reviewCount} reviews</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="border-b border-slate-700 mb-6">
+          {/* Tab Navigation */}
+          <div className="border-b border-slate-700">
             <div className="flex space-x-6">
-              <button className="pb-3 border-b-2 border-blue-400 text-blue-400 font-medium">
+              <button 
+                className={`pb-3 font-medium transition-colors ${
+                  activeTab === 'info' 
+                    ? 'border-b-2 border-blue-400 text-blue-400' 
+                    : 'text-slate-400 hover:text-blue-400'
+                }`}
+                onClick={() => setActiveTab('info')}
+              >
                 Info
               </button>
               <button
-                className="pb-3 text-slate-400 font-medium hover:text-blue-400 transition-colors"
-                onClick={() => {
-                  onClose();
-                  onOpenReviews(tool);
-                }}
+                className={`pb-3 font-medium transition-colors ${
+                  activeTab === 'reviews' 
+                    ? 'border-b-2 border-blue-400 text-blue-400' 
+                    : 'text-slate-400 hover:text-blue-400'
+                }`}
+                onClick={() => setActiveTab('reviews')}
               >
                 Reviews ({tool.reviewCount})
               </button>
             </div>
           </div>
-
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-xl font-bold text-white mb-3">Description</h3>
-              <p className="text-slate-300 leading-relaxed mb-4">
-                {tool.description}
-              </p>
-              {tool.domains && tool.domains.length > 0 && (
-                <div>
-                  <h4 className="text-lg font-semibold text-white mb-2">
-                    Key Use Cases
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {tool.domains.map((domain, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="bg-slate-700 text-slate-300"
-                      >
-                        {domain}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <h3 className="text-xl font-bold text-white mb-4">Pros & Cons</h3>
-              <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-white text-xs">✓</span>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-green-400 mb-1">Pros</h4>
-                    <p className="text-muted-foreground text-sm">
-                      Improves productivity and efficiency with advanced AI
-                      capabilities.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-white text-xs">✕</span>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-red-400 mb-1">Cons</h4>
-                    <p className="text-muted-foreground text-sm">
-                      May require learning curve for optimal usage and
-                      customization.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
-    </div>
-  );
-}
 
-// Review modal component
-function ReviewModal({
-  tool,
-  isOpen,
-  onClose,
-  onReviewSubmitted,
-}: ReviewModalProps) {
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+        {/* Scrollable Content */}
+        <div className="h-[calc(750px-280px)] overflow-y-auto p-6">
+          {activeTab === 'info' ? (
+            // Info Content
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-bold text-white mb-3">Description</h3>
+                <p className="text-slate-300 leading-relaxed mb-4">
+                  {tool.description}
+                </p>
+                {tool.domains && tool.domains.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-white mb-2">
+                      Key Use Cases
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {tool.domains.map((domain, index) => (
+                        <Badge
+                          key={index}
+                          variant="secondary"
+                          className="bg-slate-700 text-slate-300"
+                        >
+                          {domain}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-  // Fetch review data
-  const fetchReviews = async () => {
-    if (!tool) return;
-
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/reviews?tool_id=${tool.id}&limit=10`);
-      if (response.ok) {
-        const data = await response.json();
-        setReviews(data.reviews || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch reviews:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Submit review
-  const handleSubmitReview = async () => {
-    if (!tool || rating === 0) return;
-
-    try {
-      setSubmitting(true);
-      const response = await fetch("/api/reviews", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tool_id: tool.id,
-          rating,
-          comment: comment.trim() || null,
-        }),
-      });
-
-      if (response.ok) {
-        setRating(0);
-        setComment("");
-        fetchReviews();
-        onReviewSubmitted();
-      } else {
-        const error = await response.json();
-        alert(error.error || "An error occurred while submitting the review.");
-      }
-    } catch (error) {
-      console.error("Failed to submit review:", error);
-      alert("An error occurred while submitting the review.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isOpen && tool) {
-      fetchReviews();
-    }
-  }, [isOpen, tool]);
-
-  if (!isOpen || !tool) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl w-[1200px] h-[750px] overflow-y-auto border border-slate-700 shadow-2xl">
-        <div className="p-6">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                {tool.name} Reviews
-              </h2>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-1">
-                  <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                  <span className="text-white font-semibold">
-                    {tool.rating.toFixed(1)}
-                  </span>
-                  <span className="text-slate-400">
-                    ({tool.reviewCount} reviews)
-                  </span>
+              <div>
+                <h3 className="text-xl font-bold text-white mb-4">Pros & Cons</h3>
+                <div className="space-y-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-green-400 mb-1">Pros</h4>
+                      <p className="text-muted-foreground text-sm">
+                        Improves productivity and efficiency with advanced AI
+                        capabilities.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-white text-xs">✕</span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-red-400 mb-1">Cons</h4>
+                      <p className="text-muted-foreground text-sm">
+                        May require learning curve for optimal usage and
+                        customization.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <Button
-              onClick={onClose}
-              variant="ghost"
-              size="sm"
-              className="text-slate-400 hover:text-white"
-            >
-              <X className="w-5 h-5" />
-            </Button>
-          </div>
-
-          {/* Review writing section */}
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-6 mb-6 border border-slate-700">
-            <h3 className="text-lg font-semibold text-white mb-4">
-              Write a Review
-            </h3>
-
-            {/* Rating selection */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Rating
-              </label>
-              <div className="flex items-center space-x-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => setRating(star)}
-                    className="p-1"
-                  >
-                    <Star
-                      className={`w-6 h-6 ${
-                        star <= rating
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-slate-400 hover:text-yellow-400"
-                      } transition-colors`}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Comment input */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Comment (optional)
-              </label>
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Share your experience with this tool..."
-                className="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder:text-slate-400 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                rows={3}
-                maxLength={500}
-              />
-              <div className="text-right text-sm text-slate-400 mt-1">
-                {comment.length}/500
-              </div>
-            </div>
-
-            <Button
-              onClick={handleSubmitReview}
-              disabled={rating === 0 || submitting}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:from-slate-600 disabled:to-slate-600 text-white font-medium px-6 py-2 rounded-lg transition-all duration-200"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Submitting...
-                </>
-              ) : (
-                "Submit Review"
-              )}
-            </Button>
-          </div>
-
-          {/* Review list */}
-          <div>
-            <h3 className="text-lg font-semibold text-white mb-4">
-              User Reviews
-            </h3>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-              </div>
-            ) : reviews.length === 0 ? (
-              <div className="text-center py-12">
-                <MessageCircle className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                <p className="text-slate-400 text-lg mb-2">
-                  No reviews yet
-                </p>
-                <p className="text-slate-500">
-                  Be the first to share your experience!
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {reviews.map((review) => (
-                  <div key={review.id} className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-5 border border-slate-700">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-sm font-bold">
-                            {review.users.full_name?.[0] || "U"}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-white font-medium">
-                            {review.users.full_name || "Anonymous User"}
-                          </p>
-                          <div className="flex items-center space-x-2">
-                            <div className="flex items-center">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`w-4 h-4 ${
-                                    i < review.rating
-                                      ? "fill-yellow-400 text-yellow-400"
-                                      : "text-slate-600"
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                            <span className="text-slate-400 text-sm">
-                              {new Date(review.created_at).toLocaleDateString(
-                                "ko-KR"
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    {review.comment && (
-                      <p className="text-slate-300 leading-relaxed">
-                        {review.comment}
-                      </p>
+          ) : (
+            // Reviews Content
+            <div className="space-y-6">
+              {/* Rating section (one-time only) */}
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg p-4 border border-slate-700 mb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold text-white">
+                      {userRating !== null ? 'Your Rating' : 'Rate this Tool'}
+                    </h3>
+                    {userRating !== null && (
+                      <p className="text-xs text-slate-400 mt-1">You have already rated this tool</p>
                     )}
                   </div>
-                ))}
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => userRating === null ? setRating(star) : null}
+                          className={`p-0.5 ${userRating !== null ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                          disabled={userRating !== null}
+                        >
+                          <Star
+                            className={`w-5 h-5 ${
+                              star <= rating
+                                ? "fill-yellow-400 text-yellow-400"
+                                : userRating !== null 
+                                  ? "text-slate-600" 
+                                  : "text-slate-400 hover:text-yellow-400"
+                            } transition-colors`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    {userRating === null && (
+                      <Button
+                        onClick={handleSubmitRating}
+                        disabled={rating === 0 || submitting}
+                        size="sm"
+                        className="bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 disabled:opacity-50 text-white font-medium px-3 py-1 text-sm transition-all duration-200"
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                            Rating...
+                          </>
+                        ) : (
+                          "Submit Rating"
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Comment section (multiple allowed) */}
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-lg p-4 border border-slate-700 mb-4">
+                <h3 className="text-base font-semibold text-white mb-3">
+                  Add a Comment
+                </h3>
+                <div>
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Share your thoughts about this tool..."
+                    className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-md text-white placeholder:text-slate-400 resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                    rows={2}
+                    maxLength={500}
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-slate-500">{comment.length}/500</span>
+                    <Button
+                      onClick={handleSubmitComment}
+                      disabled={!comment.trim() || submittingComment}
+                      size="sm"
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:from-slate-600 disabled:to-slate-600 text-white font-medium px-4 py-1 text-sm transition-all duration-200"
+                    >
+                      {submittingComment ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                          Posting...
+                        </>
+                      ) : (
+                        "Post Comment"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Review list */}
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4">
+                  User Reviews
+                </h3>
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                  </div>
+                ) : reviews.length === 0 ? (
+                  <div className="text-center py-12">
+                    <MessageCircle className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                    <p className="text-slate-400 text-lg mb-2">
+                      No reviews yet
+                    </p>
+                    <p className="text-slate-500">
+                      Be the first to share your experience!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {reviews.map((review) => (
+                      <div key={review.id} className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-5 border border-slate-700">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-sm font-bold">
+                                {review.users.full_name?.[0] || "U"}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-white font-medium">
+                                {review.users.full_name || "Anonymous User"}
+                              </p>
+                              <div className="flex items-center space-x-2">
+                                <div className="flex items-center">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={`w-4 h-4 ${
+                                        i < review.rating
+                                          ? "fill-yellow-400 text-yellow-400"
+                                          : "text-slate-600"
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-slate-400 text-sm">
+                                  {new Date(review.created_at).toLocaleDateString(
+                                    "ko-KR"
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        {review.comment && (
+                          <p className="text-slate-300 leading-relaxed">
+                            {review.comment}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
 
 // Skeleton Components
 function ToolCardSkeleton() {
@@ -587,9 +633,9 @@ export default function ToolsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSort, setSelectedSort] = useState("Popular");
   const [selectedPricing, setSelectedPricing] = useState("All");
+  const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // API 관련 상태
   const [tools, setTools] = useState<Tool[]>([]);
@@ -632,6 +678,7 @@ export default function ToolsPage() {
         search: searchQuery,
         pricing: selectedPricing,
         sort: selectedSort,
+        filter: showBookmarkedOnly ? "Bookmarked Only" : "All Tools",
         limit: "20",
         offset: currentOffset.toString(),
       });
@@ -644,7 +691,12 @@ export default function ToolsPage() {
       const data: ApiResponse = await response.json();
       
       if (loadMore) {
-        setTools(prev => [...prev, ...data.tools]);
+        setTools(prev => {
+          // 중복 제거: 기존 툴 ID들과 새로운 툴들을 합쳐서 중복 제거
+          const existingIds = new Set(prev.map(tool => tool.id));
+          const newTools = data.tools.filter(tool => !existingIds.has(tool.id));
+          return [...prev, ...newTools];
+        });
       } else {
         setTools(data.tools);
       }
@@ -701,10 +753,10 @@ export default function ToolsPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [loadingMore, hasMoreData, offset]);
 
-  // Reload immediately when price or sort changes
+  // Reload immediately when price, sort, or filter changes
   useEffect(() => {
     fetchTools();
-  }, [selectedPricing, selectedSort]);
+  }, [selectedPricing, selectedSort, showBookmarkedOnly]);
 
   // Bookmark toggle function
   const toggleBookmark = async (toolId: string, event?: React.MouseEvent) => {
@@ -750,7 +802,7 @@ export default function ToolsPage() {
       event.stopPropagation();
     }
     setSelectedTool(tool);
-    setIsReviewModalOpen(true);
+    setIsModalOpen(true);
   };
 
   const handleReviewSubmitted = () => {
@@ -763,6 +815,7 @@ export default function ToolsPage() {
     setSearchQuery("");
     setSelectedSort("Popular");
     setSelectedPricing("All");
+    setShowBookmarkedOnly(false);
   };
 
   const SidebarContent = () => {
@@ -841,6 +894,36 @@ export default function ToolsPage() {
             ))}
           </div>
         </div>
+
+        {/* Bookmarks Toggle */}
+        <div>
+          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">Bookmarks</h3>
+          <Button
+            onClick={() => {
+              if (bookmarks.size === 0) {
+                return;
+              }
+              setShowBookmarkedOnly(!showBookmarkedOnly);
+            }}
+            variant={showBookmarkedOnly ? "default" : "secondary"}
+            className={`w-full justify-start transition-all duration-200 ${
+              showBookmarkedOnly
+                ? "bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white shadow-lg"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
+            }`}
+            disabled={bookmarks.size === 0}
+          >
+            <Bookmark className={`w-4 h-4 mr-2 ${
+              showBookmarkedOnly ? "fill-current" : ""
+            }`} />
+            {showBookmarkedOnly ? "Show All Tools" : "Show Bookmarked Only"}
+            {bookmarks.size > 0 && (
+              <span className="ml-auto text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full">
+                {bookmarks.size}
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
     );
   };
@@ -904,6 +987,7 @@ export default function ToolsPage() {
                   {tools.length} {tools.length === 1 ? 'tool' : 'tools'} found
                   {searchQuery && ` for "${searchQuery}"`}
                   {selectedPricing !== "All" && ` (${selectedPricing})`}
+                  {showBookmarkedOnly && ` (Bookmarked)`}
                 </p>
               )}
             </div>
@@ -1085,20 +1169,10 @@ export default function ToolsPage() {
         </div>
       </div>
 
-      <ToolModal
+      <UnifiedModal
         tool={selectedTool}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onOpenReviews={(tool) => {
-          setSelectedTool(tool);
-          setIsReviewModalOpen(true);
-        }}
-      />
-
-      <ReviewModal
-        tool={selectedTool}
-        isOpen={isReviewModalOpen}
-        onClose={() => setIsReviewModalOpen(false)}
         onReviewSubmitted={handleReviewSubmitted}
       />
     </div>
