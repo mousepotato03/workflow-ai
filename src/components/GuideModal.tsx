@@ -47,6 +47,7 @@ interface GuideData {
   fromCache: boolean;
   createdAt: string;
   expiresAt: string;
+  isSearchFallback?: boolean;
 }
 
 interface GuideModalProps {
@@ -64,6 +65,7 @@ interface GenerationProgress {
   message: string;
   progress: number;
   sourceCount?: number;
+  isFallback?: boolean;
 }
 
 export function GuideModal({
@@ -89,7 +91,9 @@ export function GuideModal({
     try {
       // First, check if cached guide exists
       const cachedResponse = await fetch(
-        `/api/tools/${toolId}/guide?taskContext=${encodeURIComponent(taskContext)}&language=ko`
+        `/api/tools/${toolId}/guide?taskContext=${encodeURIComponent(
+          taskContext
+        )}&language=ko`
       );
 
       if (cachedResponse.ok) {
@@ -135,7 +139,7 @@ export function GuideModal({
           let currentEvent = "";
           for (const line of lines) {
             if (line.trim() === "") continue; // Skip empty lines
-            
+
             if (line.startsWith("event: ")) {
               currentEvent = line.slice(7).trim();
               console.log("SSE Event:", currentEvent);
@@ -144,7 +148,7 @@ export function GuideModal({
                 const dataStr = line.slice(6).trim();
                 console.log("SSE Data:", dataStr);
                 const data = JSON.parse(dataStr);
-                
+
                 if (currentEvent === "progress") {
                   console.log("Progress update:", data);
                   setProgress(data);
@@ -169,7 +173,9 @@ export function GuideModal({
       }
     } catch (err) {
       console.error("Guide generation error:", err);
-      setError(err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.");
+      setError(
+        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다."
+      );
       setIsLoading(false);
       setProgress(null);
     }
@@ -183,11 +189,16 @@ export function GuideModal({
 
   const getSectionIcon = (title: string) => {
     const titleLower = title.toLowerCase();
-    if (titleLower.includes("준비") || titleLower.includes("시작")) return <Target className="w-4 h-4" />;
-    if (titleLower.includes("단계") || titleLower.includes("사용법")) return <CheckCircle2 className="w-4 h-4" />;
-    if (titleLower.includes("주의") || titleLower.includes("경고")) return <AlertTriangle className="w-4 h-4" />;
-    if (titleLower.includes("팁") || titleLower.includes("활용")) return <Lightbulb className="w-4 h-4" />;
-    if (titleLower.includes("결과") || titleLower.includes("완료")) return <Star className="w-4 h-4" />;
+    if (titleLower.includes("준비") || titleLower.includes("시작"))
+      return <Target className="w-4 h-4" />;
+    if (titleLower.includes("단계") || titleLower.includes("사용법"))
+      return <CheckCircle2 className="w-4 h-4" />;
+    if (titleLower.includes("주의") || titleLower.includes("경고"))
+      return <AlertTriangle className="w-4 h-4" />;
+    if (titleLower.includes("팁") || titleLower.includes("활용"))
+      return <Lightbulb className="w-4 h-4" />;
+    if (titleLower.includes("결과") || titleLower.includes("완료"))
+      return <Star className="w-4 h-4" />;
     return <BookOpen className="w-4 h-4" />;
   };
 
@@ -212,7 +223,9 @@ export function GuideModal({
               </div>
             )}
             <div>
-              <span className="text-lg font-semibold">{toolName} 사용 가이드</span>
+              <span className="text-lg font-semibold">
+                {toolName} 사용 가이드
+              </span>
               <div className="text-sm text-muted-foreground mt-1">
                 {taskContext} 작업을 위한 상세 가이드
               </div>
@@ -227,7 +240,7 @@ export function GuideModal({
                 <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">상세 사용 가이드</h3>
                 <p className="text-muted-foreground mb-6 max-w-md">
-                  {toolName}을 사용하여 {taskContext} 작업을 수행하는 방법을 
+                  {toolName}을 사용하여 {taskContext} 작업을 수행하는 방법을
                   최신 정보를 바탕으로 상세하게 안내해드립니다.
                 </p>
                 <Button onClick={generateGuide} size="lg">
@@ -244,7 +257,9 @@ export function GuideModal({
                 <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
                 {progress && (
                   <>
-                    <h3 className="text-lg font-semibold mb-2">{progress.message}</h3>
+                    <h3 className="text-lg font-semibold mb-2">
+                      {progress.message}
+                    </h3>
                     <div className="w-full bg-muted rounded-full h-2 mb-4">
                       <div
                         className="bg-primary h-2 rounded-full transition-all duration-300"
@@ -253,8 +268,18 @@ export function GuideModal({
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {progress.progress}% 완료
-                      {progress.sourceCount && ` • ${progress.sourceCount}개 참고자료`}
+                      {progress.sourceCount &&
+                        ` • ${progress.sourceCount}개 참고자료`}
                     </p>
+                    {progress.isFallback && (
+                      <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 text-amber-900 p-3 text-xs flex items-start gap-2 text-left">
+                        <AlertTriangle className="w-4 h-4 mt-0.5" />
+                        <div>
+                          웹 검색에 일시적인 문제가 감지되어 제한된 참고 자료로
+                          가이드를 생성 중입니다.
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
                 {!progress && (
@@ -271,9 +296,7 @@ export function GuideModal({
               <div className="text-center">
                 <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">오류 발생</h3>
-                <p className="text-muted-foreground mb-6 max-w-md">
-                  {error}
-                </p>
+                <p className="text-muted-foreground mb-6 max-w-md">{error}</p>
                 <Button onClick={generateGuide} variant="outline">
                   다시 시도
                 </Button>
@@ -284,10 +307,20 @@ export function GuideModal({
           {guideData && (
             <ScrollArea className="flex-1 pr-4">
               <div className="space-y-6">
+                {(guideData.isSearchFallback || progress?.isFallback) && (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 p-3 text-sm flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5" />
+                    <div>
+                      최신 웹 검색에 일시적인 문제가 있어 제한된 참고 자료로
+                      가이드를 생성했습니다. 나중에 다시 시도하거나 공식 문서를
+                      함께 확인해주세요.
+                    </div>
+                  </div>
+                )}
                 {/* Header with tool info and confidence */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Button 
+                    <Button
                       onClick={handleToolClick}
                       variant="outline"
                       size="sm"
@@ -304,9 +337,15 @@ export function GuideModal({
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">신뢰도</span>
+                    <span className="text-sm text-muted-foreground">
+                      신뢰도
+                    </span>
                     <Badge
-                      variant={guideData.confidenceScore > 0.7 ? "default" : "secondary"}
+                      variant={
+                        guideData.confidenceScore > 0.7
+                          ? "default"
+                          : "secondary"
+                      }
                       className="flex items-center gap-1"
                     >
                       <Star className="w-3 h-3" />
@@ -321,18 +360,23 @@ export function GuideModal({
                     <BookOpen className="w-4 h-4" />
                     요약
                   </h3>
-                  <p className="text-sm leading-relaxed">{guideData.guide.summary}</p>
+                  <p className="text-sm leading-relaxed">
+                    {guideData.guide.summary}
+                  </p>
                 </div>
 
                 {/* Guide sections */}
                 <div className="space-y-4">
                   {guideData.guide.sections.map((section, index) => (
-                    <div key={index} className="border border-border rounded-lg p-4">
+                    <div
+                      key={index}
+                      className="border border-border rounded-lg p-4"
+                    >
                       <h3 className="font-semibold mb-3 flex items-center gap-2">
                         {getSectionIcon(section.title)}
                         {section.title}
                       </h3>
-                      
+
                       {section.content && (
                         <div className="mb-3">
                           <p className="text-sm leading-relaxed whitespace-pre-line">

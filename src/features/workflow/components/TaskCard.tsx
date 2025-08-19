@@ -15,6 +15,8 @@ import {
   FileText,
   Download,
   Search,
+  XCircle,
+  RefreshCw,
 } from "lucide-react";
 import { WorkflowResponse } from "@/types/workflow";
 import { GuideModal } from "@/components/GuideModal";
@@ -24,6 +26,7 @@ interface TaskCardProps {
   hasDetailedGuide?: boolean;
   onDownloadGuide?: () => void;
   onSearchTools?: (taskId: string) => void;
+  onRetryGuide?: (taskId: string) => void;
 }
 
 export function TaskCard({
@@ -31,6 +34,7 @@ export function TaskCard({
   hasDetailedGuide = false,
   onDownloadGuide,
   onSearchTools,
+  onRetryGuide,
 }: TaskCardProps) {
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
@@ -47,6 +51,12 @@ export function TaskCard({
   const handleSearchTools = () => {
     if (onSearchTools) {
       onSearchTools(task.id);
+    }
+  };
+
+  const handleRetryGuide = () => {
+    if (onRetryGuide) {
+      onRetryGuide(task.id);
     }
   };
 
@@ -349,6 +359,91 @@ export function TaskCard({
                     </motion.p>
                   </div>
                 </div>
+              </motion.div>
+            </motion.div>
+          ) : task.guideGenerationStatus === "failed" ? (
+            <motion.div
+              className="bg-red-900/30 border border-red-700 rounded-lg p-5 space-y-4"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              transition={{ duration: 0.5, delay: 0.3, ease: "easeOut" }}
+            >
+              <motion.div
+                className="flex items-start justify-between"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.4 }}
+              >
+                <div className="flex items-start space-x-3 flex-1">
+                  <motion.div
+                    className="w-6 h-6 bg-red-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.5, type: "spring" }}
+                  >
+                    <XCircle className="w-4 h-4 text-white" />
+                  </motion.div>
+                  <div className="flex-1">
+                    <motion.h5
+                      className="font-medium text-red-200 mb-2"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3, delay: 0.6 }}
+                    >
+                      Guide Generation Failed
+                    </motion.h5>
+                    <motion.p
+                      className="text-sm text-red-300 leading-relaxed mb-3"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3, delay: 0.7 }}
+                    >
+                      {task.guideGenerationError || "Unable to generate automated guide for this task."}
+                    </motion.p>
+                    <motion.p
+                      className="text-sm text-red-300 leading-relaxed"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3, delay: 0.8 }}
+                    >
+                      Please perform this task manually or try searching for alternative tools and approaches.
+                    </motion.p>
+                  </div>
+                </div>
+                
+                {onRetryGuide && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: 0.6 }}
+                  >
+                    <Button
+                      onClick={handleRetryGuide}
+                      variant="outline"
+                      size="sm"
+                      className="ml-4 border-red-500/50 bg-red-900/20 text-red-400 hover:bg-red-900/30"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Retry Guide
+                    </Button>
+                  </motion.div>
+                )}
+              </motion.div>
+              
+              <motion.div
+                className="bg-red-800/30 rounded-md p-3 border border-red-600"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.8 }}
+              >
+                <motion.p
+                  className="text-xs text-red-200"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3, delay: 0.9 }}
+                >
+                  <strong>Alternative approaches:</strong> Consider breaking this task into smaller steps, consulting subject matter experts, or using general-purpose tools for this workflow step.
+                </motion.p>
               </motion.div>
             </motion.div>
           ) : (

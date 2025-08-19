@@ -35,6 +35,7 @@ interface WorkflowState {
   selectedTask: string | null;
   isGeneratingGuides: boolean;
   generatedGuides: Map<string, GuideGenerationStatus>;
+  resetVersion: number;
   setWorkflowResult: (result: WorkflowResponse | null) => void;
   setIsLoading: (loading: boolean) => void;
   setUserGoal: (goal: string | null) => void;
@@ -42,6 +43,7 @@ interface WorkflowState {
   setIsGeneratingGuides: (isGenerating: boolean) => void;
   setGuideStatus: (taskId: string, status: GuideGenerationStatus) => void;
   clearWorkflow: () => void;
+  triggerReset: () => void;
   addTask: (name: string) => string;
   updateTask: (taskId: string, name: string) => void;
   deleteTask: (taskId: string) => void;
@@ -62,6 +64,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   selectedTask: null,
   isGeneratingGuides: false,
   generatedGuides: new Map(),
+  resetVersion: 0,
   setWorkflowResult: (result) => set({ workflowResult: result }),
   setIsLoading: (loading) => set({ isLoading: loading }),
   setUserGoal: (goal) => set({ userGoal: goal }),
@@ -83,6 +86,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       isGeneratingGuides: false,
       generatedGuides: new Map(),
     }),
+
+  triggerReset: () => {
+    const current = get();
+    set({
+      workflowResult: null,
+      isLoading: false,
+      userGoal: null,
+      selectedTask: null,
+      isGeneratingGuides: false,
+      generatedGuides: new Map(),
+      resetVersion: current.resetVersion + 1,
+    });
+  },
 
   addTask: (name: string) => {
     const { workflowResult } = get();

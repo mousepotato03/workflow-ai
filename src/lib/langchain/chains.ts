@@ -35,7 +35,7 @@ export const createTaskDecomposerChain = () => {
     Return only the JSON object:
   `);
 
-  const outputParser = new JsonOutputParser();
+  const outputParser = new StringOutputParser();
   const chain = RunnableSequence.from([prompt, model, outputParser]);
 
   // Return wrapped chain with caching
@@ -51,44 +51,31 @@ export const createTaskDecomposerChain = () => {
         cacheKey,
         async () => {
           try {
-            // Get raw response first for debugging
-            const rawResponse = await RunnableSequence.from([prompt, model, new StringOutputParser()]).invoke(input);
-            console.log("Raw LLM response:", rawResponse);
+            // Get string response from LLM
+            const rawResponse = await chain.invoke(input);
             
+            // Parse JSON manually
             let result;
             try {
-              // Try to parse with JsonOutputParser
-              result = await chain.invoke(input);
-            } catch (jsonError) {
-              console.error("JSON parsing failed, attempting manual parsing:", jsonError);
-              
-              // Fallback: try to extract JSON manually from the raw response
+              // Try to find JSON in the response
               const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
-                try {
-                  result = JSON.parse(jsonMatch[0]);
-                } catch (manualParseError) {
-                  console.error("Manual JSON parsing also failed:", manualParseError);
-                  throw new Error(`JSON parsing failed: ${jsonError instanceof Error ? jsonError.message : "Unknown error"}`);
-                }
+                result = JSON.parse(jsonMatch[0]);
               } else {
-                throw new Error(`No valid JSON found in response: ${rawResponse}`);
+                // If no JSON brackets found, try parsing the whole response
+                result = JSON.parse(rawResponse);
               }
+            } catch (parseError) {
+              throw new Error("Failed to parse LLM response as JSON");
             }
 
-            // Validate the result
+            // Validate result
             if (!result || !result.tasks || !Array.isArray(result.tasks)) {
               throw new Error("Invalid task decomposition result format");
             }
             
             return result;
           } catch (error) {
-            // Enhanced error logging
-            console.error("Task decomposition failed:", {
-              error: error instanceof Error ? error.message : "Unknown error",
-              input,
-              timestamp: new Date().toISOString(),
-            });
             throw error;
           }
         }

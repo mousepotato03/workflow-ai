@@ -7,6 +7,7 @@ import { GitBranch, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import LoginButton from "@/components/LoginButton";
+import { useWorkflowStore } from "@/features/workflow/hooks/useWorkflowStore";
 
 const navigationItems = [
   { name: "Home", href: "/" },
@@ -17,6 +18,7 @@ const navigationItems = [
 
 export function Navigation() {
   const pathname = usePathname();
+  const triggerReset = useWorkflowStore((s) => s.triggerReset);
 
   return (
     <header className="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-50">
@@ -25,6 +27,10 @@ export function Navigation() {
           {/* Logo */}
           <Link
             href="/"
+            onClick={() => {
+              // 로고 클릭 시 워크플로우 상태 초기화
+              triggerReset();
+            }}
             className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
           >
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">

@@ -29,6 +29,8 @@ export interface WorkflowResponse {
     recommendationReason: string;
     usageGuidance?: string; // User-focused guidance text
     confidence: number; // Confidence in the task decomposition (not tool recommendation)
+    guideGenerationStatus?: "pending" | "generating" | "success" | "failed";
+    guideGenerationError?: string; // Error message for failed guide generation
   }[];
   status: "completed" | "processing" | "failed";
 }

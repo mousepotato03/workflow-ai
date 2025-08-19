@@ -33,6 +33,9 @@ export function WorkflowResultDisplay() {
   const [generatedGuides, setGeneratedGuides] = useState<
     Record<string, string>
   >({});
+  const [failedGuides, setFailedGuides] = useState<
+    Record<string, string>
+  >({});
 
   const handleStartOver = () => {
     clearWorkflow();
@@ -46,6 +49,19 @@ export function WorkflowResultDisplay() {
     setGeneratedGuides((prev) => ({
       ...prev,
       [taskId]: guide,
+    }));
+    // Remove from failed guides if it was previously failed
+    setFailedGuides((prev) => {
+      const newFailed = { ...prev };
+      delete newFailed[taskId];
+      return newFailed;
+    });
+  };
+
+  const handleGuideGenerationFailed = (taskId: string, error: string) => {
+    setFailedGuides((prev) => ({
+      ...prev,
+      [taskId]: error,
     }));
   };
 
@@ -62,6 +78,18 @@ export function WorkflowResultDisplay() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
+  };
+
+  const handleRetryGuide = (taskId: string) => {
+    // This would trigger guide regeneration for the specific task
+    // Implementation would depend on your guide generation service
+    toast({
+      title: "Retrying Guide Generation",
+      description: "Attempting to generate guide again for this task...",
+    });
+    
+    // TODO: Implement actual retry logic here
+    // You might want to call the guide generation service again
   };
 
   // No result state
@@ -214,6 +242,7 @@ export function WorkflowResultDisplay() {
           <GuideGenerationSection
             tasks={workflowResult.tasks}
             onGuideGenerated={handleGuideGenerated}
+            onGuideGenerationFailed={handleGuideGenerationFailed}
           />
         </motion.div>
       )}
@@ -269,11 +298,20 @@ export function WorkflowResultDisplay() {
               transition={{ duration: 0.6 }}
             >
               <TaskCard
-                task={task}
+                task={{
+                  ...task,
+                  guideGenerationStatus: failedGuides[task.id || `task-${index}`] 
+                    ? "failed" 
+                    : generatedGuides[task.id || `task-${index}`] 
+                      ? "success" 
+                      : undefined,
+                  guideGenerationError: failedGuides[task.id || `task-${index}`]
+                }}
                 hasDetailedGuide={!!generatedGuides[task.id || `task-${index}`]}
                 onDownloadGuide={() =>
                   handleDownloadTaskGuide(task.id || `task-${index}`, task.name)
                 }
+                onRetryGuide={handleRetryGuide}
               />
             </motion.div>
           ))}

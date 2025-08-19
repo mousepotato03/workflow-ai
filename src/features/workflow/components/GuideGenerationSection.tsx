@@ -38,6 +38,7 @@ interface Task {
 interface GuideGenerationSectionProps {
   tasks: WorkflowResponse["tasks"];
   onGuideGenerated: (taskId: string, guide: string) => void;
+  onGuideGenerationFailed?: (taskId: string, error: string) => void;
 }
 
 interface GuideGenerationStatus {
@@ -51,6 +52,7 @@ interface GuideGenerationStatus {
 export function GuideGenerationSection({
   tasks,
   onGuideGenerated,
+  onGuideGenerationFailed,
 }: GuideGenerationSectionProps) {
   const { toast } = useToast();
   const [generationStatuses, setGenerationStatuses] = useState<
@@ -146,10 +148,17 @@ export function GuideGenerationSection({
 
     } catch (error) {
       console.error("Guide generation error for task:", task.id, error);
+      const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
+      
       updateTaskStatus(task.id, {
         status: "error",
-        error: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
+        error: errorMessage,
       });
+
+      // Notify parent component about the failure
+      if (onGuideGenerationFailed) {
+        onGuideGenerationFailed(task.id, errorMessage);
+      }
 
       toast({
         title: "가이드 생성 실패",
@@ -251,10 +260,17 @@ export function GuideGenerationSection({
 
     } catch (error) {
       console.error("Guide retry error for task:", taskId, error);
+      const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
+      
       updateTaskStatus(taskId, {
         status: "error",
-        error: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
+        error: errorMessage,
       });
+
+      // Notify parent component about the failure
+      if (onGuideGenerationFailed) {
+        onGuideGenerationFailed(taskId, errorMessage);
+      }
 
       toast({
         title: "가이드 재생성 실패",
@@ -386,112 +402,188 @@ export function GuideGenerationSection({
         </CardHeader>
 
         <CardContent className="space-y-6">
-          <div className="grid gap-4">
-            {tasks.map((task, index) => {
-              const status = generationStatuses[task.id] || {
-                status: "pending" as const,
-                progress: 0,
-                taskId: task.id,
-              };
+          <div className="flex gap-6 h-[600px]">
+            {/* 서브태스크 뷰 - 40% 너비 */}
+            <div className="flex-[4] space-y-4 overflow-y-auto pr-2">
+              <h3 className="text-lg font-semibold text-foreground sticky top-0 bg-card z-10 pb-2">
+                작업 목록
+              </h3>
+              {tasks.map((task, index) => {
+                const status = generationStatuses[task.id] || {
+                  status: "pending" as const,
+                  progress: 0,
+                  taskId: task.id,
+                };
 
-              return (
-                <motion.div
-                  key={task.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                >
-                  <Card className="border border-border/50 bg-card/50">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-3">
+                return (
+                  <motion.div
+                    key={task.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: index * 0.1 }}
+                  >
+                    <Card className="border border-border/50 bg-card/50">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
+                              {getStatusIcon(status.status)}
+                              <Badge
+                                variant="outline"
+                                className={`${getStatusColor(status.status)}`}
+                              >
+                                {getStatusText(status.status)}
+                              </Badge>
+                            </div>
+                            <h4 className="font-medium text-foreground text-sm">
+                              {task.name}
+                            </h4>
+                          </div>
+
                           <div className="flex items-center space-x-2">
-                            {getStatusIcon(status.status)}
-                            <Badge
-                              variant="outline"
-                              className={`${getStatusColor(status.status)}`}
-                            >
-                              {getStatusText(status.status)}
-                            </Badge>
+                            {task.recommendedTool && (
+                              <Badge variant="secondary" className="text-xs">
+                                {task.recommendedTool.name}
+                              </Badge>
+                            )}
+                            {status.status === "error" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => retryGuideGeneration(task.id)}
+                                className="text-xs"
+                              >
+                                재시도
+                              </Button>
+                            )}
                           </div>
-                          <h4 className="font-medium text-foreground">
-                            {task.name}
-                          </h4>
                         </div>
 
-                        <div className="flex items-center space-x-2">
-                          {task.recommendedTool && (
-                            <Badge variant="secondary" className="text-xs">
-                              {task.recommendedTool.name}
-                            </Badge>
-                          )}
-                          {status.status === "error" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => retryGuideGeneration(task.id)}
-                              className="text-xs"
-                            >
-                              재시도
-                            </Button>
-                          )}
-                        </div>
+                        {status.status === "generating" && (
+                          <div className="space-y-2">
+                            <Progress value={status.progress} className="h-2" />
+                            <p className="text-xs text-muted-foreground text-center">
+                              가이드 생성 중... {status.progress}%
+                            </p>
+                          </div>
+                        )}
+
+                        {status.status === "completed" && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            className="space-y-3"
+                          >
+                            <div className="flex items-center justify-between">
+                              <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                가이드 생성 완료
+                              </Badge>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (status.guide) {
+                                    onGuideGenerated(task.id, status.guide);
+                                  }
+                                }}
+                                className="text-xs"
+                              >
+                                <Download className="w-3 h-3 mr-1" />
+                                다운로드
+                              </Button>
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {status.status === "error" && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            className="space-y-2"
+                          >
+                            <div className="flex items-center space-x-2 text-red-500">
+                              <AlertTriangle className="w-4 h-4" />
+                              <span className="text-sm">{status.error}</span>
+                            </div>
+                          </motion.div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* 가이드 뷰 - 60% 너비 */}
+            <div className="flex-[6] border-l border-border/50 pl-6">
+              <div className="h-full flex flex-col">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
+                  생성된 가이드
+                </h3>
+                <div className="flex-1 overflow-y-auto">
+                  {Object.keys(generationStatuses).length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      <div className="text-center space-y-3">
+                        <BookOpen className="w-12 h-12 mx-auto opacity-50" />
+                        <p>가이드 생성을 시작하면 여기에 결과가 표시됩니다.</p>
                       </div>
-
-                      {status.status === "generating" && (
-                        <div className="space-y-2">
-                          <Progress value={status.progress} className="h-2" />
-                          <p className="text-xs text-muted-foreground text-center">
-                            가이드 생성 중... {status.progress}%
-                          </p>
-                        </div>
-                      )}
-
-                      {status.status === "completed" && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          className="space-y-3"
-                        >
-                          <div className="flex items-center justify-between">
-                            <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
-                              가이드 생성 완료
-                            </Badge>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                if (status.guide) {
-                                  onGuideGenerated(task.id, status.guide);
-                                }
-                              }}
-                              className="text-xs"
-                            >
-                              <Download className="w-3 h-3 mr-1" />
-                              다운로드
-                            </Button>
-                          </div>
-                        </motion.div>
-                      )}
-
-                      {status.status === "error" && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          className="space-y-2"
-                        >
-                          <div className="flex items-center space-x-2 text-red-500">
-                            <AlertTriangle className="w-4 h-4" />
-                            <span className="text-sm">{status.error}</span>
-                          </div>
-                        </motion.div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {Object.entries(generationStatuses).map(([taskId, status]) => {
+                        const task = tasks.find(t => t.id === taskId);
+                        if (!task || status.status !== "completed" || !status.guide) return null;
+                        
+                        return (
+                          <motion.div
+                            key={taskId}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="space-y-3"
+                          >
+                            <Card className="border border-green-500/20 bg-green-500/5">
+                              <CardHeader className="pb-3">
+                                <div className="flex items-center justify-between">
+                                  <CardTitle className="text-lg text-green-400 flex items-center gap-2">
+                                    <CheckCircle2 className="w-5 h-5" />
+                                    {task.name}
+                                  </CardTitle>
+                                  <Badge variant="secondary" className="bg-green-500/10 text-green-500">
+                                    완료됨
+                                  </Badge>
+                                </div>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="bg-card/50 rounded-lg p-4 max-h-60 overflow-y-auto">
+                                  <pre className="text-sm text-foreground/90 whitespace-pre-wrap font-mono">
+                                    {status.guide.slice(0, 500)}...
+                                  </pre>
+                                </div>
+                                <div className="mt-3 flex justify-end">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      if (status.guide) {
+                                        onGuideGenerated(taskId, status.guide);
+                                      }
+                                    }}
+                                  >
+                                    <Download className="w-4 h-4 mr-2" />
+                                    전체 가이드 다운로드
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

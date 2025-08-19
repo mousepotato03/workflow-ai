@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -61,7 +61,8 @@ interface WorkflowInputFormProps {
 
 export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
   const { toast } = useToast();
-  const { setWorkflowResult, setIsLoading, setUserGoal } = useWorkflowStore();
+  const { setWorkflowResult, setIsLoading, setUserGoal, resetVersion } =
+    useWorkflowStore();
 
   const {
     register,
@@ -77,6 +78,14 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
   });
 
   const goalValue = watch("goal");
+
+  // resetVersion이 증가하면 폼과 로컬 상태 초기화
+  useEffect(() => {
+    reset({ goal: "" });
+    setWorkflowResult(null);
+    setIsLoading(false);
+    setUserGoal(null);
+  }, [resetVersion]);
 
   const mutation = useMutation({
     mutationFn: createWorkflowMutation,
