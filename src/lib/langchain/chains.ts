@@ -41,9 +41,33 @@ export const createTaskDecomposerChain = () => {
   // Return wrapped chain with caching
   return {
     async invoke(input: { goal: string; language: string }) {
+      // 입력값 사전 검증 - 빈 goal 방지
+      if (!input.goal || input.goal.trim().length === 0) {
+        console.error("=== INPUT VALIDATION FAILED ===");
+        console.error("Goal is empty or contains only whitespace");
+        console.error("Input object:", JSON.stringify(input, null, 2));
+        console.error("Goal length:", input.goal?.length || 0);
+        console.error("Goal trimmed length:", input.goal?.trim().length || 0);
+        console.error("=== END VALIDATION ERROR ===");
+        throw new Error(
+          "Goal is required for task decomposition. Cannot proceed with empty goal."
+        );
+      }
+
+      // 입력값 정규화 및 로깅
+      const normalizedGoal = input.goal.trim();
+      const normalizedLanguage = input.language.trim();
+
+      console.log("=== INPUT VALIDATION PASSED ===");
+      console.log("Original goal:", JSON.stringify(input.goal));
+      console.log("Normalized goal:", JSON.stringify(normalizedGoal));
+      console.log("Goal length:", normalizedGoal.length);
+      console.log("Language:", normalizedLanguage);
+      console.log("=== END VALIDATION ===");
+
       const cacheKey = CacheUtils.generateKey({
-        goal: input.goal.toLowerCase().trim(),
-        language: input.language,
+        goal: normalizedGoal.toLowerCase(),
+        language: normalizedLanguage,
       });
 
       return await CacheUtils.withCache(
@@ -51,31 +75,91 @@ export const createTaskDecomposerChain = () => {
         cacheKey,
         async () => {
           try {
-            // Get string response from LLM
-            const rawResponse = await chain.invoke(input);
-            
-            // Parse JSON manually
-            let result;
-            try {
-              // Try to find JSON in the response
-              const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-              if (jsonMatch) {
-                result = JSON.parse(jsonMatch[0]);
-              } else {
-                // If no JSON brackets found, try parsing the whole response
-                result = JSON.parse(rawResponse);
-              }
-            } catch (parseError) {
-              throw new Error("Failed to parse LLM response as JSON");
+            // 정규화된 입력으로 LLM 호출
+            const rawResponse = await chain.invoke({
+              goal: normalizedGoal,
+              language: normalizedLanguage,
+            });
+
+            // 개선된 raw response 로깅
+            console.log("=== RAW LLM RESPONSE ===");
+            console.log("Response type:", typeof rawResponse);
+            console.log(
+              "Response constructor:",
+              rawResponse?.constructor?.name
+            );
+            console.log("Response length:", rawResponse?.length || 0);
+            console.log("Raw response:", rawResponse);
+            console.dir(rawResponse, { depth: null });
+            console.log("=== END LLM RESPONSE ===");
+
+            // 빈 응답 검증 강화
+            if (!rawResponse) {
+              throw new Error("LLM returned null/undefined response");
             }
 
-            // Validate result
-            if (!result || !result.tasks || !Array.isArray(result.tasks)) {
-              throw new Error("Invalid task decomposition result format");
+            const responseString = String(rawResponse);
+            if (responseString.trim().length === 0) {
+              throw new Error("LLM returned an empty string response");
             }
-            
+
+            // JSON 파싱 시도
+            let result;
+            try {
+              // JSON 객체 찾기 시도
+              const jsonMatch = responseString.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                console.log("Found JSON match:", jsonMatch[0]);
+                result = JSON.parse(jsonMatch[0]);
+              } else {
+                // 전체 응답을 JSON으로 파싱 시도
+                console.log(
+                  "No JSON brackets found, trying to parse entire response"
+                );
+                result = JSON.parse(responseString);
+              }
+            } catch (parseError) {
+              console.error("=== JSON PARSE ERROR ===");
+              console.error("Parse error:", parseError);
+              console.error("Response that failed to parse:", responseString);
+              console.error("=== END PARSE ERROR ===");
+              const errorMessage =
+                parseError instanceof Error
+                  ? parseError.message
+                  : String(parseError);
+              throw new Error(
+                `Failed to parse LLM response as JSON: ${errorMessage}`
+              );
+            }
+
+            // 결과 검증
+            if (!result || !result.tasks || !Array.isArray(result.tasks)) {
+              console.error("=== RESULT VALIDATION FAILED ===");
+              console.error("Parsed result:", result);
+              console.error("Tasks array:", result?.tasks);
+              console.error("=== END VALIDATION ERROR ===");
+              throw new Error(
+                "Invalid task decomposition result format - missing or invalid tasks array"
+              );
+            }
+
+            console.log("=== SUCCESS ===");
+            console.log("Final result:", JSON.stringify(result, null, 2));
+            console.log("=== END SUCCESS ===");
+
             return result;
           } catch (error) {
+            console.error("=== CHAIN INVOKE ERROR ===");
+            console.error("Error type:", error?.constructor?.name || "Unknown");
+            console.error(
+              "Error message:",
+              error instanceof Error ? error.message : String(error)
+            );
+            console.error(
+              "Error stack:",
+              error instanceof Error ? error.stack : "No stack trace"
+            );
+            console.error("=== END ERROR ===");
             throw error;
           }
         }

@@ -35,7 +35,13 @@ export const createToolRetriever = (k: number = 3) => {
 // Fallback: Keyword-based tool search when vector search fails
 export const searchToolsByKeywords = async (
   query: string,
-  limit: number = 3
+  limit: number = 3,
+  userPreferences?: {
+    categories?: string[];
+    difficulty_level?: string;
+    budget_range?: string;
+    freeToolsOnly?: boolean;
+  }
 ): Promise<Document[]> => {
   try {
     // Clean query for safe searching
@@ -45,41 +51,54 @@ export const searchToolsByKeywords = async (
     let tools = null;
     let error = null;
 
-    // Strategy 1: Simple name and description search
-    ({ data: tools, error } = await supabaseClient
-      .from("tools")
-      .select("*")
-      .eq("is_active", true)
-      .ilike("name", `%${cleanQuery}%`)
-      .limit(limit));
+    // Build query with free tools filter
+    const buildQuery = (query: any) => {
+      if (userPreferences?.freeToolsOnly) {
+        // Filter for free tools: cost_index is null or 0
+        query = query.or("cost_index.is.null,cost_index.eq.0");
+      }
+      return query;
+    };
 
-    if (error || !tools || tools.length === 0) {
-      // Strategy 2: Search in description
-      ({ data: tools, error } = await supabaseClient
+    // Strategy 1: Simple name and description search
+    ({ data: tools, error } = await buildQuery(
+      supabaseClient
         .from("tools")
         .select("*")
         .eq("is_active", true)
-        .ilike("description", `%${cleanQuery}%`)
-        .limit(limit));
+        .ilike("name", `%${cleanQuery}%`)
+    ).limit(limit));
+
+    if (error || !tools || tools.length === 0) {
+      // Strategy 2: Search in description
+      ({ data: tools, error } = await buildQuery(
+        supabaseClient
+          .from("tools")
+          .select("*")
+          .eq("is_active", true)
+          .ilike("description", `%${cleanQuery}%`)
+      ).limit(limit));
     }
 
     if (error || !tools || tools.length === 0) {
       // Strategy 3: Search in embedding_text
-      ({ data: tools, error } = await supabaseClient
-        .from("tools")
-        .select("*")
-        .eq("is_active", true)
-        .ilike("embedding_text", `%${cleanQuery}%`)
-        .limit(limit));
+      ({ data: tools, error } = await buildQuery(
+        supabaseClient
+          .from("tools")
+          .select("*")
+          .eq("is_active", true)
+          .ilike("embedding_text", `%${cleanQuery}%`)
+      ).limit(limit));
     }
 
     if (error || !tools || tools.length === 0) {
       // Ultimate fallback: return all active tools
-      ({ data: tools, error } = await supabaseClient
-        .from("tools")
-        .select("*")
-        .eq("is_active", true)
-        .limit(limit));
+      ({ data: tools, error } = await buildQuery(
+        supabaseClient
+          .from("tools")
+          .select("*")
+          .eq("is_active", true)
+      ).limit(limit));
     }
 
     if (error) throw error;
@@ -159,17 +178,23 @@ export const smartSearchTools = async (
     }
 
     // Fallback to keyword search
-    return await searchToolsByKeywords(query, k);
+    return await searchToolsByKeywords(query, k, userPreferences);
   } catch (error) {
     console.warn("Smart search failed, falling back to keyword search:", error);
-    return await searchToolsByKeywords(query, k);
+    return await searchToolsByKeywords(query, k, userPreferences);
   }
 };
 
 // Hybrid search combining vector and text search
 export const hybridSearchTools = async (
   query: string,
-  k: number = 3
+  k: number = 3,
+  userPreferences?: {
+    categories?: string[];
+    difficulty_level?: string;
+    budget_range?: string;
+    freeToolsOnly?: boolean;
+  }
 ): Promise<Document[]> => {
   try {
     // Generate embedding for the query
@@ -213,13 +238,13 @@ export const hybridSearchTools = async (
     }
 
     // Fallback to keyword search
-    return await searchToolsByKeywords(query, k);
+    return await searchToolsByKeywords(query, k, userPreferences);
   } catch (error) {
     console.warn(
       "Hybrid search failed, falling back to keyword search:",
       error
     );
-    return await searchToolsByKeywords(query, k);
+    return await searchToolsByKeywords(query, k, userPreferences);
   }
 };
 
@@ -231,6 +256,7 @@ export const getRelevantTools = async (
     categories?: string[];
     difficulty_level?: string;
     budget_range?: string;
+    freeToolsOnly?: boolean;
   }
 ): Promise<Document[]> => {
   // Generate cache key based on query and preferences
@@ -252,7 +278,7 @@ export const getRelevantTools = async (
     // }
 
     // Strategy 2: Try hybrid search
-    const hybridResults = await hybridSearchTools(query, k);
+    const hybridResults = await hybridSearchTools(query, k, userPreferences);
     if (hybridResults.length > 0) {
       return hybridResults;
     }
@@ -271,7 +297,7 @@ export const getRelevantTools = async (
 
     // Strategy 4: Final fallback to keyword search
     console.warn("All advanced searches failed, using keyword search");
-    return await searchToolsByKeywords(query, k);
+    return await searchToolsByKeywords(query, k, userPreferences);
   });
 };
 

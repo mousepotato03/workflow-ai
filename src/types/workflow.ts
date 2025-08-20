@@ -1,6 +1,7 @@
 export interface WorkflowRequest {
   goal: string;
   language: string;
+  freeToolsOnly?: boolean;
 }
 
 // Subtask interface for workflow creation (without tool recommendations)

@@ -73,4 +73,29 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Remove all focus outlines */
+  *:focus,
+  *:focus-visible,
+  *:active {
+    outline: none !important;
+    box-shadow: none !important;
+    border-color: transparent !important;
+  }
+  
+  /* Remove webkit tap highlight */
+  * {
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-focus-ring-color: transparent !important;
+  }
+  
+  /* Specifically target form elements */
+  input:focus,
+  textarea:focus,
+  button:focus,
+  select:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    border-color: transparent !important;
+  }
 }

@@ -19,6 +19,7 @@ const workflowRequestSchema = z.object({
     .min(10, "목표는 10자 이상 입력해주세요.")
     .max(200, "목표는 200자 이내로 입력해주세요."),
   language: z.string().min(2).max(10),
+  freeToolsOnly: z.boolean().optional(),
 });
 
 // Note: This endpoint now runs statelessly without persisting workflows/tasks
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
     const cacheKey = CacheUtils.generateKey({
       goal: validatedData.goal.toLowerCase().trim(),
       language: validatedData.language,
+      freeToolsOnly: validatedData.freeToolsOnly || false,
     });
 
     const cachedResult = workflowCache.get(cacheKey);

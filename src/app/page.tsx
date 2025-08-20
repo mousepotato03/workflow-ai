@@ -45,11 +45,7 @@ const recommendedWorkflows = [
 
 export default function Home() {
   const [showRecommendations, setShowRecommendations] = useState(true);
-  const { 
-    workflowResult, 
-    isLoading, 
-    userGoal
-  } = useWorkflowStore();
+  const { workflowResult, isLoading, userGoal } = useWorkflowStore();
 
   return (
     <div className="min-h-screen bg-background">
@@ -68,7 +64,7 @@ export default function Home() {
           </p>
 
           {/* Input Form */}
-          <div className="bg-card border border-border rounded-2xl p-8 mb-8 shadow-sm">
+          <div className="bg-card border border-border rounded-2xl p-8 mb-8 shadow-sm focus:outline-none focus:ring-0">
             <WorkflowInputForm
               onButtonClick={() => setShowRecommendations(false)}
             />
@@ -132,10 +128,9 @@ export default function Home() {
           </div>
         )}
       </main>
-      
+
       {/* Full Width Canvas Section */}
       {(isLoading || workflowResult) && <WorkflowCanvas />}
-
 
       {/* Error Modal */}
       <LoginRequiredModal />

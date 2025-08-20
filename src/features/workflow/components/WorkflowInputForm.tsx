@@ -10,8 +10,9 @@ import { franc } from "franc";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, DollarSign } from "lucide-react";
 import { WorkflowRequest, WorkflowResponse } from "@/types/workflow";
 import { useWorkflowStore } from "../hooks/useWorkflowStore";
 
@@ -20,6 +21,7 @@ const formSchema = z.object({
     .string()
     .min(10, "Please enter at least 10 characters.")
     .max(200, "Please keep it under 200 characters."),
+  freeToolsOnly: z.boolean().default(false),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -70,10 +72,12 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
     formState: { errors },
     watch,
     reset,
+    setValue,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       goal: "",
+      freeToolsOnly: false,
     },
   });
 
@@ -81,7 +85,7 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
 
   // resetVersion이 증가하면 폼과 로컬 상태 초기화
   useEffect(() => {
-    reset({ goal: "" });
+    reset({ goal: "", freeToolsOnly: false });
     setWorkflowResult(null);
     setIsLoading(false);
     setUserGoal(null);
@@ -125,6 +129,7 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
     mutation.mutate({
       goal: data.goal,
       language,
+      freeToolsOnly: data.freeToolsOnly,
     });
 
     // 워크플로우 생성 시작 시 자동 스크롤
@@ -149,7 +154,7 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
     >
       <motion.form
         onSubmit={handleSubmit(onSubmit)}
-        className="space-y-6"
+        className="bg-input rounded-2xl p-6 space-y-6 border-transparent focus:outline-none focus:ring-0"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6, delay: 0.2 }}
@@ -166,7 +171,22 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
           >
             <Textarea
               placeholder="e.g., Launch a new marketing campaign for our new product"
-              className="min-h-[120px] resize-none bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-primary text-lg p-6 transition-all duration-300"
+              className="min-h-[120px] resize-none bg-input border-transparent text-foreground placeholder:text-muted-foreground focus:ring-0 focus:outline-none focus:border-none focus-visible:outline-none focus-visible:ring-0 text-lg p-6 transition-all duration-300"
+              style={{
+                outline: "none !important",
+                outlineOffset: "0 !important",
+                boxShadow: "none !important",
+                border: "none !important",
+                WebkitAppearance: "none",
+                MozAppearance: "none",
+                appearance: "none",
+                WebkitTapHighlightColor: "transparent",
+              }}
+              onFocus={(e) => {
+                e.target.style.outline = "none";
+                e.target.style.boxShadow = "none";
+                e.target.style.border = "none";
+              }}
               {...register("goal")}
               disabled={mutation.isPending}
             />
@@ -184,62 +204,90 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
           )}
         </motion.div>
 
+        {/* Free Tools Toggle and Submit Button Row */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          whileHover={{ scale: mutation.isPending ? 1 : 1.02 }}
-          whileTap={{ scale: mutation.isPending ? 1 : 0.98 }}
+          className="flex items-center justify-between gap-4"
         >
-          <Button
-            type="submit"
+          {/* Free Tools Only Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              const currentValue = watch("freeToolsOnly");
+              setValue("freeToolsOnly", !currentValue);
+            }}
             disabled={mutation.isPending}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-4 px-8 rounded-xl text-lg transition-all duration-200 relative overflow-hidden"
+            className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-all duration-300 font-medium text-sm focus:outline-none focus:ring-0 focus:border-transparent ${
+              watch("freeToolsOnly")
+                ? "bg-primary/20 border-primary/40 text-primary-foreground hover:bg-primary/30"
+                : "bg-input border border-gray-400 text-muted-foreground hover:bg-input/80"
+            }`}
           >
-            <motion.span
-              animate={mutation.isPending ? { opacity: 0 } : { opacity: 1 }}
-              transition={{ duration: 0.2 }}
-              className="flex items-center justify-center"
+            <DollarSign
+              className={`w-4 h-4 ${
+                watch("freeToolsOnly") ? "text-primary" : "text-primary/60"
+              }`}
+            />
+            <span>Free tools only</span>
+          </button>
+
+          {/* Submit Button */}
+          <motion.div
+            whileHover={{ scale: mutation.isPending ? 1 : 1.02 }}
+            whileTap={{ scale: mutation.isPending ? 1 : 0.98 }}
+          >
+            <Button
+              type="submit"
+              disabled={mutation.isPending}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-4 px-8 rounded-xl text-lg transition-all duration-200 relative overflow-hidden min-w-[200px]"
             >
-              {mutation.isPending ? null : (
-                <>
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Get Workflow
-                </>
-              )}
-            </motion.span>
-
-            {mutation.isPending && (
               <motion.span
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5 }}
-                className="absolute inset-0 flex items-center justify-center"
+                animate={mutation.isPending ? { opacity: 0 } : { opacity: 1 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center justify-center"
               >
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.4, delay: 0.2 }}
-                >
-                  Analyzing...
-                </motion.span>
+                {mutation.isPending ? null : (
+                  <>
+                    <Sparkles className="w-5 h-5 mr-2" />
+                    Get Workflow
+                  </>
+                )}
               </motion.span>
-            )}
 
-            {/* Loading Background Animation */}
-            {mutation.isPending && (
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-primary/50 via-primary/30 to-primary/50 -translate-x-full"
-                animate={{ translateX: "200%" }}
-                transition={{
-                  duration: 2.0,
-                  repeat: Infinity,
-                  ease: "linear",
-                }}
-              />
-            )}
-          </Button>
+              {mutation.isPending && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="absolute inset-0 flex items-center justify-center"
+                >
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4, delay: 0.2 }}
+                  >
+                    Analyzing...
+                  </motion.span>
+                </motion.span>
+              )}
+
+              {/* Loading Background Animation */}
+              {mutation.isPending && (
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-r from-primary/50 via-primary/30 to-primary/50 -translate-x-full"
+                  animate={{ translateX: "200%" }}
+                  transition={{
+                    duration: 2.0,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                />
+              )}
+            </Button>
+          </motion.div>
         </motion.div>
       </motion.form>
     </motion.div>

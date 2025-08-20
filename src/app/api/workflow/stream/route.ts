@@ -28,6 +28,7 @@ const workflowRequestSchema = z.object({
     .min(10, "목표는 10자 이상 입력해주세요.")
     .max(200, "목표는 200자 이내로 입력해주세요."),
   language: z.string().min(2).max(10),
+  freeToolsOnly: z.boolean().optional(),
 });
 
 // Stateless streaming endpoint (no workflows/tasks persistence)

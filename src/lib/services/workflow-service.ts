@@ -24,6 +24,7 @@ export interface UserPreferences {
   categories?: string[];
   difficulty_level?: string;
   budget_range?: string;
+  freeToolsOnly?: boolean;
 }
 
 interface PolicyWeights {
@@ -394,5 +395,6 @@ export function getUserPreferences(requestData?: any): UserPreferences {
       requestData?.preferences?.difficulty_level || "intermediate",
     budget_range: requestData?.preferences?.budget_range || "mixed",
     categories: requestData?.preferences?.categories || [],
+    freeToolsOnly: requestData?.freeToolsOnly || false,
   };
 }
