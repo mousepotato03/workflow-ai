@@ -51,6 +51,11 @@
 - **bench_score** (numeric): 성능 지표(벤치마크) 기반 가중치
 - **domains** (text[], 기본값 `{}`): 적용 도메인(예: 'code', 'general')
 - **cost_index** (numeric): 비용 민감도 반영 가중치
+- **scores** (jsonb, 기본값 `{}`): 정량 메타데이터 및 가격모델 저장 필드
+  - 예시 구조
+    - `benchmarks` (객체): {HumanEval: 88.4, MMLU: 80.2}
+    - `user_rating` (객체): {G2: 4.7, Capterra: 4.6}
+    - `pricing_model` (문자열): "free" | "paid" | "freemium"
 
 **인덱스:**
 
@@ -63,6 +68,7 @@
 - `idx_tools_active` (is_active) WHERE is_active = true - 활성 도구만
 - `idx_tools_active_with_embedding` (is_active) WHERE is_active = true AND embedding IS NOT NULL
 - `idx_tools_embedding_optimized` (embedding IVFFLAT vector_cosine_ops) WITH (lists='10')
+- `idx_tools_scores_gin` (scores jsonb_path_ops)
 
 **RLS**: 공용 읽기 허용, 수정은 service_role 제한(관리 목적)
 

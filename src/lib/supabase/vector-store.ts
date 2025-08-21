@@ -54,8 +54,10 @@ export const searchToolsByKeywords = async (
     // Build query with free tools filter
     const buildQuery = (query: any) => {
       if (userPreferences?.freeToolsOnly) {
-        // Filter for free tools: cost_index is null or 0
-        query = query.or("cost_index.is.null,cost_index.eq.0");
+        // Prefer scores.pricing_model when available, fallback to cost_index
+        query = query.or(
+          "scores->>pricing_model.eq.free,cost_index.is.null,cost_index.eq.0"
+        );
       }
       return query;
     };
@@ -94,10 +96,7 @@ export const searchToolsByKeywords = async (
     if (error || !tools || tools.length === 0) {
       // Ultimate fallback: return all active tools
       ({ data: tools, error } = await buildQuery(
-        supabaseClient
-          .from("tools")
-          .select("*")
-          .eq("is_active", true)
+        supabaseClient.from("tools").select("*").eq("is_active", true)
       ).limit(limit));
     }
 

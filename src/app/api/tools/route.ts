@@ -18,22 +18,24 @@ export async function GET(request: NextRequest) {
     // 북마크 필터가 적용된 경우 사용자 인증 확인
     let userBookmarks: string[] = [];
     if (filter === "Bookmarked Only") {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         return NextResponse.json(
           { error: "북마크 필터를 사용하려면 로그인이 필요합니다." },
           { status: 401 }
         );
       }
-      
+
       // 사용자의 북마크 가져오기
       const { data: bookmarkData } = await supabase
         .from("bookmarks")
         .select("tool_id")
         .eq("user_id", user.id);
-      
-      userBookmarks = bookmarkData?.map(bookmark => bookmark.tool_id) || [];
-      
+
+      userBookmarks = bookmarkData?.map((bookmark) => bookmark.tool_id) || [];
+
       // 북마크가 없는 경우 빈 결과 반환
       if (userBookmarks.length === 0) {
         return NextResponse.json({
@@ -59,6 +61,7 @@ export async function GET(request: NextRequest) {
         domains,
         bench_score,
         cost_index,
+        scores,
         is_active,
         created_at
       `
@@ -107,15 +110,15 @@ export async function GET(request: NextRequest) {
     }
 
     // 별도로 평점 정보 조회
-    const toolIds = tools?.map(tool => tool.id) || [];
+    const toolIds = tools?.map((tool) => tool.id) || [];
     let ratingsData: any[] = [];
-    
+
     if (toolIds.length > 0) {
       const { data: ratings } = await supabase
         .from("reviews")
         .select("tool_id, rating")
         .in("tool_id", toolIds);
-      
+
       if (ratings) {
         // 도구별 평점 집계
         const ratingsByTool = ratings.reduce((acc: any, review: any) => {
@@ -126,11 +129,21 @@ export async function GET(request: NextRequest) {
           return acc;
         }, {});
 
-        ratingsData = Object.entries(ratingsByTool).map(([toolId, ratings]: [string, any]) => ({
-          tool_id: toolId,
-          review_count: ratings.length,
-          average_rating: Math.round((ratings.reduce((sum: number, rating: number) => sum + rating, 0) / ratings.length) * 100) / 100
-        }));
+        ratingsData = Object.entries(ratingsByTool).map(
+          ([toolId, ratings]: [string, any]) => ({
+            tool_id: toolId,
+            review_count: ratings.length,
+            average_rating:
+              Math.round(
+                (ratings.reduce(
+                  (sum: number, rating: number) => sum + rating,
+                  0
+                ) /
+                  ratings.length) *
+                  100
+              ) / 100,
+          })
+        );
       }
     }
 
@@ -150,13 +163,23 @@ export async function GET(request: NextRequest) {
 
     const categories = ["All", ...Array.from(allCategories).sort()];
 
-    // 가격 정보를 cost_index 기반으로 매핑하고 실제 리뷰 데이터 사용
+    // 가격 정보를 scores.pricing_model 또는 cost_index 기반으로 매핑하고 실제 리뷰 데이터 사용
     const toolsWithPricing = tools?.map((tool) => {
-      const ratingInfo = ratingsData.find(r => r.tool_id === tool.id);
+      const pricingModel = (tool as any)?.scores?.pricing_model as
+        | "free"
+        | "paid"
+        | "freemium"
+        | undefined;
+      const ratingInfo = ratingsData.find((r) => r.tool_id === tool.id);
       return {
         ...tool,
-        pricing:
-          tool.cost_index === null || tool.cost_index === 0 ? "Free" : "Paid",
+        pricing: pricingModel
+          ? pricingModel === "paid"
+            ? "Paid"
+            : "Free"
+          : tool.cost_index === null || tool.cost_index === 0
+          ? "Free"
+          : "Paid",
         rating: ratingInfo?.average_rating || 0, // 실제 평균 별점 사용
         reviewCount: ratingInfo?.review_count || 0, // 실제 리뷰 수 사용
         likes: Math.floor(Math.random() * 1000) + 100, // 임시 좋아요 수 (추후 구현 예정)
