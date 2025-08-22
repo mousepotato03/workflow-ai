@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { logger, extractUserContext } from "@/lib/logger/structured-logger";
+import { extractUserContext } from "@/lib/logger/structured-logger";
 import {
   processTasksInParallel,
   getUserPreferences,
@@ -42,11 +42,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = rematchRequestSchema.parse(body);
 
-    logger.info("Starting tool rematch for single task", {
-      ...baseUserContext,
-      taskId: validatedData.taskId,
-      taskName: validatedData.taskName.substring(0, 50),
-    });
 
     // Create task object for processing
     const task = {
@@ -101,22 +96,12 @@ export async function POST(request: NextRequest) {
       confidence: recommendation.confidenceScore,
     };
 
-    logger.info("Tool rematch completed successfully", {
-      ...baseUserContext,
-      taskId: validatedData.taskId,
-      toolId: recommendation.toolId,
-      confidence: recommendation.confidenceScore,
-    });
 
     return Response.json(result);
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
     
-    logger.error("Tool rematch failed", {
-      ...baseUserContext,
-      error: errorMessage,
-    });
 
     if (error instanceof z.ZodError) {
       return Response.json(

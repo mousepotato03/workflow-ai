@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createTaskDecomposerChain } from "@/lib/langchain/chains";
 import { WorkflowRequest, WorkflowResponse } from "@/types/workflow";
-import { logger, extractUserContext } from "@/lib/logger/structured-logger";
+import { extractUserContext } from "@/lib/logger/structured-logger";
 import { workflowCache, CacheUtils } from "@/lib/cache/memory-cache";
 // Tool matching functions moved to guide generation service
 import { withAuth, createAuthErrorResponse } from "@/lib/middleware/auth";
@@ -49,8 +49,6 @@ export async function POST(request: NextRequest) {
   };
   const workflowId = crypto.randomUUID();
 
-  logger.apiRequest("POST", "/api/workflow", 0, 0, userContext);
-  logger.workflowStart(workflowId, "", userContext);
 
   try {
     // Parse and validate request body
@@ -60,12 +58,6 @@ export async function POST(request: NextRequest) {
     // Update userContext with validated language
     userContext.language = validatedData.language;
 
-    logger.info("Workflow request validated", {
-      ...userContext,
-      workflowId,
-      goal: validatedData.goal.substring(0, 100), // Truncate for logging
-      language: validatedData.language,
-    });
 
     // Check cache for similar workflow requests
     const cacheKey = CacheUtils.generateKey({
@@ -76,10 +68,7 @@ export async function POST(request: NextRequest) {
 
     const cachedResult = workflowCache.get(cacheKey);
     if (cachedResult) {
-      logger.cacheHit("workflow", cacheKey, userContext);
-
       const duration = Date.now() - startTime;
-      logger.apiRequest("POST", "/api/workflow", duration, 200, userContext);
 
       return NextResponse.json({
         ...cachedResult,
@@ -88,12 +77,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    logger.cacheMiss("workflow", cacheKey, userContext);
 
     // Stateless: no DB workflow record created
 
     // Step 1: Decompose goal into tasks using LangChain
-    logger.info("Starting task decomposition", { ...userContext, workflowId });
     const taskDecomposer = createTaskDecomposerChain();
     const taskResult = await taskDecomposer.invoke({
       goal: validatedData.goal,
@@ -104,19 +91,9 @@ export async function POST(request: NextRequest) {
       const error = new Error(
         "작업 분해 실패: 올바른 형식의 작업 목록을 생성할 수 없습니다."
       );
-      logger.workflowError(workflowId, error, {
-        ...userContext,
-        stage: "task_decomposition",
-      });
       throw error;
     }
 
-    logger.info("Task decomposition completed", {
-      ...userContext,
-      workflowId,
-      taskCount: taskResult.tasks.length,
-      tasks: taskResult.tasks,
-    });
 
     // Build tasks in-memory without tool matching
     const tasks = taskResult.tasks.map((taskName: string, index: number) => ({
@@ -141,26 +118,12 @@ export async function POST(request: NextRequest) {
     workflowCache.set(cacheKey, response);
 
     const duration = Date.now() - startTime;
-    logger.workflowComplete(
-      workflowId,
-      duration,
-      tasks.length,
-      userContext
-    );
-    logger.apiRequest("POST", "/api/workflow", duration, 200, userContext);
 
     return NextResponse.json(response);
   } catch (error) {
     const duration = Date.now() - startTime;
 
     if (error instanceof z.ZodError) {
-      logger.warn("Validation error in workflow API", {
-        ...userContext,
-        workflowId,
-        validationErrors: error.errors,
-      });
-
-      logger.apiRequest("POST", "/api/workflow", duration, 400, userContext);
 
       return NextResponse.json(
         {
@@ -171,15 +134,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log the error with full context
-    logger.apiError(
-      "POST",
-      "/api/workflow",
-      error instanceof Error ? error : new Error(String(error)),
-      { ...userContext, workflowId }
-    );
-
-    logger.apiRequest("POST", "/api/workflow", duration, 500, userContext);
 
     // Return user-friendly error message
     const userMessage =

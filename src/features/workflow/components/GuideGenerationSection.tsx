@@ -71,7 +71,28 @@ export function GuideGenerationSection({
   };
 
   const generateGuideForTask = async (task: Task) => {
+    console.log("=== 가이드 생성 시작 ===", {
+      taskId: task.id,
+      taskName: task.name,
+      recommendedTool: task.recommendedTool?.name,
+      recommendedToolId: task.recommendedTool?.id,
+      hasRecommendedTool: !!task.recommendedTool,
+      timestamp: new Date().toISOString()
+    });
+
+    // 추가 디버깅: 전체 task 객체 출력
+    console.log("전체 task 객체:", JSON.stringify(task, null, 2));
+
     if (!task.recommendedTool) {
+      console.error("❌ 가이드 생성 실패: 추천된 도구 없음", { 
+        taskId: task.id, 
+        taskName: task.name,
+        task: task 
+      });
+      
+      // 더 눈에 띄는 에러 메시지
+      alert(`가이드 생성 실패: ${task.name} - 추천된 도구가 없습니다.`);
+      
       updateTaskStatus(task.id, {
         status: "error",
         error: "이 작업에는 추천된 도구가 없습니다.",
@@ -84,7 +105,15 @@ export function GuideGenerationSection({
       progress: 0,
     });
 
+    console.log("가이드 생성 상태 업데이트: 생성 시작", { taskId: task.id });
+
     try {
+      console.log("캐시된 가이드 확인 시도", {
+        taskId: task.id,
+        toolId: task.recommendedTool.id,
+        endpoint: `/api/tools/${task.recommendedTool.id}/guide?taskContext=${encodeURIComponent(task.name)}&language=ko`
+      });
+
       // First check if cached guide exists
       const cachedResponse = await fetch(
         `/api/tools/${task.recommendedTool.id}/guide?taskContext=${encodeURIComponent(
@@ -93,6 +122,7 @@ export function GuideGenerationSection({
       );
 
       if (cachedResponse.ok) {
+        console.log("캐시된 가이드 발견, 사용", { taskId: task.id });
         const cachedGuide = await cachedResponse.json();
         const markdownGuide = convertStructuredGuideToMarkdown(
           cachedGuide,
@@ -106,8 +136,16 @@ export function GuideGenerationSection({
         });
         
         onGuideGenerated(task.id, markdownGuide);
+        
+        console.log("가이드 생성 완료 (캐시 사용)", {
+          taskId: task.id,
+          guideLength: markdownGuide.length,
+          timestamp: new Date().toISOString()
+        });
         return;
       }
+
+      console.log("캐시된 가이드 없음, 새로 생성", { taskId: task.id });
 
       // Generate new guide if no cache
       const response = await fetch(`/api/tools/${task.recommendedTool.id}/guide`, {
@@ -122,8 +160,15 @@ export function GuideGenerationSection({
       });
 
       if (!response.ok) {
+        console.error("가이드 생성 API 요청 실패", {
+          taskId: task.id,
+          status: response.status,
+          statusText: response.statusText
+        });
         throw new Error("가이드 생성 요청에 실패했습니다.");
       }
+
+      console.log("가이드 생성 API 응답 수신", { taskId: task.id });
 
       updateTaskStatus(task.id, {
         status: "generating",
@@ -131,6 +176,12 @@ export function GuideGenerationSection({
       });
 
       const guideData = await response.json();
+      console.log("가이드 데이터 파싱 완료", {
+        taskId: task.id,
+        hasGuideData: !!guideData.guide,
+        dataKeys: Object.keys(guideData)
+      });
+
       const markdownGuide = convertStructuredGuideToMarkdown(guideData, task);
 
       updateTaskStatus(task.id, {
@@ -141,14 +192,26 @@ export function GuideGenerationSection({
 
       onGuideGenerated(task.id, markdownGuide);
 
+      console.log("가이드 생성 완료 (새로 생성)", {
+        taskId: task.id,
+        guideLength: markdownGuide.length,
+        timestamp: new Date().toISOString()
+      });
+
       toast({
         title: "가이드 생성 완료",
         description: `${task.name}에 대한 상세 가이드가 생성되었습니다.`,
       });
 
     } catch (error) {
-      console.error("Guide generation error for task:", task.id, error);
       const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
+      
+      console.error("가이드 생성 실패", {
+        taskId: task.id,
+        taskName: task.name,
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      });
       
       updateTaskStatus(task.id, {
         status: "error",
@@ -171,24 +234,67 @@ export function GuideGenerationSection({
   const generateAllGuides = async () => {
     setIsGeneratingAll(true);
     
+    console.log("=== 전체 가이드 생성 시작 ===", {
+      totalTasks: tasks.length,
+      taskNames: tasks.map(t => t.name),
+      timestamp: new Date().toISOString()
+    });
+
+    // 각 태스크의 상태를 자세히 출력
+    console.log("각 태스크 상태 확인:");
+    tasks.forEach((task, index) => {
+      console.log(`Task ${index + 1}:`, {
+        id: task.id,
+        name: task.name,
+        hasRecommendedTool: !!task.recommendedTool,
+        recommendedToolName: task.recommendedTool?.name,
+        recommendedToolId: task.recommendedTool?.id,
+        confidence: task.confidence
+      });
+    });
+    
     try {
       // Initialize all tasks as pending
+      console.log("모든 태스크 상태 초기화 시작");
       for (const task of tasks) {
         updateTaskStatus(task.id, {
           status: "pending",
           progress: 0,
         });
+        console.log("태스크 상태 초기화", { taskId: task.id, taskName: task.name, status: "pending" });
       }
 
       // Generate guides sequentially for each task
-      for (const task of tasks) {
+      console.log("순차적 가이드 생성 시작", { totalTasks: tasks.length });
+      for (let i = 0; i < tasks.length; i++) {
+        const task = tasks[i];
+        console.log("태스크 가이드 생성 시작", {
+          taskIndex: i + 1,
+          totalTasks: tasks.length,
+          taskId: task.id,
+          taskName: task.name
+        });
+
         await generateGuideForTask(task);
+        
+        console.log("태스크 가이드 생성 완료", {
+          taskIndex: i + 1,
+          totalTasks: tasks.length,
+          taskId: task.id,
+          remainingTasks: tasks.length - (i + 1)
+        });
         
         // Add delay between requests to avoid rate limiting
         if (task.id !== tasks[tasks.length - 1].id) {
+          console.log("다음 태스크 처리 전 지연", { delayMs: 1000 });
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
+
+      console.log("전체 가이드 생성 완료", {
+        totalTasks: tasks.length,
+        timestamp: new Date().toISOString()
+      });
 
       toast({
         title: "모든 가이드 생성 완료",
@@ -196,7 +302,14 @@ export function GuideGenerationSection({
       });
 
     } catch (error) {
-      console.error("Batch guide generation error:", error);
+      const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류";
+      
+      console.error("전체 가이드 생성 실패", {
+        error: errorMessage,
+        totalTasks: tasks.length,
+        timestamp: new Date().toISOString()
+      });
+
       toast({
         title: "가이드 생성 실패",
         description: "일부 가이드 생성 중 오류가 발생했습니다.",
@@ -204,6 +317,9 @@ export function GuideGenerationSection({
       });
     } finally {
       setIsGeneratingAll(false);
+      console.log("전체 가이드 생성 프로세스 종료", {
+        timestamp: new Date().toISOString()
+      });
     }
   };
 
@@ -259,7 +375,6 @@ export function GuideGenerationSection({
       });
 
     } catch (error) {
-      console.error("Guide retry error for task:", taskId, error);
       const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
       
       updateTaskStatus(taskId, {

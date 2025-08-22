@@ -2,12 +2,13 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createTaskDecomposerChain } from "@/lib/langchain/chains";
 import { WorkflowRequest } from "@/types/workflow";
-import { logger, extractUserContext } from "@/lib/logger/structured-logger";
+import { extractUserContext } from "@/lib/logger/structured-logger";
 import { getEnvVar } from "@/lib/config/env-validation";
 import {
   processTasksInParallel,
   batchSaveRecommendations,
   getUserPreferences,
+  processTasksWithGuidesInParallel,
 } from "@/lib/services/workflow-service";
 import {
   createManagedStream,
@@ -87,10 +88,6 @@ async function processWorkflow(
     const body: WorkflowRequest = await request.json();
     const validatedData = workflowRequestSchema.parse(body);
 
-    logger.info("Starting streaming workflow", {
-      ...baseUserContext,
-      goal: validatedData.goal.substring(0, 100),
-    });
 
     managedStream.sendProgress("validation", 10, "입력 데이터 검증 완료");
 
@@ -119,7 +116,6 @@ async function processWorkflow(
     if (!taskResult.tasks || !Array.isArray(taskResult.tasks)) {
       const error =
         "작업 분해 실패: 올바른 형식의 작업 목록을 생성할 수 없습니다.";
-      logger.workflowError(workflowId, new Error(error), baseUserContext);
       managedStream.sendError(error);
       return;
     }
@@ -153,11 +149,11 @@ async function processWorkflow(
     // Early return if stream is aborted
     if (!managedStream.isActive()) return;
 
-    // Step 3: Get tool recommendations (parallel processing)
+    // Step 3: Process tasks in parallel (tools + guides)
     managedStream.sendProgress(
-      "recommendations_start",
+      "parallel_processing_start",
       55,
-      "도구 추천 시작 중..."
+      "도구 추천 및 가이드 생성 시작 중..."
     );
 
     const userPreferences = getUserPreferences(validatedData);
@@ -169,55 +165,42 @@ async function processWorkflow(
       language: validatedData.language || "en",
     };
 
-    const taskRecommendations = await processTasksInParallel(
+    // Process tasks in parallel with real-time updates
+    const taskResults = await processTasksWithGuidesInParallel(
       savedTasks,
       userPreferences,
       structuredUserContext,
-      workflowId
+      workflowId,
+      managedStream
     );
 
     // Early return if stream is aborted
     if (!managedStream.isActive()) return;
 
     managedStream.sendProgress(
-      "recommendations_processing",
-      75,
-      "추천 결과 저장 중..."
-    );
-
-    // Batch save recommendations
-    await batchSaveRecommendations(
-      taskRecommendations,
-      structuredUserContext,
-      workflowId
-    );
-
-    // Early return if stream is aborted
-    if (!managedStream.isActive()) return;
-
-    managedStream.sendProgress(
-      "recommendations_complete",
+      "parallel_processing_complete",
       90,
-      "도구 추천 완료"
+      "모든 작업 처리 완료"
     );
 
     // Stateless: no DB workflow status update
 
     // Format final response
-    const recommendations = taskRecommendations.map((rec) => ({
-      id: rec.taskId,
-      name: rec.taskName,
-      order: savedTasks.find((t) => t.id === rec.taskId)?.order_index || 0,
-      recommendedTool: rec.toolId
+    const recommendations = taskResults.map((result) => ({
+      id: result.taskId,
+      name: result.taskName,
+      order: savedTasks.find((t) => t.id === result.taskId)?.order_index || 0,
+      recommendedTool: result.toolId
         ? {
-            id: rec.toolId,
-            name: rec.toolName,
+            id: result.toolId,
+            name: result.toolName,
             logoUrl: "",
             url: "",
           }
         : null,
-      recommendationReason: rec.reason,
-      confidence: rec.confidenceScore,
+      recommendationReason: result.reason,
+      confidence: result.confidenceScore,
+      guide: result.guide || null,
     }));
 
     const finalResult = {
@@ -228,19 +211,9 @@ async function processWorkflow(
     // Send completion event
     managedStream.sendComplete(finalResult);
 
-    logger.workflowComplete(
-      workflowId,
-      Date.now() - Date.now(), // duration (simplified)
-      finalResult.tasks?.length || 0,
-      baseUserContext
-    );
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
-    logger.error("Streaming workflow failed", {
-      ...baseUserContext,
-      error: errorMessage,
-    });
 
     managedStream.sendError("워크플로우 처리 중 오류가 발생했습니다.", {
       error: errorMessage,

@@ -194,11 +194,24 @@ export async function POST(
   const { tool_id } = await params;
   const userContext = extractUserContext(request);
 
+  logger.info("=== GUIDE GENERATION REQUEST START ===", {
+    ...userContext,
+    tool_id,
+    timestamp: new Date().toISOString(),
+    requestUrl: request.url
+  });
+
   // Apply rate limiting (more strict for guide generation)
   const ip =
     (request as any).ip || request.headers.get("x-forwarded-for") || "unknown";
   const rateLimitCheck = checkGuideRateLimit(ip);
   if (!rateLimitCheck.allowed) {
+    logger.warn("Rate limit exceeded for guide generation", {
+      ...userContext,
+      tool_id,
+      ip,
+      resetTime: rateLimitCheck.resetTime
+    });
     return createRateLimitResponse(rateLimitCheck.resetTime);
   }
 
@@ -209,6 +222,7 @@ export async function POST(
     logger.warn("Unauthenticated guide generation request", {
       ...userContext,
       tool_id,
+      authReason: authResult.reason
     });
   }
 
@@ -217,6 +231,13 @@ export async function POST(
   try {
     // Parse and validate request body
     const body = await request.json();
+    
+    logger.info("Request body received", {
+      ...userContext,
+      tool_id,
+      body: JSON.stringify(body)
+    });
+    
     const validatedData = guideRequestSchema.parse(body);
 
     logger.info("Guide generation request validated", {
@@ -228,6 +249,12 @@ export async function POST(
     });
 
     // Get tool information from database
+    logger.info("Querying tool from database", {
+      ...userContext,
+      tool_id,
+      query: "SELECT id, name, description, url, logo_url FROM tools WHERE id = ? AND is_active = true"
+    });
+    
     const { data: tool, error: toolError } = await supabase
       .from("tools")
       .select("id, name, description, url, logo_url")
@@ -236,10 +263,12 @@ export async function POST(
       .single();
 
     if (toolError || !tool) {
-      logger.warn("Tool not found for guide generation", {
+      logger.error("Tool not found for guide generation", {
         ...userContext,
         tool_id,
         error: toolError?.message,
+        errorCode: toolError?.code,
+        toolQueryResult: tool
       });
 
       return NextResponse.json(
@@ -247,6 +276,13 @@ export async function POST(
         { status: 404 }
       );
     }
+
+    logger.info("Tool found successfully", {
+      ...userContext,
+      tool_id,
+      toolName: tool.name,
+      toolUrl: tool.url
+    });
 
     // Check for existing guide if not forcing refresh
     if (!validatedData.forceRefresh) {

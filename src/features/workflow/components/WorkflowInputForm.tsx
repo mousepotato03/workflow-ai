@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation } from "@tanstack/react-query";
-import { franc } from "franc";
+
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -25,18 +25,6 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
-
-// Language code mapping for franc
-const languageMap: Record<string, string> = {
-  kor: "ko",
-  eng: "en",
-  jpn: "ja",
-  cmn: "zh",
-  spa: "es",
-  fra: "fr",
-  deu: "de",
-  rus: "ru",
-};
 
 const createWorkflowMutation = async (
   data: WorkflowRequest
@@ -122,9 +110,8 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
     // Store user goal in the store
     setUserGoal(data.goal);
 
-    // Detect language using franc
-    const detectedLang = franc(data.goal);
-    const language = languageMap[detectedLang] || "en"; // Default to English
+    // Always use English for now
+    const language = "en";
 
     mutation.mutate({
       goal: data.goal,

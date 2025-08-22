@@ -195,11 +195,15 @@ export const hybridSearchTools = async (
     freeToolsOnly?: boolean;
   }
 ): Promise<Document[]> => {
+  console.log("Hybrid search starting for query:", query);
   try {
     // Generate embedding for the query
+    console.log("Generating embedding for query...");
     const queryEmbedding = await embeddings.embedQuery(query);
+    console.log("Embedding generated, length:", queryEmbedding.length);
 
     // Use hybrid_search_tools database function
+    console.log("Calling hybrid_search_tools RPC function...");
     const { data: results, error } = await supabaseClient.rpc(
       "hybrid_search_tools",
       {
@@ -211,9 +215,19 @@ export const hybridSearchTools = async (
       }
     );
 
-    if (error) throw error;
+    console.log("RPC call completed:", { 
+      hasResults: !!results, 
+      resultCount: results?.length || 0, 
+      hasError: !!error 
+    });
+
+    if (error) {
+      console.error("Hybrid search RPC error:", error);
+      throw error;
+    }
 
     if (results && results.length > 0) {
+      console.log("Hybrid search found", results.length, "results");
       return results.map(
         (result: any) =>
           new Document({
@@ -236,6 +250,7 @@ export const hybridSearchTools = async (
       );
     }
 
+    console.log("Hybrid search returned no results");
     // Fallback to keyword search
     return await searchToolsByKeywords(query, k, userPreferences);
   } catch (error) {
@@ -258,6 +273,13 @@ export const getRelevantTools = async (
     freeToolsOnly?: boolean;
   }
 ): Promise<Document[]> => {
+  console.log("=== GET RELEVANT TOOLS START ===", {
+    query,
+    k,
+    userPreferences,
+    timestamp: new Date().toISOString()
+  });
+
   // Generate cache key based on query and preferences
   const cacheKey = CacheUtils.generateKey({
     query: query.toLowerCase().trim(),
@@ -267,6 +289,8 @@ export const getRelevantTools = async (
 
   // Try to get from cache first
   return await CacheUtils.withCache(toolSearchCache, cacheKey, async () => {
+    console.log("Cache miss, performing search for:", query);
+
     // Strategy 1: Skip smart search for now (function not implemented)
     // TODO: Implement smart_search_tools function in database
     // if (userPreferences && Object.keys(userPreferences).length > 0) {
@@ -277,26 +301,36 @@ export const getRelevantTools = async (
     // }
 
     // Strategy 2: Try hybrid search
-    const hybridResults = await hybridSearchTools(query, k, userPreferences);
-    if (hybridResults.length > 0) {
-      return hybridResults;
+    console.log("Attempting hybrid search...");
+    try {
+      const hybridResults = await hybridSearchTools(query, k, userPreferences);
+      console.log("Hybrid search results:", hybridResults.length);
+      if (hybridResults.length > 0) {
+        return hybridResults;
+      }
+    } catch (error) {
+      console.error("Hybrid search failed:", error);
     }
 
     // Strategy 3: Fallback to original vector search
+    console.log("Attempting vector search...");
     try {
       const vectorRetriever = createToolRetriever(k);
       const results = await vectorRetriever.getRelevantDocuments(query);
+      console.log("Vector search results:", results.length);
 
       if (results.length > 0) {
         return results;
       }
     } catch (error) {
-      console.warn("Vector search failed:", error);
+      console.error("Vector search failed:", error);
     }
 
     // Strategy 4: Final fallback to keyword search
-    console.warn("All advanced searches failed, using keyword search");
-    return await searchToolsByKeywords(query, k, userPreferences);
+    console.log("All advanced searches failed, using keyword search");
+    const keywordResults = await searchToolsByKeywords(query, k, userPreferences);
+    console.log("Keyword search results:", keywordResults.length);
+    return keywordResults;
   });
 };
 

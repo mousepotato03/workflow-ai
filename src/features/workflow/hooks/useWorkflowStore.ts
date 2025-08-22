@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { WorkflowResponse } from "@/types/workflow";
+import { StreamState } from "@/hooks/useWorkflowStream";
 
 interface Task {
   id: string;
@@ -36,12 +37,14 @@ interface WorkflowState {
   isGeneratingGuides: boolean;
   generatedGuides: Map<string, GuideGenerationStatus>;
   resetVersion: number;
+  streamState: StreamState | null;
   setWorkflowResult: (result: WorkflowResponse | null) => void;
   setIsLoading: (loading: boolean) => void;
   setUserGoal: (goal: string | null) => void;
   setSelectedTask: (taskId: string | null) => void;
   setIsGeneratingGuides: (isGenerating: boolean) => void;
   setGuideStatus: (taskId: string, status: GuideGenerationStatus) => void;
+  setStreamState: (streamState: StreamState | null) => void;
   clearWorkflow: () => void;
   triggerReset: () => void;
   addTask: (name: string) => string;
@@ -65,6 +68,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   isGeneratingGuides: false,
   generatedGuides: new Map(),
   resetVersion: 0,
+  streamState: null,
   setWorkflowResult: (result) => set({ workflowResult: result }),
   setIsLoading: (loading) => set({ isLoading: loading }),
   setUserGoal: (goal) => set({ userGoal: goal }),
@@ -77,6 +81,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     newGuides.set(taskId, status);
     set({ generatedGuides: newGuides });
   },
+  setStreamState: (streamState) => set({ streamState }),
   clearWorkflow: () =>
     set({
       workflowResult: null,
@@ -85,6 +90,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       selectedTask: null,
       isGeneratingGuides: false,
       generatedGuides: new Map(),
+      streamState: null,
     }),
 
   triggerReset: () => {
@@ -96,6 +102,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       selectedTask: null,
       isGeneratingGuides: false,
       generatedGuides: new Map(),
+      streamState: null,
       resetVersion: current.resetVersion + 1,
     });
   },
@@ -132,9 +139,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const updatedTasks = workflowResult.tasks.map((task) =>
       task.id === taskId ? { ...task, name } : task
     );
-
-    console.log("Updating task:", taskId, "with name:", name);
-    console.log("Updated tasks:", updatedTasks);
 
     set({
       workflowResult: {
@@ -210,161 +214,177 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         });
       }
 
-      // Generate guides sequentially for each task
-      for (let task of workflowResult.tasks) {
-        // Type assertion to ensure hasToolRecommendation is defined
-        const taskWithFlags = task as TaskWithRequiredFields;
+      // Process all tasks in parallel instead of sequentially
+      const taskPromises = workflowResult.tasks.map(async (task) => {
+        try {
+          // Type assertion to ensure hasToolRecommendation is defined
+          const taskWithFlags = task as TaskWithRequiredFields;
 
-        // If no tool recommendation exists, we need to generate one first
-        if (!task.recommendedTool?.id && !taskWithFlags.hasToolRecommendation) {
-          setGuideStatus(task.id, {
-            status: "generating",
-            progress: 5,
-          });
-
-          try {
-            // Generate tool recommendation via server API to avoid client env access
-            const recResponse = await fetch("/api/tools/recommend", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                taskName: task.name,
-                language: "ko",
-              }),
+          // If no tool recommendation exists, generate one first
+          if (!task.recommendedTool?.id && !taskWithFlags.hasToolRecommendation) {
+            setGuideStatus(task.id, {
+              status: "generating",
+              progress: 5,
             });
 
-            if (!recResponse.ok) {
-              throw new Error(`추천 API 오류: ${await recResponse.text()}`);
-            }
-
-            const recommendation = await recResponse.json();
-
-            if (recommendation.toolId && recommendation.toolName) {
-              // Fetch tool details from database to get URL and logo
-              let toolDetails = {
-                id: recommendation.toolId,
-                name: recommendation.toolName,
-                logoUrl: "",
-                url: "",
-              };
-
-              try {
-                const toolResponse = await fetch(
-                  `/api/tools/${recommendation.toolId}`
-                );
-                if (toolResponse.ok) {
-                  const toolData = await toolResponse.json();
-                  // Validate the response structure
-                  if (toolData && typeof toolData === "object") {
-                    toolDetails = {
-                      id: recommendation.toolId,
-                      name: recommendation.toolName,
-                      logoUrl:
-                        typeof toolData.logo_url === "string"
-                          ? toolData.logo_url
-                          : "",
-                      url: typeof toolData.url === "string" ? toolData.url : "",
-                    };
-                  }
-                } else {
-                  console.warn(
-                    `Tool API returned ${toolResponse.status}:`,
-                    await toolResponse.text()
-                  );
-                }
-              } catch (error) {
-                console.warn(
-                  "Failed to fetch tool details:",
-                  error instanceof Error ? error.message : String(error)
-                );
-                // Continue with basic tool info
-              }
-
-              // Add tool recommendation to the task
-              const { addToolRecommendation } = get();
-              addToolRecommendation(
-                task.id,
-                toolDetails,
-                recommendation.reason,
-                recommendation.confidenceScore
-              );
-
-              // Update progress
-              setGuideStatus(task.id, {
-                status: "generating",
-                progress: 15,
+            try {
+              // Generate tool recommendation via server API
+              const recResponse = await fetch("/api/tools/recommend", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  taskName: task.name,
+                  language: "ko",
+                }),
               });
 
-              // Get the updated task with tool recommendation
-              const updatedWorkflow = get().workflowResult;
-              const updatedTask = updatedWorkflow?.tasks.find(
-                (t) => t.id === task.id
-              );
+              if (!recResponse.ok) {
+                throw new Error(`추천 API 오류: ${await recResponse.text()}`);
+              }
 
-              if (updatedTask?.recommendedTool?.id) {
-                task = updatedTask; // Update the task reference for guide generation
-              } else {
-                console.error(
-                  "Failed to retrieve updated task with tool recommendation"
+              const recommendation = await recResponse.json();
+
+              if (recommendation.toolId && recommendation.toolName) {
+                // Fetch tool details from database
+                let toolDetails = {
+                  id: recommendation.toolId,
+                  name: recommendation.toolName,
+                  logoUrl: "",
+                  url: "",
+                };
+
+                try {
+                  const toolResponse = await fetch(
+                    `/api/tools/${recommendation.toolId}`
+                  );
+                  if (toolResponse.ok) {
+                    const toolData = await toolResponse.json();
+                    if (toolData && typeof toolData === "object") {
+                      toolDetails = {
+                        id: recommendation.toolId,
+                        name: recommendation.toolName,
+                        logoUrl: typeof toolData.logo_url === "string" ? toolData.logo_url : "",
+                        url: typeof toolData.url === "string" ? toolData.url : "",
+                      };
+                    }
+                  }
+                } catch (error) {
+                  // Continue with basic tool info
+                }
+
+                // Add tool recommendation to the task
+                const { addToolRecommendation } = get();
+                addToolRecommendation(
+                  task.id,
+                  toolDetails,
+                  recommendation.reason,
+                  recommendation.confidenceScore
                 );
+
+                // Update progress
+                setGuideStatus(task.id, {
+                  status: "generating",
+                  progress: 15,
+                });
+
+                // Get the updated task with tool recommendation
+                const updatedWorkflow = get().workflowResult;
+                const updatedTask = updatedWorkflow?.tasks.find(
+                  (t) => t.id === task.id
+                );
+
+                if (updatedTask?.recommendedTool?.id) {
+                  task.recommendedTool = updatedTask.recommendedTool;
+                  task.recommendationReason = updatedTask.recommendationReason;
+                  task.confidence = updatedTask.confidence;
+                } else {
+                  setGuideStatus(task.id, {
+                    status: "error",
+                    progress: 0,
+                    error: "도구 추천 후 작업을 업데이트하는데 실패했습니다.",
+                  });
+                  return;
+                }
+              } else {
                 setGuideStatus(task.id, {
                   status: "error",
                   progress: 0,
-                  error: "도구 추천 후 작업을 업데이트하는데 실패했습니다.",
+                  error: "이 작업에 적합한 도구를 찾을 수 없습니다. 수동 접근을 권장합니다.",
                 });
-                continue;
+                return;
               }
-            } else {
-              // No tool found, set error status
+            } catch (error) {
               setGuideStatus(task.id, {
                 status: "error",
                 progress: 0,
-                error:
-                  "이 작업에 적합한 도구를 찾을 수 없습니다. 수동 접근을 권장합니다.",
+                error: "도구 추천 과정에서 오류가 발생했습니다.",
               });
-              continue;
+              return;
             }
-          } catch (error) {
-            console.error(
-              "Tool recommendation failed for task:",
-              task.id,
-              error
-            );
+          }
+
+          if (!task.recommendedTool?.id) {
             setGuideStatus(task.id, {
               status: "error",
               progress: 0,
-              error: "도구 추천 과정에서 오류가 발생했습니다.",
+              error: "추천된 도구가 없습니다.",
             });
-            continue;
+            return;
           }
-        }
 
-        if (!task.recommendedTool?.id) {
           setGuideStatus(task.id, {
-            status: "error",
-            progress: 0,
-            error: "추천된 도구가 없습니다.",
+            status: "generating",
+            progress: 10,
           });
-          continue;
-        }
 
-        setGuideStatus(task.id, {
-          status: "generating",
-          progress: 10,
-        });
+          try {
+            // Try to get cached guide first
+            const cachedResponse = await fetch(
+              `/api/tools/${task.recommendedTool.id}/guide?taskContext=${encodeURIComponent(task.name)}&language=ko`
+            );
 
-        try {
-          // Try to get cached guide first
-          const cachedResponse = await fetch(
-            `/api/tools/${
-              task.recommendedTool.id
-            }/guide?taskContext=${encodeURIComponent(task.name)}&language=ko`
-          );
+            if (cachedResponse.ok) {
+              const cachedGuide = await cachedResponse.json();
+              const markdownGuide = convertStructuredGuideToMarkdown(
+                cachedGuide,
+                task
+              );
 
-          if (cachedResponse.ok) {
-            const cachedGuide = await cachedResponse.json();
+              setGuideStatus(task.id, {
+                status: "completed",
+                progress: 100,
+                guide: markdownGuide,
+              });
+              return;
+            }
+
+            // Generate new guide if no cache
+            const response = await fetch(
+              `/api/tools/${task.recommendedTool.id}/guide`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  taskContext: task.name,
+                  language: "ko",
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error("가이드 생성 요청에 실패했습니다.");
+            }
+
+            setGuideStatus(task.id, {
+              status: "generating",
+              progress: 50,
+            });
+
+            const guideData = await response.json();
             const markdownGuide = convertStructuredGuideToMarkdown(
-              cachedGuide,
+              guideData,
               task
             );
 
@@ -373,59 +393,25 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
               progress: 100,
               guide: markdownGuide,
             });
-            continue;
+          } catch (error) {
+            setGuideStatus(task.id, {
+              status: "error",
+              progress: 0,
+              error: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
+            });
           }
-
-          // Generate new guide if no cache
-          const response = await fetch(
-            `/api/tools/${task.recommendedTool.id}/guide`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                taskContext: task.name,
-                language: "ko",
-              }),
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error("가이드 생성 요청에 실패했습니다.");
-          }
-
-          setGuideStatus(task.id, {
-            status: "generating",
-            progress: 50,
-          });
-
-          const guideData = await response.json();
-          const markdownGuide = convertStructuredGuideToMarkdown(
-            guideData,
-            task
-          );
-
-          setGuideStatus(task.id, {
-            status: "completed",
-            progress: 100,
-            guide: markdownGuide,
-          });
-
-          // Add delay between requests to avoid rate limiting
-          await new Promise((resolve) => setTimeout(resolve, 1000));
         } catch (error) {
-          console.error("Guide generation error for task:", task.id, error);
           setGuideStatus(task.id, {
             status: "error",
             progress: 0,
-            error:
-              error instanceof Error
-                ? error.message
-                : "알 수 없는 오류가 발생했습니다.",
+            error: "작업 처리 중 오류가 발생했습니다.",
           });
         }
-      }
+      });
+
+      // Wait for all tasks to complete (parallel execution)
+      await Promise.allSettled(taskPromises);
+
     } finally {
       setIsGeneratingGuides(false);
     }
@@ -477,7 +463,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         guide: markdownGuide,
       });
     } catch (error) {
-      console.error("Guide retry error for task:", taskId, error);
       setGuideStatus(taskId, {
         status: "error",
         progress: 0,

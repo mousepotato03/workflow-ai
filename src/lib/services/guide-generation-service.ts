@@ -35,7 +35,7 @@ interface GenerateGuideOptions {
 
 // Initialize Gemini model
 const model = new ChatGoogleGenerativeAI({
-  model: "gemini-2.5-pro",
+  model: "gemini-2.5-flash",
   temperature: 0.3, // Slightly higher for more creative guide generation
   apiKey: getEnvVar("GOOGLE_API_KEY"),
 });

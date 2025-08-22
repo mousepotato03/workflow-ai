@@ -26,6 +26,14 @@ export interface StreamState {
   result: WorkflowResponse | null;
   error: string | null;
   events: StreamEvent[];
+  taskProgress: Map<string, {
+    taskId: string;
+    taskName: string;
+    stage: 'start' | 'tool_complete' | 'guide_start' | 'guide_complete' | 'complete' | 'error';
+    toolName?: string;
+    hasGuide?: boolean;
+    progress: number;
+  }>;
 }
 
 export interface UseWorkflowStreamReturn {
@@ -45,6 +53,7 @@ export const useWorkflowStream = (): UseWorkflowStreamReturn => {
     result: null,
     error: null,
     events: [],
+    taskProgress: new Map(),
   });
 
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -60,6 +69,7 @@ export const useWorkflowStream = (): UseWorkflowStreamReturn => {
       result: null,
       error: null,
       events: [],
+      taskProgress: new Map(),
     });
   }, []);
 
@@ -179,12 +189,55 @@ export const useWorkflowStream = (): UseWorkflowStreamReturn => {
                   switch (eventType) {
                     case "progress":
                       const progressData = data as ProgressData;
-                      setStreamState((prev) => ({
-                        ...prev,
-                        progress: progressData.progress,
-                        currentStage: progressData.stage,
-                        currentMessage: progressData.message,
-                      }));
+                      
+                      setStreamState((prev) => {
+                        const newTaskProgress = new Map(prev.taskProgress);
+                        
+                        // Handle task-specific progress events
+                        if (progressData.stage.startsWith('task_')) {
+                          const parts = progressData.stage.split('_');
+                          if (parts.length >= 3) {
+                            const taskId = parts[1];
+                            const taskStage = parts.slice(2).join('_') as 'start' | 'tool_complete' | 'guide_start' | 'guide_complete' | 'complete' | 'error';
+                            
+                            const existing = newTaskProgress.get(taskId);
+                            newTaskProgress.set(taskId, {
+                              taskId,
+                              taskName: existing?.taskName || 'Unknown Task',
+                              stage: taskStage,
+                              toolName: existing?.toolName,
+                              hasGuide: existing?.hasGuide,
+                              progress: progressData.progress,
+                            });
+                            
+                            // Extract tool name from progress message if available
+                            if (taskStage === 'tool_complete' && progressData.message.includes('도구 추천 완료:')) {
+                              const toolName = progressData.message.split('도구 추천 완료:')[1]?.trim();
+                              if (toolName && toolName !== '없음') {
+                                const taskProgress = newTaskProgress.get(taskId);
+                                if (taskProgress) {
+                                  taskProgress.toolName = toolName;
+                                }
+                              }
+                            }
+                            
+                            if (taskStage === 'guide_complete') {
+                              const taskProgress = newTaskProgress.get(taskId);
+                              if (taskProgress) {
+                                taskProgress.hasGuide = true;
+                              }
+                            }
+                          }
+                        }
+                        
+                        return {
+                          ...prev,
+                          progress: progressData.progress,
+                          currentStage: progressData.stage,
+                          currentMessage: progressData.message,
+                          taskProgress: newTaskProgress,
+                        };
+                      });
                       break;
 
                     case "complete":
@@ -208,11 +261,7 @@ export const useWorkflowStream = (): UseWorkflowStreamReturn => {
                   }
                 }
               } catch (parseError) {
-                console.warn(
-                  "Failed to parse SSE message:",
-                  parseError,
-                  message
-                );
+                // Failed to parse SSE message - skip
               }
             }
           }

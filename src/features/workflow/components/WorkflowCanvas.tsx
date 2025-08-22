@@ -187,7 +187,6 @@ export function WorkflowCanvas() {
         tasks: updatedTasks,
       });
     } catch (error) {
-      console.error("Tool rematch failed:", error);
       // You could add a toast notification here
     } finally {
       setRematchingTasks((prev) => {
