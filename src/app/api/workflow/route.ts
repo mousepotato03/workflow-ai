@@ -16,8 +16,8 @@ import {
 const workflowRequestSchema = z.object({
   goal: z
     .string()
-    .min(10, "목표는 10자 이상 입력해주세요.")
-    .max(200, "목표는 200자 이내로 입력해주세요."),
+    .min(10, "Please enter at least 10 characters.")
+    .max(200, "Please keep it under 200 characters."),
   language: z.string().min(2).max(10),
   freeToolsOnly: z.boolean().optional(),
 });
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     if (!taskResult.tasks || !Array.isArray(taskResult.tasks)) {
       const error = new Error(
-        "작업 분해 실패: 올바른 형식의 작업 목록을 생성할 수 없습니다."
+        "Task decomposition failed: Unable to generate a proper task list."
       );
       throw error;
     }
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(
         {
-          error: "입력 데이터가 올바르지 않습니다.",
+          error: "Input data is invalid.",
           details: error.errors,
         },
         { status: 400 }
@@ -137,9 +137,9 @@ export async function POST(request: NextRequest) {
 
     // Return user-friendly error message
     const userMessage =
-      error instanceof Error && error.message.includes("워크플로우")
+      error instanceof Error && error.message.includes("workflow")
         ? error.message
-        : "서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.";
+        : "A temporary server issue has occurred. Please try again later.";
 
     return NextResponse.json(
       {

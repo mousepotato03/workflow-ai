@@ -23,24 +23,24 @@ function LoginRequiredModalContent() {
       setIsOpen(true);
       switch (error) {
         case "auth_failed":
-          setErrorMessage("로그인에 실패했습니다. 다시 시도해주세요.");
+          setErrorMessage("Login failed. Please try again.");
           break;
         case "unexpected":
           setErrorMessage(
-            "예상치 못한 오류가 발생했습니다. 다시 시도해주세요."
+            "An unexpected error occurred. Please try again."
           );
           break;
         default:
-          setErrorMessage("로그인 중 오류가 발생했습니다. 다시 시도해주세요.");
+          setErrorMessage("An error occurred during login. Please try again.");
       }
     }
   }, [searchParams]);
 
   const handleClose = () => {
     setIsOpen(false);
-    // 클라이언트 사이드에서만 window.location 사용
+    // Use window.location only on client side
     if (typeof window !== 'undefined') {
-      // URL에서 error 파라미터 제거
+      // Remove error parameter from URL
       const url = new URL(window.location.href);
       url.searchParams.delete("error");
       window.history.replaceState({}, "", url.toString());
@@ -53,7 +53,7 @@ function LoginRequiredModalContent() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-red-500" />
-            로그인 오류
+            Login Error
           </DialogTitle>
           <DialogDescription className="text-left">
             {errorMessage}
@@ -61,9 +61,9 @@ function LoginRequiredModalContent() {
         </DialogHeader>
         <div className="flex justify-end space-x-2">
           <Button variant="outline" onClick={handleClose}>
-            닫기
+            Close
           </Button>
-          <Button onClick={handleClose}>다시 시도</Button>
+          <Button onClick={handleClose}>Try Again</Button>
         </div>
       </DialogContent>
     </Dialog>

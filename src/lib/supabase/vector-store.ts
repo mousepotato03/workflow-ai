@@ -54,9 +54,9 @@ export const searchToolsByKeywords = async (
     // Build query with free tools filter
     const buildQuery = (query: any) => {
       if (userPreferences?.freeToolsOnly) {
-        // Prefer scores.pricing_model when available, fallback to cost_index
+        // Filter for free tools using scores.pricing_model
         query = query.or(
-          "scores->>pricing_model.eq.free,cost_index.is.null,cost_index.eq.0"
+          "scores->>pricing_model.eq.free"
         );
       }
       return query;

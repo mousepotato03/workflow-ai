@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// 북마크 목록 조회
+// Get bookmarks list
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // 사용자 인증 확인
+    // Check user authentication
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
-        { error: "인증이 필요합니다." },
+        { error: "Authentication required." },
         { status: 401 }
       );
     }
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const toolId = searchParams.get("tool_id");
 
     if (toolId) {
-      // 특정 도구의 북마크 상태 확인
+      // Check bookmark status for specific tool
       const { data, error } = await supabase
         .from("bookmarks")
         .select("id")
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
         // PGRST116 = no rows returned
         console.error("Bookmark check error:", error);
         return NextResponse.json(
-          { error: "북마크 상태를 확인하는 중 오류가 발생했습니다." },
+          { error: "An error occurred while checking bookmark status." },
           { status: 500 }
         );
       }
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         isBookmarked: !!data,
       });
     } else {
-      // 사용자의 모든 북마크 조회
+      // Get all user bookmarks
       const { data, error } = await supabase
         .from("bookmarks")
         .select(
@@ -58,8 +58,6 @@ export async function GET(request: NextRequest) {
             url,
             logo_url,
             categories,
-            bench_score,
-            cost_index
           )
         `
         )
@@ -69,7 +67,7 @@ export async function GET(request: NextRequest) {
       if (error) {
         console.error("Bookmarks fetch error:", error);
         return NextResponse.json(
-          { error: "북마크 목록을 가져오는 중 오류가 발생했습니다." },
+          { error: "An error occurred while fetching bookmarks." },
           { status: 500 }
         );
       }
@@ -81,25 +79,25 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json(
-      { error: "서버 오류가 발생했습니다." },
+      { error: "A server error occurred." },
       { status: 500 }
     );
   }
 }
 
-// 북마크 추가
+// Add bookmark
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // 사용자 인증 확인
+    // Check user authentication
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
-        { error: "인증이 필요합니다." },
+        { error: "Authentication required." },
         { status: 401 }
       );
     }
@@ -108,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     if (!tool_id) {
       return NextResponse.json(
-        { error: "도구 ID가 필요합니다." },
+        { error: "Tool ID is required." },
         { status: 400 }
       );
     }
@@ -126,43 +124,43 @@ export async function POST(request: NextRequest) {
       if (error.code === "23505") {
         // unique violation
         return NextResponse.json(
-          { error: "이미 북마크에 추가된 도구입니다." },
+          { error: "Tool is already bookmarked." },
           { status: 409 }
         );
       }
       console.error("Bookmark insert error:", error);
       return NextResponse.json(
-        { error: "북마크 추가 중 오류가 발생했습니다." },
+        { error: "An error occurred while adding bookmark." },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
-      message: "북마크에 추가되었습니다.",
+      message: "Added to bookmarks.",
       bookmark: data,
     });
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json(
-      { error: "서버 오류가 발생했습니다." },
+      { error: "A server error occurred." },
       { status: 500 }
     );
   }
 }
 
-// 북마크 제거
+// Remove bookmark
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // 사용자 인증 확인
+    // Check user authentication
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
-        { error: "인증이 필요합니다." },
+        { error: "Authentication required." },
         { status: 401 }
       );
     }
@@ -171,7 +169,7 @@ export async function DELETE(request: NextRequest) {
 
     if (!tool_id) {
       return NextResponse.json(
-        { error: "도구 ID가 필요합니다." },
+        { error: "Tool ID is required." },
         { status: 400 }
       );
     }
@@ -185,18 +183,18 @@ export async function DELETE(request: NextRequest) {
     if (error) {
       console.error("Bookmark delete error:", error);
       return NextResponse.json(
-        { error: "북마크 제거 중 오류가 발생했습니다." },
+        { error: "An error occurred while removing bookmark." },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
-      message: "북마크에서 제거되었습니다.",
+      message: "Removed from bookmarks.",
     });
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json(
-      { error: "서버 오류가 발생했습니다." },
+      { error: "A server error occurred." },
       { status: 500 }
     );
   }

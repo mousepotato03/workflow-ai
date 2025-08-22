@@ -26,8 +26,8 @@ import {
 const workflowRequestSchema = z.object({
   goal: z
     .string()
-    .min(10, "목표는 10자 이상 입력해주세요.")
-    .max(200, "목표는 200자 이내로 입력해주세요."),
+    .min(10, "Please enter at least 10 characters.")
+    .max(200, "Please keep it under 200 characters."),
   language: z.string().min(2).max(10),
   freeToolsOnly: z.boolean().optional(),
 });
@@ -89,13 +89,13 @@ async function processWorkflow(
     const validatedData = workflowRequestSchema.parse(body);
 
 
-    managedStream.sendProgress("validation", 10, "입력 데이터 검증 완료");
+    managedStream.sendProgress("validation", 10, "Input data validation complete");
 
     // Early return if stream is aborted
     if (!managedStream.isActive()) return;
 
     const workflowId = crypto.randomUUID();
-    managedStream.sendProgress("workflow_created", 20, "워크플로우 생성 완료");
+    managedStream.sendProgress("workflow_created", 20, "Workflow creation complete");
 
     // Early return if stream is aborted
     if (!managedStream.isActive()) return;
@@ -104,7 +104,7 @@ async function processWorkflow(
     managedStream.sendProgress(
       "task_decomposition_start",
       25,
-      "작업 분해 시작 중..."
+      "Starting task decomposition..."
     );
 
     const taskDecomposer = createTaskDecomposerChain();
@@ -115,7 +115,7 @@ async function processWorkflow(
 
     if (!taskResult.tasks || !Array.isArray(taskResult.tasks)) {
       const error =
-        "작업 분해 실패: 올바른 형식의 작업 목록을 생성할 수 없습니다.";
+        "Task decomposition failed: Unable to generate a proper task list.";
       managedStream.sendError(error);
       return;
     }
@@ -123,14 +123,14 @@ async function processWorkflow(
     managedStream.sendProgress(
       "task_decomposition_complete",
       40,
-      `${taskResult.tasks.length}개 작업으로 분해 완료`
+      `Decomposed into ${taskResult.tasks.length} tasks`
     );
 
     // Early return if stream is aborted
     if (!managedStream.isActive()) return;
 
     // Step 2: Save tasks to database
-    managedStream.sendProgress("task_saving", 45, "작업 저장 중...");
+    managedStream.sendProgress("task_saving", 45, "Saving tasks...");
 
     const savedTasks = taskResult.tasks.map(
       (taskName: string, index: number) => ({
@@ -143,7 +143,7 @@ async function processWorkflow(
     managedStream.sendProgress(
       "task_saving_complete",
       50,
-      "작업 목록 준비 완료"
+      "Task list preparation complete"
     );
 
     // Early return if stream is aborted
@@ -153,7 +153,7 @@ async function processWorkflow(
     managedStream.sendProgress(
       "parallel_processing_start",
       55,
-      "도구 추천 및 가이드 생성 시작 중..."
+      "Starting tool recommendation and guide generation..."
     );
 
     const userPreferences = getUserPreferences(validatedData);
@@ -180,7 +180,7 @@ async function processWorkflow(
     managedStream.sendProgress(
       "parallel_processing_complete",
       90,
-      "모든 작업 처리 완료"
+      "All tasks processing complete"
     );
 
     // Stateless: no DB workflow status update
@@ -215,7 +215,7 @@ async function processWorkflow(
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
 
-    managedStream.sendError("워크플로우 처리 중 오류가 발생했습니다.", {
+    managedStream.sendError("An error occurred while processing the workflow.", {
       error: errorMessage,
     });
   }

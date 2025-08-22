@@ -71,7 +71,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Recommended Workflow Section - 조건부 렌더링 */}
+        {/* Recommended Workflow Section - Conditional rendering */}
         {showRecommendations && !(isLoading || workflowResult) && (
           <div className="mt-24">
             <h2 className="text-3xl font-bold text-foreground text-center mb-12 tracking-tight">

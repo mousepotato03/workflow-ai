@@ -93,7 +93,7 @@ export function GuideModal({
       const cachedResponse = await fetch(
         `/api/tools/${toolId}/guide?taskContext=${encodeURIComponent(
           taskContext
-        )}&language=ko`
+        )}&language=en`
       );
 
       if (cachedResponse.ok) {
@@ -111,17 +111,17 @@ export function GuideModal({
         },
         body: JSON.stringify({
           taskContext,
-          language: "ko",
+          language: "en",
         }),
       });
 
       if (!streamResponse.ok) {
-        throw new Error("가이드 생성 요청에 실패했습니다.");
+        throw new Error("Failed to request guide generation.");
       }
 
       const reader = streamResponse.body?.getReader();
       if (!reader) {
-        throw new Error("스트림을 읽을 수 없습니다.");
+        throw new Error("Cannot read stream.");
       }
 
       const decoder = new TextDecoder();
@@ -174,7 +174,7 @@ export function GuideModal({
     } catch (err) {
       console.error("Guide generation error:", err);
       setError(
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다."
+        err instanceof Error ? err.message : "An unknown error occurred."
       );
       setIsLoading(false);
       setProgress(null);
@@ -189,15 +189,35 @@ export function GuideModal({
 
   const getSectionIcon = (title: string) => {
     const titleLower = title.toLowerCase();
-    if (titleLower.includes("준비") || titleLower.includes("시작"))
+    if (
+      titleLower.includes("preparation") ||
+      titleLower.includes("setup") ||
+      titleLower.includes("getting started")
+    )
       return <Target className="w-4 h-4" />;
-    if (titleLower.includes("단계") || titleLower.includes("사용법"))
+    if (
+      titleLower.includes("step") ||
+      titleLower.includes("usage") ||
+      titleLower.includes("how to")
+    )
       return <CheckCircle2 className="w-4 h-4" />;
-    if (titleLower.includes("주의") || titleLower.includes("경고"))
+    if (
+      titleLower.includes("caution") ||
+      titleLower.includes("warning") ||
+      titleLower.includes("important")
+    )
       return <AlertTriangle className="w-4 h-4" />;
-    if (titleLower.includes("팁") || titleLower.includes("활용"))
+    if (
+      titleLower.includes("tip") ||
+      titleLower.includes("best practices") ||
+      titleLower.includes("advanced")
+    )
       return <Lightbulb className="w-4 h-4" />;
-    if (titleLower.includes("결과") || titleLower.includes("완료"))
+    if (
+      titleLower.includes("result") ||
+      titleLower.includes("completion") ||
+      titleLower.includes("final")
+    )
       return <Star className="w-4 h-4" />;
     return <BookOpen className="w-4 h-4" />;
   };
@@ -224,10 +244,10 @@ export function GuideModal({
             )}
             <div>
               <span className="text-lg font-semibold">
-                {toolName} 사용 가이드
+                {toolName} Usage Guide
               </span>
               <div className="text-sm text-muted-foreground mt-1">
-                {taskContext} 작업을 위한 상세 가이드
+                Detailed guide for {taskContext}
               </div>
             </div>
           </DialogTitle>
@@ -238,14 +258,16 @@ export function GuideModal({
             <div className="flex-1 flex items-center justify-center py-12">
               <div className="text-center">
                 <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">상세 사용 가이드</h3>
+                <h3 className="text-lg font-semibold mb-2">
+                  Detailed Usage Guide
+                </h3>
                 <p className="text-muted-foreground mb-6 max-w-md">
-                  {toolName}을 사용하여 {taskContext} 작업을 수행하는 방법을
-                  최신 정보를 바탕으로 상세하게 안내해드립니다.
+                  Get detailed guidance on how to use {toolName} for{" "}
+                  {taskContext} tasks based on the latest information.
                 </p>
                 <Button onClick={generateGuide} size="lg">
                   <BookOpen className="w-4 h-4 mr-2" />
-                  가이드 생성하기
+                  Generate Guide
                 </Button>
               </div>
             </div>
@@ -267,25 +289,23 @@ export function GuideModal({
                       />
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {progress.progress}% 완료
+                      {progress.progress}% Complete
                       {progress.sourceCount &&
-                        ` • ${progress.sourceCount}개 참고자료`}
+                        ` • ${progress.sourceCount} references`}
                     </p>
                     {progress.isFallback && (
                       <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 text-amber-900 p-3 text-xs flex items-start gap-2 text-left">
                         <AlertTriangle className="w-4 h-4 mt-0.5" />
                         <div>
-                          웹 검색에 일시적인 문제가 감지되어 제한된 참고 자료로
-                          가이드를 생성 중입니다.
+                          Temporary web search issues detected. Generating guide
+                          with limited reference materials.
                         </div>
                       </div>
                     )}
                   </>
                 )}
                 {!progress && (
-                  <p className="text-muted-foreground">
-                    가이드를 생성하고 있습니다...
-                  </p>
+                  <p className="text-muted-foreground">Generating guide...</p>
                 )}
               </div>
             </div>
@@ -295,10 +315,10 @@ export function GuideModal({
             <div className="flex-1 flex items-center justify-center py-12">
               <div className="text-center">
                 <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">오류 발생</h3>
+                <h3 className="text-lg font-semibold mb-2">Error Occurred</h3>
                 <p className="text-muted-foreground mb-6 max-w-md">{error}</p>
                 <Button onClick={generateGuide} variant="outline">
-                  다시 시도
+                  Try Again
                 </Button>
               </div>
             </div>
@@ -311,9 +331,9 @@ export function GuideModal({
                   <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 p-3 text-sm flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 mt-0.5" />
                     <div>
-                      최신 웹 검색에 일시적인 문제가 있어 제한된 참고 자료로
-                      가이드를 생성했습니다. 나중에 다시 시도하거나 공식 문서를
-                      함께 확인해주세요.
+                      There was a temporary issue with web search. The guide was
+                      generated with limited reference materials. Please try
+                      again later or check official documentation.
                     </div>
                   </div>
                 )}
@@ -327,18 +347,18 @@ export function GuideModal({
                       disabled={!toolUrl}
                     >
                       <ExternalLink className="w-4 h-4 mr-2" />
-                      도구 사용하기
+                      Use Tool
                     </Button>
                     {guideData.fromCache && (
                       <Badge variant="secondary">
                         <Clock className="w-3 h-3 mr-1" />
-                        캐시됨
+                        Cached
                       </Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">
-                      신뢰도
+                      Confidence
                     </span>
                     <Badge
                       variant={
@@ -358,7 +378,7 @@ export function GuideModal({
                 <div className="bg-muted rounded-lg p-4">
                   <h3 className="font-semibold mb-2 flex items-center gap-2">
                     <BookOpen className="w-4 h-4" />
-                    요약
+                    Summary
                   </h3>
                   <p className="text-sm leading-relaxed">
                     {guideData.guide.summary}
@@ -408,7 +428,7 @@ export function GuideModal({
                     <div>
                       <h3 className="font-semibold mb-3 flex items-center gap-2">
                         <ExternalLink className="w-4 h-4" />
-                        참고 자료
+                        References
                       </h3>
                       <div className="space-y-2">
                         {guideData.sourceUrls.slice(0, 3).map((url, index) => (

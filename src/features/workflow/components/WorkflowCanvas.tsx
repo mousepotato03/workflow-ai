@@ -160,7 +160,7 @@ export function WorkflowCanvas() {
         body: JSON.stringify({
           taskId,
           taskName,
-          language: "ko", // or get from user preference
+          language: "en", // or get from user preference
         }),
       });
 

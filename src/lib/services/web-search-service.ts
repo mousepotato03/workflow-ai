@@ -62,7 +62,7 @@ export class WebSearchService {
   /**
    * Generate cache key for search query
    */
-  private generateCacheKey(query: string, language: string = "ko"): string {
+  private generateCacheKey(query: string, language: string = "en"): string {
     return `search:${language}:${query.toLowerCase().trim()}`;
   }
 
@@ -110,7 +110,7 @@ export class WebSearchService {
   async searchToolGuides(
     toolName: string,
     taskContext: string,
-    language: string = "ko"
+    language: string = "en"
   ): Promise<WebSearchResponse> {
     const startTime = Date.now();
 
@@ -148,8 +148,8 @@ export class WebSearchService {
         {
           q: query,
           num: 8, // Get more results for better selection
-          hl: language === "ko" ? "kr" : "en",
-          gl: language === "ko" ? "kr" : "us",
+          hl: "en",
+          gl: "us",
         },
         {
           headers: {
@@ -205,11 +205,8 @@ export class WebSearchService {
     taskContext: string,
     language: string
   ): string {
-    if (language === "ko") {
-      return `${toolName} 사용법 가이드 튜토리얼 ${taskContext}`;
-    } else {
-      return `${toolName} tutorial guide how to use ${taskContext}`;
-    }
+    // Always search in English for better global results
+    return `${toolName} tutorial guide how to use ${taskContext}`;
   }
 
   /**

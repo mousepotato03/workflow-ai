@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     if (taskRecommendations.length === 0) {
       return Response.json(
         { 
-          error: "도구 추천을 생성할 수 없습니다." 
+          error: "Unable to generate tool recommendation." 
         },
         { status: 500 }
       );
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return Response.json(
         { 
-          error: "입력 데이터가 올바르지 않습니다.",
+          error: "Input data is invalid.",
           details: error.errors 
         },
         { status: 400 }
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
 
     return Response.json(
       { 
-        error: "도구 재매칭 중 오류가 발생했습니다." 
+        error: "An error occurred during tool rematch." 
       },
       { status: 500 }
     );

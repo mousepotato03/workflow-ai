@@ -40,7 +40,7 @@ export default function LoginButton() {
     return (
       <div className="flex items-center space-x-2">
         <Loader2 className="h-4 w-4 animate-spin" />
-        <span className="text-sm text-muted-foreground">세션 확인 중...</span>
+        <span className="text-sm text-muted-foreground">Checking session...</span>
       </div>
     );
   }
@@ -74,14 +74,14 @@ export default function LoginButton() {
             </Avatar>
             <div className="flex flex-col">
               <p className="text-sm font-medium">
-                {user.user_metadata?.full_name || "사용자"}
+                {user.user_metadata?.full_name || "User"}
               </p>
-              <p className="text-xs text-muted-foreground">로그인됨</p>
+              <p className="text-xs text-muted-foreground">Signed in</p>
             </div>
           </div>
           <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
             <LogOut className="mr-2 h-4 w-4" />
-            로그아웃
+            Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -101,7 +101,7 @@ export default function LoginButton() {
       ) : (
         <GoogleIcon size={20} />
       )}
-      {signingIn ? "로그인 중..." : "Sign in with Google"}
+      {signingIn ? "Signing in..." : "Sign in with Google"}
     </Button>
   );
 }

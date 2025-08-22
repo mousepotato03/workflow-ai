@@ -105,7 +105,7 @@ export const useWorkflowStream = (): UseWorkflowStreamReturn => {
           ...prev,
           isProcessing: true,
           currentStage: "connecting",
-          currentMessage: "서버에 연결 중...",
+          currentMessage: "Connecting to server...",
           progress: 0,
         }));
 
@@ -135,7 +135,7 @@ export const useWorkflowStream = (): UseWorkflowStreamReturn => {
         setStreamState((prev) => ({
           ...prev,
           isConnected: true,
-          currentMessage: "연결 성공! 처리 시작...",
+          currentMessage: "Connected successfully! Processing started...",
         }));
 
         try {
@@ -211,9 +211,9 @@ export const useWorkflowStream = (): UseWorkflowStreamReturn => {
                             });
                             
                             // Extract tool name from progress message if available
-                            if (taskStage === 'tool_complete' && progressData.message.includes('도구 추천 완료:')) {
-                              const toolName = progressData.message.split('도구 추천 완료:')[1]?.trim();
-                              if (toolName && toolName !== '없음') {
+                            if (taskStage === 'tool_complete' && progressData.message.includes('Tool recommendation complete:')) {
+                              const toolName = progressData.message.split('Tool recommendation complete:')[1]?.trim();
+                              if (toolName && toolName !== 'None') {
                                 const taskProgress = newTaskProgress.get(taskId);
                                 if (taskProgress) {
                                   taskProgress.toolName = toolName;
@@ -246,7 +246,7 @@ export const useWorkflowStream = (): UseWorkflowStreamReturn => {
                         result: data as WorkflowResponse,
                         isProcessing: false,
                         progress: 100,
-                        currentMessage: "완료!",
+                        currentMessage: "Complete!",
                       }));
                       break;
 
@@ -255,7 +255,7 @@ export const useWorkflowStream = (): UseWorkflowStreamReturn => {
                         ...prev,
                         error: data.error || "Unknown error occurred",
                         isProcessing: false,
-                        currentMessage: "오류 발생",
+                        currentMessage: "Error occurred",
                       }));
                       break;
                   }
@@ -274,7 +274,7 @@ export const useWorkflowStream = (): UseWorkflowStreamReturn => {
           setStreamState((prev) => ({
             ...prev,
             isProcessing: false,
-            currentMessage: "요청이 취소되었습니다.",
+            currentMessage: "Request was cancelled.",
           }));
         } else {
           setStreamState((prev) => ({
@@ -282,7 +282,7 @@ export const useWorkflowStream = (): UseWorkflowStreamReturn => {
             error: error instanceof Error ? error.message : "Connection failed",
             isProcessing: false,
             isConnected: false,
-            currentMessage: "연결 실패",
+            currentMessage: "Connection failed",
           }));
         }
       } finally {

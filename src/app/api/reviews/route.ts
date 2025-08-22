@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// 리뷰 조회
+// Get reviews
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -12,28 +12,22 @@ export async function GET(request: NextRequest) {
 
     if (!toolId) {
       return NextResponse.json(
-        { error: "도구 ID가 필요합니다." },
+        { error: "Tool ID is required." },
         { status: 400 }
       );
     }
 
-    // 리뷰 목록 조회
+    // Get reviews list
     const { data: reviews, error } = await supabase
       .from("reviews")
-      .select(
-        `
+      .select(`
         id,
         rating,
         comment,
         created_at,
-        updated_at,
-        users!reviews_user_id_fkey (
-          id,
-          full_name,
-          avatar_url
-        )
-      `
-      )
+        user_id,
+        tool_id
+      `)
       .eq("tool_id", toolId)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
@@ -41,50 +35,59 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error("Reviews fetch error:", error);
       return NextResponse.json(
-        { error: "리뷰를 가져오는 중 오류가 발생했습니다." },
+        { error: "An error occurred while fetching reviews." },
         { status: 500 }
       );
     }
 
-    // 평균 별점 및 리뷰 수 조회
+    // Get average rating and review count
     const { data: ratingData, error: ratingError } = await supabase
       .from("tool_ratings")
       .select("review_count, average_rating")
       .eq("tool_id", toolId)
       .single();
 
-    if (ratingError && ratingError.code !== "PGRST116") {
-      console.error("Rating fetch error:", ratingError);
+    // Check if user has already rated this tool
+    const { data: { user } } = await supabase.auth.getUser();
+    let userRating = null;
+    if (user) {
+      const { data: userReview } = await supabase
+        .from("reviews")
+        .select("rating")
+        .eq("tool_id", toolId)
+        .eq("user_id", user.id)
+        .single();
+      userRating = userReview?.rating || null;
     }
 
     return NextResponse.json({
       reviews: reviews || [],
+      totalRating: ratingData?.average_rating || 0,
       reviewCount: ratingData?.review_count || 0,
-      averageRating: ratingData?.average_rating || 0,
-      hasMore: reviews?.length === limit,
+      userRating,
     });
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json(
-      { error: "서버 오류가 발생했습니다." },
+      { error: "A server error occurred." },
       { status: 500 }
     );
   }
 }
 
-// 리뷰 작성/수정
+// Write/edit review
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // 사용자 인증 확인
+    // Check user authentication
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
-        { error: "인증이 필요합니다." },
+        { error: "Authentication required." },
         { status: 401 }
       );
     }
@@ -93,82 +96,67 @@ export async function POST(request: NextRequest) {
 
     if (!tool_id || !rating) {
       return NextResponse.json(
-        { error: "도구 ID와 별점이 필요합니다." },
+        { error: "Tool ID and rating are required." },
         { status: 400 }
       );
     }
 
     if (rating < 1 || rating > 5) {
       return NextResponse.json(
-        { error: "별점은 1~5 사이의 값이어야 합니다." },
+        { error: "Rating must be between 1 and 5." },
         { status: 400 }
       );
     }
 
-    // upsert를 사용하여 기존 리뷰가 있으면 업데이트, 없으면 생성
+    // Use upsert to update existing review or create new one
     const { data, error } = await supabase
       .from("reviews")
-      .upsert(
-        {
-          user_id: user.id,
-          tool_id: tool_id,
-          rating: rating,
-          comment: comment || null,
-        },
-        {
-          onConflict: "user_id,tool_id",
-        }
-      )
-      .select(
-        `
-        id,
-        rating,
-        comment,
-        created_at,
-        updated_at,
-        users!reviews_user_id_fkey (
-          id,
-          full_name,
-          avatar_url
-        )
-      `
-      )
+      .upsert({
+        user_id: user.id,
+        tool_id: tool_id,
+        rating: rating,
+        comment: comment || null,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: "user_id,tool_id"
+      })
+      .select()
       .single();
 
     if (error) {
       console.error("Review upsert error:", error);
       return NextResponse.json(
-        { error: "리뷰 저장 중 오류가 발생했습니다." },
+        { error: "An error occurred while saving the review." },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
-      message: "리뷰가 저장되었습니다.",
+      message: "Review saved successfully.",
       review: data,
     });
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json(
-      { error: "서버 오류가 발생했습니다." },
+      { error: "A server error occurred." },
       { status: 500 }
     );
   }
 }
 
-// 리뷰 삭제
+// Delete review
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // 사용자 인증 확인
+    // Check user authentication
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
-        { error: "인증이 필요합니다." },
+        { error: "Authentication required." },
         { status: 401 }
       );
     }
@@ -177,7 +165,7 @@ export async function DELETE(request: NextRequest) {
 
     if (!tool_id) {
       return NextResponse.json(
-        { error: "도구 ID가 필요합니다." },
+        { error: "Tool ID is required." },
         { status: 400 }
       );
     }
@@ -191,18 +179,18 @@ export async function DELETE(request: NextRequest) {
     if (error) {
       console.error("Review delete error:", error);
       return NextResponse.json(
-        { error: "리뷰 삭제 중 오류가 발생했습니다." },
+        { error: "An error occurred while deleting the review." },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
-      message: "리뷰가 삭제되었습니다.",
+      message: "Review deleted successfully.",
     });
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json(
-      { error: "서버 오류가 발생했습니다." },
+      { error: "A server error occurred." },
       { status: 500 }
     );
   }

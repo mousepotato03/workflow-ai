@@ -13,7 +13,7 @@ const requestSchema = z.object({
       freeToolsOnly: z.boolean().optional(),
     })
     .optional(),
-  language: z.string().min(2).max(10).default("ko"),
+  language: z.string().min(2).max(10).default("en"),
 });
 
 const batchRequestSchema = z.object({
@@ -29,24 +29,24 @@ const batchRequestSchema = z.object({
       freeToolsOnly: z.boolean().optional(),
     })
     .optional(),
-  language: z.string().min(2).max(10).default("ko"),
+  language: z.string().min(2).max(10).default("en"),
   workflowId: z.string().optional(),
 });
 
 /**
  * POST /api/tools/smart-recommend
- * 2단계 Search-then-Rerank 추천 엔진을 사용한 단일 태스크 추천
+ * Single task recommendation using 2-stage Search-then-Rerank engine
  */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     
-    // 배치 처리 요청인지 확인
+    // Check if this is a batch processing request
     if (Array.isArray(body.tasks)) {
       return await handleBatchRecommendation(body);
     }
     
-    // 단일 태스크 처리
+    // Single task processing
     return await handleSingleRecommendation(body);
     
   } catch (error) {
@@ -67,7 +67,7 @@ async function handleSingleRecommendation(body: any) {
   const requestId = crypto.randomUUID();
   const startTime = Date.now();
   
-  console.log("단일 도구 추천 요청 시작", {
+  console.log("Starting single tool recommendation request", {
     requestId,
     body: { ...body, taskName: body.taskName?.substring(0, 100) },
     timestamp: new Date().toISOString()
@@ -76,7 +76,7 @@ async function handleSingleRecommendation(body: any) {
   try {
     const { taskName, preferences, language } = requestSchema.parse(body);
 
-    console.log("요청 데이터 검증 완료", {
+    console.log("Request data validation complete", {
       requestId,
       taskName,
       language,
@@ -90,7 +90,7 @@ async function handleSingleRecommendation(body: any) {
       language,
     };
 
-    console.log("사용자 컨텍스트 준비 완료", {
+    console.log("User context preparation complete", {
       requestId,
       userContext,
       userPreferences: userPreferences ? Object.keys(userPreferences) : null
@@ -104,7 +104,7 @@ async function handleSingleRecommendation(body: any) {
 
     const processingTime = Date.now() - startTime;
 
-    console.log("단일 도구 추천 완료", {
+    console.log("Single tool recommendation complete", {
       requestId,
       taskName,
       recommendedTool: recommendation.toolName,
@@ -131,7 +131,7 @@ async function handleSingleRecommendation(body: any) {
     const processingTime = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     
-    console.error("단일 도구 추천 실패", {
+    console.error("Single tool recommendation failed", {
       requestId,
       error: errorMessage,
       processingTime,
@@ -146,7 +146,7 @@ async function handleBatchRecommendation(body: any) {
   const requestId = crypto.randomUUID();
   const startTime = Date.now();
   
-  console.log("배치 도구 추천 요청 시작", {
+  console.log("Starting batch tool recommendation request", {
     requestId,
     totalTasks: body.tasks?.length || 0,
     workflowId: body.workflowId,
@@ -156,7 +156,7 @@ async function handleBatchRecommendation(body: any) {
   try {
     const { tasks, preferences, language, workflowId } = batchRequestSchema.parse(body);
 
-    console.log("배치 요청 데이터 검증 완료", {
+    console.log("Batch request data validation complete", {
       requestId,
       workflowId,
       totalTasks: tasks.length,
@@ -171,7 +171,7 @@ async function handleBatchRecommendation(body: any) {
       language,
     };
 
-    console.log("배치 처리 시작", {
+    console.log("Starting batch processing", {
       requestId,
       workflowId,
       totalTasks: tasks.length,
@@ -191,7 +191,7 @@ async function handleBatchRecommendation(body: any) {
       ? successfulRecommendations.reduce((sum, r) => sum + r.finalScore, 0) / successfulRecommendations.length
       : 0;
 
-    console.log("배치 도구 추천 완료", {
+    console.log("Batch tool recommendation complete", {
       requestId,
       workflowId,
       totalTasks: tasks.length,
@@ -230,7 +230,7 @@ async function handleBatchRecommendation(body: any) {
     const processingTime = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     
-    console.error("배치 도구 추천 실패", {
+    console.error("Batch tool recommendation failed", {
       requestId,
       workflowId: body.workflowId,
       totalTasks: body.tasks?.length || 0,
@@ -245,7 +245,7 @@ async function handleBatchRecommendation(body: any) {
 
 /**
  * GET /api/tools/smart-recommend
- * 추천 엔진 상태 및 메타데이터 조회
+ * Query recommendation engine status and metadata
  */
 export async function GET() {
   return NextResponse.json({

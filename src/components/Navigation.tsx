@@ -28,7 +28,7 @@ export function Navigation() {
           <Link
             href="/"
             onClick={() => {
-              // 로고 클릭 시 워크플로우 상태 초기화
+              // Reset workflow state on logo click
               triggerReset();
             }}
             className="flex items-center space-x-2 hover:opacity-80 transition-opacity"

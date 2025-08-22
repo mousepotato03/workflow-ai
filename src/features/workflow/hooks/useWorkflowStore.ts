@@ -221,7 +221,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           const taskWithFlags = task as TaskWithRequiredFields;
 
           // If no tool recommendation exists, generate one first
-          if (!task.recommendedTool?.id && !taskWithFlags.hasToolRecommendation) {
+          if (
+            !task.recommendedTool?.id &&
+            !taskWithFlags.hasToolRecommendation
+          ) {
             setGuideStatus(task.id, {
               status: "generating",
               progress: 5,
@@ -234,7 +237,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   taskName: task.name,
-                  language: "ko",
+                  language: "en",
                 }),
               });
 
@@ -263,8 +266,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
                       toolDetails = {
                         id: recommendation.toolId,
                         name: recommendation.toolName,
-                        logoUrl: typeof toolData.logo_url === "string" ? toolData.logo_url : "",
-                        url: typeof toolData.url === "string" ? toolData.url : "",
+                        logoUrl:
+                          typeof toolData.logo_url === "string"
+                            ? toolData.logo_url
+                            : "",
+                        url:
+                          typeof toolData.url === "string" ? toolData.url : "",
                       };
                     }
                   }
@@ -309,7 +316,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
                 setGuideStatus(task.id, {
                   status: "error",
                   progress: 0,
-                  error: "이 작업에 적합한 도구를 찾을 수 없습니다. 수동 접근을 권장합니다.",
+                  error:
+                    "이 작업에 적합한 도구를 찾을 수 없습니다. 수동 접근을 권장합니다.",
                 });
                 return;
               }
@@ -340,7 +348,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           try {
             // Try to get cached guide first
             const cachedResponse = await fetch(
-              `/api/tools/${task.recommendedTool.id}/guide?taskContext=${encodeURIComponent(task.name)}&language=ko`
+              `/api/tools/${
+                task.recommendedTool.id
+              }/guide?taskContext=${encodeURIComponent(task.name)}&language=ko`
             );
 
             if (cachedResponse.ok) {
@@ -368,7 +378,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
                 },
                 body: JSON.stringify({
                   taskContext: task.name,
-                  language: "ko",
+                  language: "en",
                 }),
               }
             );
@@ -397,7 +407,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             setGuideStatus(task.id, {
               status: "error",
               progress: 0,
-              error: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.",
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "알 수 없는 오류가 발생했습니다.",
             });
           }
         } catch (error) {
@@ -411,7 +424,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
       // Wait for all tasks to complete (parallel execution)
       await Promise.allSettled(taskPromises);
-
     } finally {
       setIsGeneratingGuides(false);
     }
@@ -446,7 +458,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       );
 
       if (!response.ok) {
-        throw new Error("가이드 생성 요청에 실패했습니다.");
+        throw new Error("Guide generation request failed.");
       }
 
       setGuideStatus(taskId, {
@@ -467,9 +479,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         status: "error",
         progress: 0,
         error:
-          error instanceof Error
-            ? error.message
-            : "알 수 없는 오류가 발생했습니다.",
+          error instanceof Error ? error.message : "An unknown error occurred.",
       });
     }
   },
@@ -477,24 +487,24 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
 // Helper function to convert structured guide to markdown
 function convertStructuredGuideToMarkdown(guideData: any, task: Task): string {
-  let markdown = `# ${task.name} - 상세 실행 가이드\n\n`;
+  let markdown = `# ${task.name} - Detailed Implementation Guide\n\n`;
 
   // Add task information
-  markdown += `## 📋 작업 개요\n${task.name}\n\n`;
+  markdown += `## 📋 Task Overview\n${task.name}\n\n`;
 
   // Add tool information
   if (task.recommendedTool) {
-    markdown += `## 🛠️ 추천 도구\n`;
+    markdown += `## 🛠️ Recommended Tools\n`;
     markdown += `- **${task.recommendedTool.name}**\n`;
     if (task.recommendedTool.url) {
-      markdown += `  - 링크: ${task.recommendedTool.url}\n`;
+      markdown += `  - Link: ${task.recommendedTool.url}\n`;
     }
     markdown += "\n";
   }
 
   // Add summary if available
   if (guideData.guide?.summary) {
-    markdown += `## 📝 요약\n${guideData.guide.summary}\n\n`;
+    markdown += `## 📝 Summary\n${guideData.guide.summary}\n\n`;
   }
 
   // Add sections
@@ -515,20 +525,11 @@ function convertStructuredGuideToMarkdown(guideData: any, task: Task): string {
     });
   }
 
-  // Add source information
-  if (guideData.sourceUrls && guideData.sourceUrls.length > 0) {
-    markdown += `## 📚 참고 자료\n`;
-    guideData.sourceUrls.forEach((url: string) => {
-      markdown += `- [참고 링크](${url})\n`;
-    });
-    markdown += "\n";
-  }
-
   // Add metadata
   const confidencePercentage = Math.round(
     (guideData.confidenceScore || 0.6) * 100
   );
-  markdown += `---\n*이 가이드는 AI에 의해 생성되었으며 (신뢰도: ${confidencePercentage}%), 실제 상황에 맞게 조정하여 사용하시기 바랍니다.*`;
+  markdown += `---\n*This guide was generated by AI (confidence: ${confidencePercentage}%). Please adjust it according to your actual situation.*`;
 
   return markdown;
 }

@@ -16,7 +16,7 @@ const supabase = createClient(
 // Request validation schema
 const streamGuideRequestSchema = z.object({
   taskContext: z.string().min(3).max(200),
-  language: z.string().min(2).max(5).default("ko"),
+  language: z.string().min(2).max(5).default("en"),
 });
 
 /**
@@ -76,7 +76,7 @@ export async function POST(
           // Step 1: Get tool information
           sendEvent("progress", {
             stage: "tool_lookup",
-            message: "도구 정보를 확인하고 있습니다...",
+            message: "Checking tool information...",
             progress: 10,
           });
 
@@ -88,12 +88,12 @@ export async function POST(
             .single();
 
           if (toolError || !tool) {
-            return sendError("도구를 찾을 수 없습니다.");
+            return sendError("Tool not found.");
           }
 
           sendEvent("progress", {
             stage: "tool_found",
-            message: `${tool.name} 도구 정보를 확인했습니다.`,
+            message: `Tool information for ${tool.name} confirmed.`,
             progress: 20,
             toolName: tool.name,
           });
@@ -101,7 +101,7 @@ export async function POST(
           // Step 2: Check for existing guide
           sendEvent("progress", {
             stage: "cache_check",
-            message: "기존 가이드를 확인하고 있습니다...",
+            message: "Checking for existing guide...",
             progress: 30,
           });
 
@@ -121,7 +121,7 @@ export async function POST(
           if (existingGuide) {
             sendEvent("progress", {
               stage: "cache_found",
-              message: "기존 가이드를 찾았습니다.",
+              message: "Existing guide found.",
               progress: 100,
             });
 
@@ -145,7 +145,7 @@ export async function POST(
           // Step 3: Web search
           sendEvent("progress", {
             stage: "web_search",
-            message: "웹에서 최신 사용법 정보를 검색하고 있습니다...",
+            message: "Searching for latest usage information on the web...",
             progress: 40,
           });
 
@@ -157,7 +157,7 @@ export async function POST(
 
           sendEvent("progress", {
             stage: "search_complete",
-            message: `${searchResult.results.length}개의 참고 자료를 찾았습니다.`,
+            message: `Found ${searchResult.results.length} reference materials.`,
             progress: 60,
             sourceCount: searchResult.results.length,
             isFallback: searchResult.isFallback,
@@ -166,7 +166,7 @@ export async function POST(
           // Step 4: Generate guide
           sendEvent("progress", {
             stage: "guide_generation",
-            message: "AI가 사용자 맞춤형 가이드를 생성하고 있습니다...",
+            message: "AI is generating a personalized guide...",
             progress: 70,
           });
 
@@ -180,14 +180,14 @@ export async function POST(
 
           sendEvent("progress", {
             stage: "guide_ready",
-            message: "가이드 생성이 완료되었습니다.",
+            message: "Guide generation completed.",
             progress: 90,
           });
 
           // Step 5: Complete (save to database in background)
           sendEvent("progress", {
             stage: "complete",
-            message: "가이드가 준비되었습니다!",
+            message: "Guide is ready!",
             progress: 100,
           });
 
@@ -268,7 +268,7 @@ export async function POST(
           sendError(
             error instanceof Error
               ? error.message
-              : "가이드 생성 중 오류가 발생했습니다."
+              : "An error occurred while generating the guide."
           );
         }
       },
@@ -301,7 +301,7 @@ export async function POST(
 
       return new Response(
         JSON.stringify({
-          error: "입력 데이터가 올바르지 않습니다.",
+          error: "Input data is invalid.",
           details: error.errors,
         }),
         {
@@ -320,7 +320,7 @@ export async function POST(
 
     return new Response(
       JSON.stringify({
-        error: "스트림 생성 중 오류가 발생했습니다.",
+        error: "An error occurred during stream generation.",
         timestamp: new Date().toISOString(),
       }),
       {

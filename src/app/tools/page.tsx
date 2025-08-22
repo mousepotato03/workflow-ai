@@ -36,8 +36,6 @@ interface Tool {
   logo_url?: string;
   categories: string[];
   domains: string[];
-  bench_score: number | null;
-  cost_index: number | null;
   pricing: "Free" | "Paid";
   rating: number;
   reviewCount: number;
@@ -637,7 +635,7 @@ export default function ToolsPage() {
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // API 관련 상태
+  // API related state
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -692,7 +690,7 @@ export default function ToolsPage() {
       
       if (loadMore) {
         setTools(prev => {
-          // 중복 제거: 기존 툴 ID들과 새로운 툴들을 합쳐서 중복 제거
+          // Remove duplicates: merge existing tool IDs with new tools to avoid duplicates
           const existingIds = new Set(prev.map(tool => tool.id));
           const newTools = data.tools.filter(tool => !existingIds.has(tool.id));
           return [...prev, ...newTools];
@@ -726,7 +724,7 @@ export default function ToolsPage() {
         fetchTools();
       },
       searchQuery ? 500 : 0
-    ); // 검색어가 있을 때만 디바운스 적용
+    ); // Apply debounce only when search query exists
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
@@ -761,7 +759,7 @@ export default function ToolsPage() {
   // Bookmark toggle function
   const toggleBookmark = async (toolId: string, event?: React.MouseEvent) => {
     if (event) {
-      event.stopPropagation(); // 카드 클릭 이벤트 방지
+      event.stopPropagation(); // Prevent card click event
     }
 
     try {

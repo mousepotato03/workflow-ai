@@ -20,9 +20,9 @@ const supabase = createClient(
 const guideRequestSchema = z.object({
   taskContext: z
     .string()
-    .min(3, "작업 맥락은 3자 이상 입력해주세요.")
-    .max(200, "작업 맥락은 200자 이내로 입력해주세요."),
-  language: z.string().min(2).max(5).default("ko"),
+    .min(3, "Please enter at least 3 characters for task context.")
+    .max(200, "Please keep task context under 200 characters."),
+  language: z.string().min(2).max(5).default("en"),
   forceRefresh: z.boolean().default(false),
 });
 
@@ -31,7 +31,7 @@ const guideRateLimiter = new Map<
   string,
   { count: number; resetTime: number }
 >();
-const GUIDE_RATE_LIMIT = 5; // 5 requests per hour
+const GUIDE_RATE_LIMIT = 1000; // 5 requests per hour
 const GUIDE_RATE_WINDOW = 60 * 60 * 1000; // 1 hour
 
 function checkGuideRateLimit(ip: string): {
@@ -68,7 +68,7 @@ export async function GET(
   // Extract query parameters
   const url = new URL(request.url);
   const taskContext = url.searchParams.get("taskContext");
-  const language = url.searchParams.get("language") || "ko";
+  const language = url.searchParams.get("language") || "en";
 
   logger.apiRequest("GET", `/api/tools/${tool_id}/guide`, 0, 0, userContext);
 
@@ -114,7 +114,7 @@ export async function GET(
       });
 
       return NextResponse.json(
-        { error: "데이터베이스 오류가 발생했습니다." },
+        { error: "Database error occurred." },
         { status: 500 }
       );
     }
@@ -124,7 +124,7 @@ export async function GET(
         {
           error: "Guide not found",
           message:
-            "해당 조건의 가이드를 찾을 수 없습니다. POST 요청으로 새 가이드를 생성해주세요.",
+            "Guide not found for the specified conditions. Please create a new guide using POST request.",
         },
         { status: 404 }
       );
@@ -176,7 +176,7 @@ export async function GET(
     );
 
     return NextResponse.json(
-      { error: "서버에 일시적인 문제가 발생했습니다." },
+      { error: "A temporary server error occurred." },
       { status: 500 }
     );
   }
@@ -198,7 +198,7 @@ export async function POST(
     ...userContext,
     tool_id,
     timestamp: new Date().toISOString(),
-    requestUrl: request.url
+    requestUrl: request.url,
   });
 
   // Apply rate limiting (more strict for guide generation)
@@ -210,7 +210,7 @@ export async function POST(
       ...userContext,
       tool_id,
       ip,
-      resetTime: rateLimitCheck.resetTime
+      resetTime: rateLimitCheck.resetTime,
     });
     return createRateLimitResponse(rateLimitCheck.resetTime);
   }
@@ -222,7 +222,7 @@ export async function POST(
     logger.warn("Unauthenticated guide generation request", {
       ...userContext,
       tool_id,
-      authReason: authResult.reason
+      authReason: authResult.reason,
     });
   }
 
@@ -231,13 +231,13 @@ export async function POST(
   try {
     // Parse and validate request body
     const body = await request.json();
-    
+
     logger.info("Request body received", {
       ...userContext,
       tool_id,
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
     });
-    
+
     const validatedData = guideRequestSchema.parse(body);
 
     logger.info("Guide generation request validated", {
@@ -252,9 +252,10 @@ export async function POST(
     logger.info("Querying tool from database", {
       ...userContext,
       tool_id,
-      query: "SELECT id, name, description, url, logo_url FROM tools WHERE id = ? AND is_active = true"
+      query:
+        "SELECT id, name, description, url, logo_url FROM tools WHERE id = ? AND is_active = true",
     });
-    
+
     const { data: tool, error: toolError } = await supabase
       .from("tools")
       .select("id, name, description, url, logo_url")
@@ -268,20 +269,17 @@ export async function POST(
         tool_id,
         error: toolError?.message,
         errorCode: toolError?.code,
-        toolQueryResult: tool
+        toolQueryResult: tool,
       });
 
-      return NextResponse.json(
-        { error: "도구를 찾을 수 없습니다." },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Tool not found." }, { status: 404 });
     }
 
     logger.info("Tool found successfully", {
       ...userContext,
       tool_id,
       toolName: tool.name,
-      toolUrl: tool.url
+      toolUrl: tool.url,
     });
 
     // Check for existing guide if not forcing refresh
@@ -441,7 +439,7 @@ export async function POST(
 
       return NextResponse.json(
         {
-          error: "입력 데이터가 올바르지 않습니다.",
+          error: "Input data is invalid.",
           details: error.errors,
         },
         { status: 400 }
@@ -465,7 +463,8 @@ export async function POST(
 
     return NextResponse.json(
       {
-        error: "가이드 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+        error:
+          "An error occurred while generating the guide. Please try again later.",
         timestamp: new Date().toISOString(),
         requestId: userContext.requestId,
       },

@@ -27,7 +27,7 @@ export const createTaskDecomposerChain = () => {
       "tasks": ["task1", "task2", "task3"]
     }}
     
-    IMPORTANT: You MUST respond in the same language as the user's input. The user's goal is provided below in the language: {language}.
+    IMPORTANT: You MUST respond in English regardless of the input language. All tasks should be written in English.
     
     Break down this goal into 3-5 actionable tasks:
     User Goal: {goal}
@@ -41,14 +41,14 @@ export const createTaskDecomposerChain = () => {
   // Return wrapped chain with caching
   return {
     async invoke(input: { goal: string; language: string }) {
-      // 입력값 사전 검증 - 빈 goal 방지
+      // Pre-validate input - prevent empty goal
       if (!input.goal || input.goal.trim().length === 0) {
         throw new Error(
           "Goal is required for task decomposition. Cannot proceed with empty goal."
         );
       }
 
-      // 입력값 정규화
+      // Normalize input values
       const normalizedGoal = input.goal.trim();
       const normalizedLanguage = input.language.trim();
 
@@ -62,7 +62,7 @@ export const createTaskDecomposerChain = () => {
         cacheKey,
         async () => {
           try {
-            // 정규화된 입력으로 LLM 호출
+            // Call LLM with normalized input
             const rawResponse = await chain.invoke({
               goal: normalizedGoal,
               language: normalizedLanguage,

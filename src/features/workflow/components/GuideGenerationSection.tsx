@@ -12,8 +12,6 @@ import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
-  Star,
-  ExternalLink,
   Download,
   Clock,
   Sparkles,
@@ -71,31 +69,33 @@ export function GuideGenerationSection({
   };
 
   const generateGuideForTask = async (task: Task) => {
-    console.log("=== 가이드 생성 시작 ===", {
+    console.log("=== Guide Generation Started ===", {
       taskId: task.id,
       taskName: task.name,
       recommendedTool: task.recommendedTool?.name,
       recommendedToolId: task.recommendedTool?.id,
       hasRecommendedTool: !!task.recommendedTool,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
-    // 추가 디버깅: 전체 task 객체 출력
-    console.log("전체 task 객체:", JSON.stringify(task, null, 2));
+    // Additional debugging: output entire task object
+    console.log("Complete task object:", JSON.stringify(task, null, 2));
 
     if (!task.recommendedTool) {
-      console.error("❌ 가이드 생성 실패: 추천된 도구 없음", { 
-        taskId: task.id, 
+      console.error("❌ Guide generation failed: No recommended tool", {
+        taskId: task.id,
         taskName: task.name,
-        task: task 
+        task: task,
       });
-      
-      // 더 눈에 띄는 에러 메시지
-      alert(`가이드 생성 실패: ${task.name} - 추천된 도구가 없습니다.`);
-      
+
+      // More visible error message
+      alert(
+        `Guide generation failed: ${task.name} - No recommended tool available.`
+      );
+
       updateTaskStatus(task.id, {
         status: "error",
-        error: "이 작업에는 추천된 도구가 없습니다.",
+        error: "No recommended tool available for this task.",
       });
       return;
     }
@@ -105,70 +105,81 @@ export function GuideGenerationSection({
       progress: 0,
     });
 
-    console.log("가이드 생성 상태 업데이트: 생성 시작", { taskId: task.id });
+    console.log("Guide generation status updated: Generation started", {
+      taskId: task.id,
+    });
 
     try {
-      console.log("캐시된 가이드 확인 시도", {
+      console.log("Checking for cached guide", {
         taskId: task.id,
         toolId: task.recommendedTool.id,
-        endpoint: `/api/tools/${task.recommendedTool.id}/guide?taskContext=${encodeURIComponent(task.name)}&language=ko`
+        endpoint: `/api/tools/${
+          task.recommendedTool.id
+        }/guide?taskContext=${encodeURIComponent(task.name)}&language=en`,
       });
 
       // First check if cached guide exists
       const cachedResponse = await fetch(
-        `/api/tools/${task.recommendedTool.id}/guide?taskContext=${encodeURIComponent(
-          task.name
-        )}&language=ko`
+        `/api/tools/${
+          task.recommendedTool.id
+        }/guide?taskContext=${encodeURIComponent(task.name)}&language=en`
       );
 
       if (cachedResponse.ok) {
-        console.log("캐시된 가이드 발견, 사용", { taskId: task.id });
+        console.log("Cached guide found, using it", { taskId: task.id });
         const cachedGuide = await cachedResponse.json();
         const markdownGuide = convertStructuredGuideToMarkdown(
           cachedGuide,
           task
         );
-        
+
         updateTaskStatus(task.id, {
           status: "completed",
           progress: 100,
           guide: markdownGuide,
         });
-        
+
         onGuideGenerated(task.id, markdownGuide);
-        
-        console.log("가이드 생성 완료 (캐시 사용)", {
+
+        console.log("Guide generation completed (using cache)", {
           taskId: task.id,
           guideLength: markdownGuide.length,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
         return;
       }
 
-      console.log("캐시된 가이드 없음, 새로 생성", { taskId: task.id });
-
-      // Generate new guide if no cache
-      const response = await fetch(`/api/tools/${task.recommendedTool.id}/guide`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          taskContext: task.name,
-          language: "ko",
-        }),
+      console.log("No cached guide found, generating new one", {
+        taskId: task.id,
       });
 
+      // Generate new guide if no cache
+      const response = await fetch(
+        `/api/tools/${task.recommendedTool.id}/guide`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            taskContext: task.name,
+            language: "en",
+          }),
+        }
+      );
+
       if (!response.ok) {
-        console.error("가이드 생성 API 요청 실패", {
+        console.error("Guide generation API request failed", {
           taskId: task.id,
           status: response.status,
-          statusText: response.statusText
+          statusText: response.statusText,
         });
-        throw new Error("가이드 생성 요청에 실패했습니다.");
+        throw new Error("Failed to request guide generation.");
       }
 
-      console.log("가이드 생성 API 응답 수신", { taskId: task.id });
+      console.log("Guide generation API response received", {
+        taskId: task.id,
+      });
 
       updateTaskStatus(task.id, {
         status: "generating",
@@ -176,10 +187,10 @@ export function GuideGenerationSection({
       });
 
       const guideData = await response.json();
-      console.log("가이드 데이터 파싱 완료", {
+      console.log("Guide data parsing completed", {
         taskId: task.id,
         hasGuideData: !!guideData.guide,
-        dataKeys: Object.keys(guideData)
+        dataKeys: Object.keys(guideData),
       });
 
       const markdownGuide = convertStructuredGuideToMarkdown(guideData, task);
@@ -192,27 +203,27 @@ export function GuideGenerationSection({
 
       onGuideGenerated(task.id, markdownGuide);
 
-      console.log("가이드 생성 완료 (새로 생성)", {
+      console.log("Guide generation completed (newly generated)", {
         taskId: task.id,
         guideLength: markdownGuide.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       toast({
-        title: "가이드 생성 완료",
-        description: `${task.name}에 대한 상세 가이드가 생성되었습니다.`,
+        title: "Guide Generation Completed",
+        description: `Detailed guide for ${task.name} has been generated.`,
       });
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
-      
-      console.error("가이드 생성 실패", {
+      const errorMessage =
+        error instanceof Error ? error.message : "An unknown error occurred.";
+
+      console.error("Guide generation failed", {
         taskId: task.id,
         taskName: task.name,
         error: errorMessage,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       updateTaskStatus(task.id, {
         status: "error",
         error: errorMessage,
@@ -224,8 +235,8 @@ export function GuideGenerationSection({
       }
 
       toast({
-        title: "가이드 생성 실패",
-        description: `${task.name}에 대한 가이드 생성 중 오류가 발생했습니다.`,
+        title: "Guide Generation Failed",
+        description: `An error occurred while generating guide for ${task.name}.`,
         variant: "destructive",
       });
     }
@@ -233,15 +244,15 @@ export function GuideGenerationSection({
 
   const generateAllGuides = async () => {
     setIsGeneratingAll(true);
-    
-    console.log("=== 전체 가이드 생성 시작 ===", {
+
+    console.log("=== All Guide Generation Started ===", {
       totalTasks: tasks.length,
-      taskNames: tasks.map(t => t.name),
-      timestamp: new Date().toISOString()
+      taskNames: tasks.map((t) => t.name),
+      timestamp: new Date().toISOString(),
     });
 
-    // 각 태스크의 상태를 자세히 출력
-    console.log("각 태스크 상태 확인:");
+    // Output detailed status for each task
+    console.log("Checking each task status:");
     tasks.forEach((task, index) => {
       console.log(`Task ${index + 1}:`, {
         id: task.id,
@@ -249,82 +260,88 @@ export function GuideGenerationSection({
         hasRecommendedTool: !!task.recommendedTool,
         recommendedToolName: task.recommendedTool?.name,
         recommendedToolId: task.recommendedTool?.id,
-        confidence: task.confidence
+        confidence: task.confidence,
       });
     });
-    
+
     try {
       // Initialize all tasks as pending
-      console.log("모든 태스크 상태 초기화 시작");
+      console.log("Initializing all task statuses");
       for (const task of tasks) {
         updateTaskStatus(task.id, {
           status: "pending",
           progress: 0,
         });
-        console.log("태스크 상태 초기화", { taskId: task.id, taskName: task.name, status: "pending" });
+        console.log("Task status initialized", {
+          taskId: task.id,
+          taskName: task.name,
+          status: "pending",
+        });
       }
 
       // Generate guides sequentially for each task
-      console.log("순차적 가이드 생성 시작", { totalTasks: tasks.length });
+      console.log("Starting sequential guide generation", {
+        totalTasks: tasks.length,
+      });
       for (let i = 0; i < tasks.length; i++) {
         const task = tasks[i];
-        console.log("태스크 가이드 생성 시작", {
+        console.log("Starting task guide generation", {
           taskIndex: i + 1,
           totalTasks: tasks.length,
           taskId: task.id,
-          taskName: task.name
+          taskName: task.name,
         });
 
         await generateGuideForTask(task);
-        
-        console.log("태스크 가이드 생성 완료", {
+
+        console.log("Task guide generation completed", {
           taskIndex: i + 1,
           totalTasks: tasks.length,
           taskId: task.id,
-          remainingTasks: tasks.length - (i + 1)
+          remainingTasks: tasks.length - (i + 1),
         });
-        
+
         // Add delay between requests to avoid rate limiting
         if (task.id !== tasks[tasks.length - 1].id) {
-          console.log("다음 태스크 처리 전 지연", { delayMs: 1000 });
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          console.log("Delaying before next task", { delayMs: 1000 });
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
 
-      console.log("전체 가이드 생성 완료", {
+      console.log("All guide generation completed", {
         totalTasks: tasks.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       toast({
-        title: "모든 가이드 생성 완료",
-        description: "모든 작업에 대한 상세 가이드가 생성되었습니다.",
+        title: "All Guides Generated",
+        description: "Detailed guides for all tasks have been generated.",
       });
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류";
-      
-      console.error("전체 가이드 생성 실패", {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+
+      console.error("All guide generation failed", {
         error: errorMessage,
         totalTasks: tasks.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       toast({
-        title: "가이드 생성 실패",
-        description: "일부 가이드 생성 중 오류가 발생했습니다.",
+        title: "Guide Generation Failed",
+        description: "An error occurred while generating some guides.",
         variant: "destructive",
       });
     } finally {
       setIsGeneratingAll(false);
-      console.log("전체 가이드 생성 프로세스 종료", {
-        timestamp: new Date().toISOString()
+      console.log("All guide generation process ended", {
+        timestamp: new Date().toISOString(),
       });
     }
   };
 
   const retryGuideGeneration = async (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
+    const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
     updateTaskStatus(taskId, {
@@ -334,23 +351,26 @@ export function GuideGenerationSection({
 
     try {
       if (!task.recommendedTool) {
-        throw new Error("추천된 도구가 없습니다.");
+        throw new Error("No recommended tool available.");
       }
 
-      const response = await fetch(`/api/tools/${task.recommendedTool.id}/guide`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          taskContext: task.name,
-          language: "ko",
-          forceRefresh: true, // Force new generation
-        }),
-      });
+      const response = await fetch(
+        `/api/tools/${task.recommendedTool.id}/guide`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            taskContext: task.name,
+            language: "en",
+            forceRefresh: true, // Force new generation
+          }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error("가이드 생성 요청에 실패했습니다.");
+        throw new Error("Failed to request guide generation.");
       }
 
       updateTaskStatus(taskId, {
@@ -370,13 +390,13 @@ export function GuideGenerationSection({
       onGuideGenerated(taskId, markdownGuide);
 
       toast({
-        title: "가이드 재생성 완료",
-        description: `${task.name}에 대한 가이드가 재생성되었습니다.`,
+        title: "Guide Regeneration Completed",
+        description: `Guide for ${task.name} has been regenerated.`,
       });
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
-      
+      const errorMessage =
+        error instanceof Error ? error.message : "An unknown error occurred.";
+
       updateTaskStatus(taskId, {
         status: "error",
         error: errorMessage,
@@ -388,8 +408,8 @@ export function GuideGenerationSection({
       }
 
       toast({
-        title: "가이드 재생성 실패",
-        description: `${task.name}에 대한 가이드 재생성 중 오류가 발생했습니다.`,
+        title: "Guide Regeneration Failed",
+        description: `An error occurred while regenerating guide for ${task.name}.`,
         variant: "destructive",
       });
     }
@@ -413,15 +433,15 @@ export function GuideGenerationSection({
   const getStatusText = (status: GuideGenerationStatus["status"]) => {
     switch (status) {
       case "pending":
-        return "대기 중";
+        return "Pending";
       case "generating":
-        return "생성 중";
+        return "Generating";
       case "completed":
-        return "완료";
+        return "Completed";
       case "error":
-        return "오류";
+        return "Error";
       default:
-        return "대기 중";
+        return "Pending";
     }
   };
 
@@ -481,10 +501,11 @@ export function GuideGenerationSection({
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             <h2 className="text-2xl font-bold text-blue-400">
-              상세 실행 가이드 생성
+              Detailed Execution Guide Generation
             </h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              각 작업에 대한 단계별 상세 가이드를 생성하여 성공률을 높이고 효율성을 극대화하세요.
+              Generate step-by-step detailed guides for each task to increase
+              success rates and maximize efficiency.
             </p>
           </motion.div>
 
@@ -504,12 +525,12 @@ export function GuideGenerationSection({
               {isGeneratingAll ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                  모든 가이드 생성 중...
+                  Generating All Guides...
                 </>
               ) : (
                 <>
                   <Sparkles className="w-5 h-5 mr-3" />
-                  모든 가이드 생성하기
+                  Generate All Guides
                 </>
               )}
             </Button>
@@ -518,10 +539,10 @@ export function GuideGenerationSection({
 
         <CardContent className="space-y-6">
           <div className="flex gap-6 h-[600px]">
-            {/* 서브태스크 뷰 - 40% 너비 */}
+            {/* Subtask view - 40% width */}
             <div className="flex-[4] space-y-4 overflow-y-auto pr-2">
               <h3 className="text-lg font-semibold text-foreground sticky top-0 bg-card z-10 pb-2">
-                작업 목록
+                Task List
               </h3>
               {tasks.map((task, index) => {
                 const status = generationStatuses[task.id] || {
@@ -568,7 +589,7 @@ export function GuideGenerationSection({
                                 onClick={() => retryGuideGeneration(task.id)}
                                 className="text-xs"
                               >
-                                재시도
+                                Retry
                               </Button>
                             )}
                           </div>
@@ -578,7 +599,7 @@ export function GuideGenerationSection({
                           <div className="space-y-2">
                             <Progress value={status.progress} className="h-2" />
                             <p className="text-xs text-muted-foreground text-center">
-                              가이드 생성 중... {status.progress}%
+                              Generating guide... {status.progress}%
                             </p>
                           </div>
                         )}
@@ -592,7 +613,7 @@ export function GuideGenerationSection({
                             <div className="flex items-center justify-between">
                               <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
-                                가이드 생성 완료
+                                Guide Generated
                               </Badge>
                               <Button
                                 variant="outline"
@@ -605,7 +626,7 @@ export function GuideGenerationSection({
                                 className="text-xs"
                               >
                                 <Download className="w-3 h-3 mr-1" />
-                                다운로드
+                                Download
                               </Button>
                             </div>
                           </motion.div>
@@ -630,70 +651,86 @@ export function GuideGenerationSection({
               })}
             </div>
 
-            {/* 가이드 뷰 - 60% 너비 */}
+            {/* Guide view - 60% width */}
             <div className="flex-[6] border-l border-border/50 pl-6">
               <div className="h-full flex flex-col">
                 <h3 className="text-lg font-semibold text-foreground mb-4">
-                  생성된 가이드
+                  Generated Guides
                 </h3>
                 <div className="flex-1 overflow-y-auto">
                   {Object.keys(generationStatuses).length === 0 ? (
                     <div className="h-full flex items-center justify-center text-muted-foreground">
                       <div className="text-center space-y-3">
                         <BookOpen className="w-12 h-12 mx-auto opacity-50" />
-                        <p>가이드 생성을 시작하면 여기에 결과가 표시됩니다.</p>
+                        <p>
+                          Generated guides will appear here when you start the
+                          process.
+                        </p>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {Object.entries(generationStatuses).map(([taskId, status]) => {
-                        const task = tasks.find(t => t.id === taskId);
-                        if (!task || status.status !== "completed" || !status.guide) return null;
-                        
-                        return (
-                          <motion.div
-                            key={taskId}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="space-y-3"
-                          >
-                            <Card className="border border-green-500/20 bg-green-500/5">
-                              <CardHeader className="pb-3">
-                                <div className="flex items-center justify-between">
-                                  <CardTitle className="text-lg text-green-400 flex items-center gap-2">
-                                    <CheckCircle2 className="w-5 h-5" />
-                                    {task.name}
-                                  </CardTitle>
-                                  <Badge variant="secondary" className="bg-green-500/10 text-green-500">
-                                    완료됨
-                                  </Badge>
-                                </div>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="bg-card/50 rounded-lg p-4 max-h-60 overflow-y-auto">
-                                  <pre className="text-sm text-foreground/90 whitespace-pre-wrap font-mono">
-                                    {status.guide.slice(0, 500)}...
-                                  </pre>
-                                </div>
-                                <div className="mt-3 flex justify-end">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      if (status.guide) {
-                                        onGuideGenerated(taskId, status.guide);
-                                      }
-                                    }}
-                                  >
-                                    <Download className="w-4 h-4 mr-2" />
-                                    전체 가이드 다운로드
-                                  </Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </motion.div>
-                        );
-                      })}
+                      {Object.entries(generationStatuses).map(
+                        ([taskId, status]) => {
+                          const task = tasks.find((t) => t.id === taskId);
+                          if (
+                            !task ||
+                            status.status !== "completed" ||
+                            !status.guide
+                          )
+                            return null;
+
+                          return (
+                            <motion.div
+                              key={taskId}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="space-y-3"
+                            >
+                              <Card className="border border-green-500/20 bg-green-500/5">
+                                <CardHeader className="pb-3">
+                                  <div className="flex items-center justify-between">
+                                    <CardTitle className="text-lg text-green-400 flex items-center gap-2">
+                                      <CheckCircle2 className="w-5 h-5" />
+                                      {task.name}
+                                    </CardTitle>
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-green-500/10 text-green-500"
+                                    >
+                                      Completed
+                                    </Badge>
+                                  </div>
+                                </CardHeader>
+                                <CardContent>
+                                  <div className="bg-card/50 rounded-lg p-4 max-h-60 overflow-y-auto">
+                                    <pre className="text-sm text-foreground/90 whitespace-pre-wrap font-mono">
+                                      {status.guide.slice(0, 500)}...
+                                    </pre>
+                                  </div>
+                                  <div className="mt-3 flex justify-end">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        if (status.guide) {
+                                          onGuideGenerated(
+                                            taskId,
+                                            status.guide
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <Download className="w-4 h-4 mr-2" />
+                                      Download Full Guide
+                                    </Button>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </motion.div>
+                          );
+                        }
+                      )}
                     </div>
                   )}
                 </div>
@@ -708,56 +745,58 @@ export function GuideGenerationSection({
 
 // Helper function to convert structured guide to markdown
 function convertStructuredGuideToMarkdown(guideData: any, task: Task): string {
-  let markdown = `# ${task.name} - 상세 실행 가이드\n\n`;
-  
+  let markdown = `# ${task.name} - Detailed Execution Guide\n\n`;
+
   // Add task information
-  markdown += `## 📋 작업 개요\n${task.name}\n\n`;
-  
+  markdown += `## 📋 Task Overview\n${task.name}\n\n`;
+
   // Add tool information
   if (task.recommendedTool) {
-    markdown += `## 🛠️ 추천 도구\n`;
+    markdown += `## 🛠️ Recommended Tool\n`;
     markdown += `- **${task.recommendedTool.name}**\n`;
     if (task.recommendedTool.url) {
-      markdown += `  - 링크: ${task.recommendedTool.url}\n`;
+      markdown += `  - Link: ${task.recommendedTool.url}\n`;
     }
-    markdown += '\n';
+    markdown += "\n";
   }
-  
+
   // Add summary if available
   if (guideData.guide?.summary) {
-    markdown += `## 📝 요약\n${guideData.guide.summary}\n\n`;
+    markdown += `## 📝 Summary\n${guideData.guide.summary}\n\n`;
   }
-  
+
   // Add sections
   if (guideData.guide?.sections) {
     guideData.guide.sections.forEach((section: any) => {
       markdown += `## ${section.title}\n`;
-      
+
       if (section.content) {
         markdown += `${section.content}\n\n`;
       }
-      
+
       if (section.steps && section.steps.length > 0) {
         section.steps.forEach((step: string, index: number) => {
           markdown += `${index + 1}. ${step}\n`;
         });
-        markdown += '\n';
+        markdown += "\n";
       }
     });
   }
-  
+
   // Add source information
   if (guideData.sourceUrls && guideData.sourceUrls.length > 0) {
-    markdown += `## 📚 참고 자료\n`;
+    markdown += `## 📚 References\n`;
     guideData.sourceUrls.forEach((url: string) => {
-      markdown += `- [참고 링크](${url})\n`;
+      markdown += `- [Reference Link](${url})\n`;
     });
-    markdown += '\n';
+    markdown += "\n";
   }
-  
+
   // Add metadata
-  const confidencePercentage = Math.round((guideData.confidenceScore || 0.6) * 100);
-  markdown += `---\n*이 가이드는 AI에 의해 생성되었으며 (신뢰도: ${confidencePercentage}%), 실제 상황에 맞게 조정하여 사용하시기 바랍니다.*`;
-  
+  const confidencePercentage = Math.round(
+    (guideData.confidenceScore || 0.6) * 100
+  );
+  markdown += `---\n*This guide was generated by AI (confidence: ${confidencePercentage}%). Please adjust for your specific situation.*`;
+
   return markdown;
 }

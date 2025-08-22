@@ -16,7 +16,7 @@ const requestSchema = z.object({
       freeToolsOnly: z.boolean().optional(),
     })
     .optional(),
-  language: z.string().min(2).max(10).default("ko"),
+  language: z.string().min(2).max(10).default("en"),
   useSmartEngine: z.boolean().optional().default(false), // 스마트 엔진 사용 여부
 });
 

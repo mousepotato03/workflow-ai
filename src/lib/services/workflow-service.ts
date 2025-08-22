@@ -76,7 +76,7 @@ function computeDomainMatch(
 ): number {
   const q = query.toLowerCase();
   const isCode =
-    q.includes("code") || q.includes("implement") || q.includes("함수");
+    q.includes("code") || q.includes("implement") || q.includes("function");
   if (isCode && (domains || []).includes("code")) return 1.0;
   return 0.0;
 }
@@ -517,9 +517,8 @@ export async function getToolRecommendationForTask(
         metrics: metricsList?.map(m => ({
           id: m.id,
           name: m.name,
-          bench_score: m.bench_score,
           domains: m.domains,
-          cost_index: m.cost_index
+          scores: m.scores
         }))
       });
 
