@@ -59,7 +59,7 @@ export function WorkflowCanvas() {
   const [layoutMode, setLayoutMode] = React.useState<"horizontal" | "vertical">(
     "horizontal"
   );
-  const [leftPanelWidth, setLeftPanelWidth] = React.useState(50); // 50% default
+  const [leftPanelWidth, setLeftPanelWidth] = React.useState(35); // 35% for 3.5:6.5 ratio
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = React.useState(false);
 
   const handleNewWorkflow = () => {
