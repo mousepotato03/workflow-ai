@@ -181,9 +181,52 @@ export function GuideModal({
     }
   };
 
-  const handleToolClick = () => {
-    if (toolUrl) {
-      window.open(toolUrl, "_blank", "noopener,noreferrer");
+  const handleToolClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    console.log("GuideModal handleToolClick called with URL:", toolUrl);
+
+    if (toolUrl && toolUrl.trim()) {
+      // URL 형식 검사 및 수정
+      let validUrl = toolUrl.trim();
+      if (!validUrl.startsWith("http://") && !validUrl.startsWith("https://")) {
+        validUrl = "https://" + validUrl;
+      }
+
+      console.log("GuideModal processed URL:", validUrl);
+
+      try {
+        // URL 유효성 검사
+        new URL(validUrl);
+        console.log("GuideModal opening URL:", validUrl);
+
+        // 팝업 차단 방지를 위한 개선된 방법
+        const newWindow = window.open(
+          validUrl,
+          "_blank",
+          "noopener,noreferrer"
+        );
+
+        // 팝업이 차단되었는지 확인
+        if (
+          !newWindow ||
+          newWindow.closed ||
+          typeof newWindow.closed === "undefined"
+        ) {
+          console.warn(
+            "GuideModal: Popup was blocked, trying alternative method"
+          );
+          // 대안: 현재 창에서 열기
+          window.location.href = validUrl;
+        }
+      } catch (error) {
+        console.error("GuideModal invalid URL:", toolUrl, error);
+        // 사용자에게 오류 알림 (선택사항)
+        alert("유효하지 않은 URL입니다: " + toolUrl);
+      }
+    } else {
+      console.warn("GuideModal: No URL provided to handleToolClick");
     }
   };
 

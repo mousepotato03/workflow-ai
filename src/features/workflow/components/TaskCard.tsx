@@ -60,21 +60,24 @@ export function TaskCard({
     }
   };
 
-  const getRecommendationStatus = (hasRecommendation: boolean, hasToolRecommendation?: boolean) => {
+  const getRecommendationStatus = (
+    hasRecommendation: boolean,
+    hasToolRecommendation?: boolean
+  ) => {
     if (hasRecommendation) {
       return {
         text: "Tool Recommended",
         className: "text-green-400 bg-green-900/30 border-green-700",
       };
     }
-    
+
     if (hasToolRecommendation === false) {
       return {
         text: "Ready for Tool Search",
         className: "text-yellow-400 bg-yellow-900/30 border-yellow-700",
       };
     }
-    
+
     return {
       text: "Manual Approach",
       className: "text-blue-400 bg-blue-900/30 border-blue-700",
@@ -93,7 +96,7 @@ export function TaskCard({
       if (task.hasToolRecommendation === false) {
         return "이 작업에 적합한 도구를 찾기 위해 가이드 생성을 시작하세요. 시스템이 관련 도구를 검색하고 추천해드립니다.";
       }
-      
+
       // Default manual approach message
       return (
         task.recommendationReason ||
@@ -188,10 +191,18 @@ export function TaskCard({
               <Badge
                 variant="secondary"
                 className={`${
-                  getRecommendationStatus(!!task.recommendedTool, (task as any).hasToolRecommendation).className
+                  getRecommendationStatus(
+                    !!task.recommendedTool,
+                    (task as any).hasToolRecommendation
+                  ).className
                 } border`}
               >
-                {getRecommendationStatus(!!task.recommendedTool, (task as any).hasToolRecommendation).text}
+                {
+                  getRecommendationStatus(
+                    !!task.recommendedTool,
+                    (task as any).hasToolRecommendation
+                  ).text
+                }
               </Badge>
 
               {hasDetailedGuide && (
@@ -398,7 +409,8 @@ export function TaskCard({
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3, delay: 0.7 }}
                     >
-                      {task.guideGenerationError || "Unable to generate automated guide for this task."}
+                      {task.guideGenerationError ||
+                        "Unable to generate automated guide for this task."}
                     </motion.p>
                     <motion.p
                       className="text-sm text-red-300 leading-relaxed"
@@ -406,11 +418,12 @@ export function TaskCard({
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3, delay: 0.8 }}
                     >
-                      Please perform this task manually or try searching for alternative tools and approaches.
+                      Please perform this task manually or try searching for
+                      alternative tools and approaches.
                     </motion.p>
                   </div>
                 </div>
-                
+
                 {onRetryGuide && (
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
@@ -429,7 +442,7 @@ export function TaskCard({
                   </motion.div>
                 )}
               </motion.div>
-              
+
               <motion.div
                 className="bg-red-800/30 rounded-md p-3 border border-red-600"
                 initial={{ opacity: 0, y: 10 }}
@@ -442,15 +455,18 @@ export function TaskCard({
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.3, delay: 0.9 }}
                 >
-                  <strong>Alternative approaches:</strong> Consider breaking this task into smaller steps, consulting subject matter experts, or using general-purpose tools for this workflow step.
+                  <strong>Alternative approaches:</strong> Consider breaking
+                  this task into smaller steps, consulting subject matter
+                  experts, or using general-purpose tools for this workflow
+                  step.
                 </motion.p>
               </motion.div>
             </motion.div>
           ) : (
             <motion.div
               className={`${
-                (task as any).hasToolRecommendation === false 
-                  ? "bg-yellow-900/30 border border-yellow-700" 
+                (task as any).hasToolRecommendation === false
+                  ? "bg-yellow-900/30 border border-yellow-700"
                   : "bg-blue-900/30 border border-blue-700"
               } rounded-lg p-5 space-y-3`}
               initial={{ opacity: 0, height: 0 }}
@@ -466,8 +482,8 @@ export function TaskCard({
                 <div className="flex items-start space-x-3 flex-1">
                   <motion.div
                     className={`w-6 h-6 ${
-                      (task as any).hasToolRecommendation === false 
-                        ? "bg-yellow-600" 
+                      (task as any).hasToolRecommendation === false
+                        ? "bg-yellow-600"
                         : "bg-blue-600"
                     } rounded-full flex items-center justify-center flex-shrink-0 mt-0.5`}
                     initial={{ scale: 0 }}
@@ -479,22 +495,22 @@ export function TaskCard({
                   <div className="flex-1">
                     <motion.h5
                       className={`font-medium ${
-                        (task as any).hasToolRecommendation === false 
-                          ? "text-yellow-200" 
+                        (task as any).hasToolRecommendation === false
+                          ? "text-yellow-200"
                           : "text-blue-200"
                       } mb-2`}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.3, delay: 0.6 }}
                     >
-                      {(task as any).hasToolRecommendation === false 
-                        ? "도구 검색 가능" 
+                      {(task as any).hasToolRecommendation === false
+                        ? "도구 검색 가능"
                         : "수동 접근 권장"}
                     </motion.h5>
                     <motion.p
                       className={`text-sm ${
-                        (task as any).hasToolRecommendation === false 
-                          ? "text-yellow-300" 
+                        (task as any).hasToolRecommendation === false
+                          ? "text-yellow-300"
                           : "text-blue-300"
                       } leading-relaxed`}
                       initial={{ opacity: 0 }}
@@ -505,26 +521,27 @@ export function TaskCard({
                     </motion.p>
                   </div>
                 </div>
-                
-                {(task as any).hasToolRecommendation === false && onSearchTools && (
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: 0.6 }}
-                  >
-                    <Button
-                      onClick={handleSearchTools}
-                      variant="outline"
-                      size="sm"
-                      className="ml-4 border-yellow-500/50 bg-yellow-900/20 text-yellow-400 hover:bg-yellow-900/30"
+
+                {(task as any).hasToolRecommendation === false &&
+                  onSearchTools && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: 0.6 }}
                     >
-                      <Search className="w-4 h-4 mr-2" />
-                      도구 검색
-                    </Button>
-                  </motion.div>
-                )}
+                      <Button
+                        onClick={handleSearchTools}
+                        variant="outline"
+                        size="sm"
+                        className="ml-4 border-yellow-500/50 bg-yellow-900/20 text-yellow-400 hover:bg-yellow-900/30"
+                      >
+                        <Search className="w-4 h-4 mr-2" />
+                        도구 검색
+                      </Button>
+                    </motion.div>
+                  )}
               </motion.div>
-              
+
               {(task as any).hasToolRecommendation !== false && (
                 <motion.div
                   className="bg-blue-800/30 rounded-md p-3 border border-blue-600"
@@ -538,7 +555,8 @@ export function TaskCard({
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.3, delay: 0.8 }}
                   >
-                    <strong>Tip:</strong> 전문 도구를 직접 검색하거나 전문가와 상담하세요.
+                    <strong>Tip:</strong> 전문 도구를 직접 검색하거나 전문가와
+                    상담하세요.
                   </motion.p>
                 </motion.div>
               )}

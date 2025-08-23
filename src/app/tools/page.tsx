@@ -64,9 +64,14 @@ interface UnifiedModalProps {
 }
 
 // Optimized image component
-function OptimizedImage({ src, alt, className, size = 64 }: { 
-  src?: string; 
-  alt: string; 
+function OptimizedImage({
+  src,
+  alt,
+  className,
+  size = 64,
+}: {
+  src?: string;
+  alt: string;
   className?: string;
   size?: number;
 }) {
@@ -96,7 +101,7 @@ function OptimizedImage({ src, alt, className, size = 64 }: {
 
   if (isLoading) {
     return (
-      <div 
+      <div
         className={`${className} bg-slate-700 flex items-center justify-center animate-pulse`}
         style={{ width: size, height: size }}
       >
@@ -107,7 +112,7 @@ function OptimizedImage({ src, alt, className, size = 64 }: {
 
   if (imageError || !imageSrc) {
     return (
-      <div 
+      <div
         className={`${className} bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center`}
         style={{ width: size, height: size }}
       >
@@ -129,8 +134,13 @@ function OptimizedImage({ src, alt, className, size = 64 }: {
   );
 }
 
-function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModalProps) {
-  const [activeTab, setActiveTab] = useState<'info' | 'reviews'>('info');
+function UnifiedModal({
+  tool,
+  isOpen,
+  onClose,
+  onReviewSubmitted,
+}: UnifiedModalProps) {
+  const [activeTab, setActiveTab] = useState<"info" | "reviews">("info");
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [rating, setRating] = useState(0);
@@ -142,13 +152,13 @@ function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModal
   // Reset to info tab when modal opens
   useEffect(() => {
     if (isOpen) {
-      setActiveTab('info');
+      setActiveTab("info");
     }
   }, [isOpen]);
 
   // Fetch review data and user rating
   const fetchReviews = async () => {
-    if (!tool || activeTab !== 'reviews') return;
+    if (!tool || activeTab !== "reviews") return;
 
     try {
       setLoading(true);
@@ -236,7 +246,7 @@ function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModal
 
   // Fetch reviews when switching to reviews tab
   useEffect(() => {
-    if (activeTab === 'reviews' && tool) {
+    if (activeTab === "reviews" && tool) {
       fetchReviews();
     }
   }, [activeTab, tool]);
@@ -297,23 +307,23 @@ function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModal
           {/* Tab Navigation */}
           <div className="border-b border-slate-700">
             <div className="flex space-x-6">
-              <button 
+              <button
                 className={`pb-3 font-medium transition-colors ${
-                  activeTab === 'info' 
-                    ? 'border-b-2 border-blue-400 text-blue-400' 
-                    : 'text-slate-400 hover:text-blue-400'
+                  activeTab === "info"
+                    ? "border-b-2 border-blue-400 text-blue-400"
+                    : "text-slate-400 hover:text-blue-400"
                 }`}
-                onClick={() => setActiveTab('info')}
+                onClick={() => setActiveTab("info")}
               >
                 Info
               </button>
               <button
                 className={`pb-3 font-medium transition-colors ${
-                  activeTab === 'reviews' 
-                    ? 'border-b-2 border-blue-400 text-blue-400' 
-                    : 'text-slate-400 hover:text-blue-400'
+                  activeTab === "reviews"
+                    ? "border-b-2 border-blue-400 text-blue-400"
+                    : "text-slate-400 hover:text-blue-400"
                 }`}
-                onClick={() => setActiveTab('reviews')}
+                onClick={() => setActiveTab("reviews")}
               >
                 Reviews ({tool.reviewCount})
               </button>
@@ -323,11 +333,13 @@ function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModal
 
         {/* Scrollable Content */}
         <div className="h-[calc(750px-280px)] overflow-y-auto p-6">
-          {activeTab === 'info' ? (
+          {activeTab === "info" ? (
             // Info Content
             <div className="space-y-6">
               <div>
-                <h3 className="text-xl font-bold text-white mb-3">Description</h3>
+                <h3 className="text-xl font-bold text-white mb-3">
+                  Description
+                </h3>
                 <p className="text-slate-300 leading-relaxed mb-4">
                   {tool.description}
                 </p>
@@ -352,7 +364,9 @@ function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModal
               </div>
 
               <div>
-                <h3 className="text-xl font-bold text-white mb-4">Pros & Cons</h3>
+                <h3 className="text-xl font-bold text-white mb-4">
+                  Pros & Cons
+                </h3>
                 <div className="space-y-4">
                   <div className="flex items-start space-x-3">
                     <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -389,10 +403,12 @@ function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModal
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-semibold text-white">
-                      {userRating !== null ? 'Your Rating' : 'Rate this Tool'}
+                      {userRating !== null ? "Your Rating" : "Rate this Tool"}
                     </h3>
                     {userRating !== null && (
-                      <p className="text-xs text-slate-400 mt-1">You have already rated this tool</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        You have already rated this tool
+                      </p>
                     )}
                   </div>
                   <div className="flex items-center space-x-2">
@@ -400,17 +416,23 @@ function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModal
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
-                          onClick={() => userRating === null ? setRating(star) : null}
-                          className={`p-0.5 ${userRating !== null ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                          onClick={() =>
+                            userRating === null ? setRating(star) : null
+                          }
+                          className={`p-0.5 ${
+                            userRating !== null
+                              ? "cursor-not-allowed"
+                              : "cursor-pointer"
+                          }`}
                           disabled={userRating !== null}
                         >
                           <Star
                             className={`w-5 h-5 ${
                               star <= rating
                                 ? "fill-yellow-400 text-yellow-400"
-                                : userRating !== null 
-                                  ? "text-slate-600" 
-                                  : "text-slate-400 hover:text-yellow-400"
+                                : userRating !== null
+                                ? "text-slate-600"
+                                : "text-slate-400 hover:text-yellow-400"
                             } transition-colors`}
                           />
                         </button>
@@ -452,7 +474,9 @@ function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModal
                     maxLength={500}
                   />
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs text-slate-500">{comment.length}/500</span>
+                    <span className="text-xs text-slate-500">
+                      {comment.length}/500
+                    </span>
                     <Button
                       onClick={handleSubmitComment}
                       disabled={!comment.trim() || submittingComment}
@@ -494,7 +518,10 @@ function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModal
                 ) : (
                   <div className="space-y-4">
                     {reviews.map((review) => (
-                      <div key={review.id} className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-5 border border-slate-700">
+                      <div
+                        key={review.id}
+                        className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-5 border border-slate-700"
+                      >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center space-x-3">
                             <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
@@ -520,9 +547,9 @@ function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModal
                                   ))}
                                 </div>
                                 <span className="text-slate-400 text-sm">
-                                  {new Date(review.created_at).toLocaleDateString(
-                                    "ko-KR"
-                                  )}
+                                  {new Date(
+                                    review.created_at
+                                  ).toLocaleDateString("ko-KR")}
                                 </span>
                               </div>
                             </div>
@@ -546,7 +573,6 @@ function UnifiedModal({ tool, isOpen, onClose, onReviewSubmitted }: UnifiedModal
   );
 }
 
-
 // Skeleton Components
 function ToolCardSkeleton() {
   return (
@@ -565,7 +591,7 @@ function ToolCardSkeleton() {
                 <div className="w-5 h-5 bg-slate-700 rounded"></div>
               </div>
             </div>
-            
+
             {/* Skeleton Categories Section */}
             <div className="mb-3">
               <div className="flex flex-wrap gap-1.5">
@@ -597,7 +623,7 @@ function ToolCardSkeleton() {
               <div className="h-4 bg-slate-700 rounded w-6"></div>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-1.5">
             <div className="w-4 h-4 bg-slate-700 rounded"></div>
             <div className="h-4 bg-slate-700 rounded w-16"></div>
@@ -651,7 +677,8 @@ export default function ToolsPage() {
       if (response.ok) {
         const data = await response.json();
         const bookmarkIds = new Set<string>(
-          data.bookmarks?.map((bookmark: any) => bookmark.tool_id as string) || []
+          data.bookmarks?.map((bookmark: any) => bookmark.tool_id as string) ||
+            []
         );
         setBookmarks(bookmarkIds);
       }
@@ -687,18 +714,20 @@ export default function ToolsPage() {
       }
 
       const data: ApiResponse = await response.json();
-      
+
       if (loadMore) {
-        setTools(prev => {
+        setTools((prev) => {
           // Remove duplicates: merge existing tool IDs with new tools to avoid duplicates
-          const existingIds = new Set(prev.map(tool => tool.id));
-          const newTools = data.tools.filter(tool => !existingIds.has(tool.id));
+          const existingIds = new Set(prev.map((tool) => tool.id));
+          const newTools = data.tools.filter(
+            (tool) => !existingIds.has(tool.id)
+          );
           return [...prev, ...newTools];
         });
       } else {
         setTools(data.tools);
       }
-      
+
       setHasMoreData(data.hasMore);
       setOffset(currentOffset + data.tools.length);
     } catch (err) {
@@ -808,7 +837,6 @@ export default function ToolsPage() {
     fetchTools();
   };
 
-
   const handleResetFilters = () => {
     setSearchQuery("");
     setSelectedSort("Popular");
@@ -822,7 +850,9 @@ export default function ToolsPage() {
         {/* Search Section */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Search Tools</h3>
+            <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              Search Tools
+            </h3>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -853,7 +883,9 @@ export default function ToolsPage() {
 
         {/* Sort Options */}
         <div>
-          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">Sort By</h3>
+          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
+            Sort By
+          </h3>
           <div className="space-y-2">
             {sortOptions.map((option) => (
               <Button
@@ -874,7 +906,9 @@ export default function ToolsPage() {
 
         {/* Pricing Options */}
         <div>
-          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">Pricing</h3>
+          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
+            Pricing
+          </h3>
           <div className="space-y-2">
             {pricingOptions.map((option) => (
               <Button
@@ -895,7 +929,9 @@ export default function ToolsPage() {
 
         {/* Bookmarks Toggle */}
         <div>
-          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">Bookmarks</h3>
+          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
+            Bookmarks
+          </h3>
           <Button
             onClick={() => {
               if (bookmarks.size === 0) {
@@ -911,9 +947,11 @@ export default function ToolsPage() {
             }`}
             disabled={bookmarks.size === 0}
           >
-            <Bookmark className={`w-4 h-4 mr-2 ${
-              showBookmarkedOnly ? "fill-current" : ""
-            }`} />
+            <Bookmark
+              className={`w-4 h-4 mr-2 ${
+                showBookmarkedOnly ? "fill-current" : ""
+              }`}
+            />
             {showBookmarkedOnly ? "Show All Tools" : "Show Bookmarked Only"}
             {bookmarks.size > 0 && (
               <span className="ml-auto text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full">
@@ -977,17 +1015,10 @@ export default function ToolsPage() {
             <ResultsHeaderSkeleton />
           ) : (
             <div className="mb-8">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">Tools Directory</h1>
-              {error ? (
-                <p className="text-red-400">{error}</p>
-              ) : (
-                <p className="text-slate-400">
-                  {tools.length} {tools.length === 1 ? 'tool' : 'tools'} found
-                  {searchQuery && ` for "${searchQuery}"`}
-                  {selectedPricing !== "All" && ` (${selectedPricing})`}
-                  {showBookmarkedOnly && ` (Bookmarked)`}
-                </p>
-              )}
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
+                Tools Directory
+              </h1>
+              {error && <p className="text-red-400">{error}</p>}
             </div>
           )}
 
@@ -997,7 +1028,11 @@ export default function ToolsPage() {
           ) : error ? (
             <div className="text-center py-16">
               <p className="text-red-400 text-lg mb-4">{error}</p>
-              <Button onClick={() => fetchTools()} variant="outline" className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200">
+              <Button
+                onClick={() => fetchTools()}
+                variant="outline"
+                className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200"
+              >
                 Try Again
               </Button>
             </div>
@@ -1058,19 +1093,21 @@ export default function ToolsPage() {
                               </button>
                             </div>
                           </div>
-                          
+
                           {/* Prominent Categories Section */}
                           <div className="mb-3">
                             <div className="flex flex-wrap gap-1.5">
-                              {tool.categories.slice(0, 4).map((category, index) => (
-                                <Badge
-                                  key={index}
-                                  variant="outline"
-                                  className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30 transition-colors text-xs px-2.5 py-1 font-medium"
-                                >
-                                  {category}
-                                </Badge>
-                              ))}
+                              {tool.categories
+                                .slice(0, 4)
+                                .map((category, index) => (
+                                  <Badge
+                                    key={index}
+                                    variant="outline"
+                                    className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30 transition-colors text-xs px-2.5 py-1 font-medium"
+                                  >
+                                    {category}
+                                  </Badge>
+                                ))}
                               {tool.categories.length > 4 && (
                                 <Badge
                                   variant="outline"
@@ -1096,10 +1133,12 @@ export default function ToolsPage() {
                             <span className="text-white font-medium">
                               {tool.rating > 0 ? tool.rating.toFixed(1) : "0.0"}
                             </span>
-                            <span className="text-slate-500">({tool.reviewCount})</span>
+                            <span className="text-slate-500">
+                              ({tool.reviewCount})
+                            </span>
                           </div>
                         </div>
-                        
+
                         <button
                           onClick={(e) => handleReviewClick(tool, e)}
                           className="flex items-center space-x-1.5 text-slate-400 hover:text-blue-400 transition-colors text-sm font-medium"
@@ -1112,7 +1151,7 @@ export default function ToolsPage() {
                     </CardContent>
                   </Card>
                 ))}
-                
+
                 {/* Show skeleton cards while loading more */}
                 {loadingMore && (
                   <>
@@ -1153,12 +1192,6 @@ export default function ToolsPage() {
                 <div className="text-center py-16">
                   <div className="text-center py-8">
                     <Search className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                    <p className="text-slate-400 text-xl mb-2">
-                      No tools found
-                    </p>
-                    <p className="text-slate-500">
-                      Try adjusting your search criteria or filters.
-                    </p>
                   </div>
                 </div>
               )}

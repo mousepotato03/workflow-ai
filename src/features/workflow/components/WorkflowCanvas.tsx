@@ -103,7 +103,7 @@ export function WorkflowCanvas() {
 
   const areAllGuidesCompleted = () => {
     if (!workflowResult || generatedGuides.size === 0) return false;
-    return workflowResult.tasks.every(task => {
+    return workflowResult.tasks.every((task) => {
       const guide = generatedGuides.get(task.id);
       return guide?.status === "completed";
     });
@@ -249,6 +249,50 @@ export function WorkflowCanvas() {
 
     setDraggedTask(null);
     setDragOverTask(null);
+  };
+
+  const handleToolClick = (url: string) => {
+    console.log("handleToolClick called with URL:", url);
+
+    if (url && url.trim()) {
+      // URL 형식 검사 및 수정
+      let validUrl = url.trim();
+      if (!validUrl.startsWith("http://") && !validUrl.startsWith("https://")) {
+        validUrl = "https://" + validUrl;
+      }
+
+      console.log("Processed URL:", validUrl);
+
+      try {
+        // URL 유효성 검사
+        new URL(validUrl);
+        console.log("Opening URL:", validUrl);
+
+        // 팝업 차단 방지를 위한 개선된 방법
+        const newWindow = window.open(
+          validUrl,
+          "_blank",
+          "noopener,noreferrer"
+        );
+
+        // 팝업이 차단되었는지 확인
+        if (
+          !newWindow ||
+          newWindow.closed ||
+          typeof newWindow.closed === "undefined"
+        ) {
+          console.warn("Popup was blocked, trying alternative method");
+          // 대안: 현재 창에서 열기
+          window.location.href = validUrl;
+        }
+      } catch (error) {
+        console.error("Invalid URL:", url, error);
+        // 사용자에게 오류 알림 (선택사항)
+        alert("유효하지 않은 URL입니다: " + url);
+      }
+    } else {
+      console.warn("No URL provided to handleToolClick");
+    }
   };
 
   return (
@@ -529,703 +573,29 @@ export function WorkflowCanvas() {
                   </motion.div>
 
                   {/* Subtasks and Guide View Container - Vertical Layout Only */}
-                    {layoutMode === "vertical" ? (
-                      <div
-                        className="flex flex-col lg:flex-row gap-8 w-full"
-                      >
-                        {/* Subtasks Container */}
-                        <motion.div
-                          className={isLeftPanelCollapsed ? "overflow-hidden" : ""}
-                          style={{ 
-                            width: isLeftPanelCollapsed ? '0%' : `${leftPanelWidth}%`,
-                            minWidth: isLeftPanelCollapsed ? '0px' : '200px'
-                          }}
-                          animate={{
-                            width: isLeftPanelCollapsed ? '0%' : `${leftPanelWidth}%`,
-                            opacity: isLeftPanelCollapsed ? 0 : 1
-                          }}
-                          transition={{
-                            duration: 0.3,
-                            ease: [0.4, 0.0, 0.2, 1]
-                          }}
-                        >
-                          <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full">
-                            <div className="flex items-center justify-between mb-6">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-                                  <Sparkles className="w-5 h-5 text-white" />
-                                </div>
-                                <div>
-                                  <h3 className="text-xl font-bold text-foreground">
-                                    Sub Tasks
-                                  </h3>
-                                  <p className="text-sm text-muted-foreground">
-                                    {workflowResult.tasks.length} optimized
-                                    steps
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-3">
-                                <Button
-                                  onClick={() => setIsLeftPanelCollapsed(true)}
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-muted-foreground hover:text-foreground"
-                                >
-                                  <ChevronLeft className="w-4 h-4" />
-                                </Button>
-                                {(layoutMode as string) === "horizontal" && (
-                                  <Button
-                                    onClick={() => setIsAddingTask(true)}
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-primary/30 text-primary hover:bg-primary/10"
-                                  >
-                                    <Plus className="w-4 h-4 mr-1" />
-                                    Add Task
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Subtask Nodes - Vertical Layout */}
-                            {workflowResult &&
-                            workflowResult.status === "completed" ? (
-                              <div className="flex flex-col gap-6">
-                                {workflowResult.tasks.map((task, index) => (
-                                  <div key={task.id} className="relative">
-                                    {/* Subtask Node */}
-                                    <div
-                                      draggable={(layoutMode as string) === "horizontal"}
-                                      onDragStart={(layoutMode as string) === "horizontal" ? (e) => handleDragStart(e, task.id) : undefined}
-                                      onDragOver={(layoutMode as string) === "horizontal" ? (e) => handleDragOver(e, task.id) : undefined}
-                                      onDragLeave={(layoutMode as string) === "horizontal" ? handleDragLeave : undefined}
-                                      onDrop={(layoutMode as string) === "horizontal" ? (e) => handleDrop(e, task.id) : undefined}
-                                      onClick={() => handleTaskClick(task.id)}
-                                      className={`group bg-card border rounded-xl p-5 shadow-lg transition-all duration-200 ${layoutMode === "vertical" ? "cursor-pointer" : "cursor-pointer"} ${
-                                        draggedTask === task.id
-                                          ? "opacity-50 scale-105 border-primary shadow-2xl"
-                                          : dragOverTask === task.id
-                                          ? "border-primary border-2 shadow-xl scale-105"
-                                          : selectedTask === task.id &&
-                                            layoutMode === "vertical"
-                                          ? "border-primary border-2 shadow-xl bg-primary/5"
-                                          : "border-border hover:shadow-xl hover:scale-[1.02]"
-                                      }`}
-                                    >
-                                      <div className="flex items-start space-x-4">
-                                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg flex-shrink-0">
-                                          {task.order}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center justify-between mb-2">
-                                            {editingTask === task.id ? (
-                                              <div className="flex items-center space-x-2 flex-1">
-                                                <Input
-                                                  value={editingText}
-                                                  onChange={(e) =>
-                                                    setEditingText(
-                                                      e.target.value
-                                                    )
-                                                  }
-                                                  className="flex-1 text-sm"
-                                                  onKeyDown={(e) => {
-                                                    if (e.key === "Enter")
-                                                      handleEditSave();
-                                                    if (e.key === "Escape")
-                                                      handleEditCancel();
-                                                  }}
-                                                  autoFocus
-                                                />
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  onClick={handleEditSave}
-                                                  className="p-1 h-auto"
-                                                >
-                                                  <Check className="w-4 h-4 text-green-600" />
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  onClick={handleEditCancel}
-                                                  className="p-1 h-auto"
-                                                >
-                                                  <X className="w-4 h-4 text-red-600" />
-                                                </Button>
-                                              </div>
-                                            ) : (
-                                              <>
-                                                <h4 className="font-semibold text-foreground text-base leading-tight flex-1">
-                                                  {task.name}
-                                                </h4>
-                                                <div className="flex items-center space-x-1">
-                                                  {(layoutMode as string) === "horizontal" && (
-                                                    <>
-                                                      <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        onClick={() =>
-                                                          handleRematchTool(
-                                                            task.id,
-                                                            task.name
-                                                          )
-                                                        }
-                                                        className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        disabled={rematchingTasks.has(
-                                                          task.id
-                                                        )}
-                                                      >
-                                                        {rematchingTasks.has(
-                                                          task.id
-                                                        ) ? (
-                                                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                                                        ) : (
-                                                          <RefreshCw className="w-4 h-4 text-muted-foreground hover:text-blue-600" />
-                                                        )}
-                                                      </Button>
-                                                      <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        onClick={() =>
-                                                          handleEditStart(
-                                                            task.id,
-                                                            task.name
-                                                          )
-                                                        }
-                                                        className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                                                      >
-                                                        <Edit3 className="w-4 h-4 text-muted-foreground hover:text-primary" />
-                                                      </Button>
-                                                      <Button
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        onClick={() =>
-                                                          handleDeleteTask(task.id)
-                                                        }
-                                                        className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                                                      >
-                                                        <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
-                                                      </Button>
-                                                      <GripVertical className="w-5 h-5 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-grab active:cursor-grabbing" />
-                                                    </>
-                                                  )}
-                                                </div>
-                                              </>
-                                            )}
-                                          </div>
-
-                                          {task.recommendedTool && (
-                                            <div className="bg-muted/50 border rounded-lg p-3 mt-2">
-                                              <div className="flex items-center justify-between">
-                                                <div className="flex items-center space-x-2">
-                                                  {task.recommendedTool
-                                                    .logoUrl && (
-                                                    <img
-                                                      src={
-                                                        task.recommendedTool
-                                                          .logoUrl
-                                                      }
-                                                      alt={
-                                                        task.recommendedTool
-                                                          .name
-                                                      }
-                                                      className="w-5 h-5 rounded object-cover"
-                                                      onError={(e) => {
-                                                        const target =
-                                                          e.target as HTMLImageElement;
-                                                        target.style.display =
-                                                          "none";
-                                                      }}
-                                                    />
-                                                  )}
-                                                  <span className="text-sm font-medium text-foreground">
-                                                    {task.recommendedTool.name}
-                                                  </span>
-                                                </div>
-                                                <div className="flex items-center space-x-2">
-                                                  {(() => {
-                                                    const guideStatus =
-                                                      generatedGuides.get(
-                                                        task.id
-                                                      );
-                                                    if (
-                                                      guideStatus?.status ===
-                                                      "completed"
-                                                    ) {
-                                                      return (
-                                                        <div className="flex items-center space-x-1 text-xs text-emerald-600">
-                                                          <CheckCircle2 className="w-3 h-3" />
-                                                          <span>
-                                                            Guide Ready
-                                                          </span>
-                                                        </div>
-                                                      );
-                                                    }
-                                                    if (
-                                                      guideStatus?.status ===
-                                                      "generating"
-                                                    ) {
-                                                      return (
-                                                        <div className="flex items-center space-x-1 text-xs text-blue-600">
-                                                          <Loader2 className="w-3 h-3 animate-spin" />
-                                                          <span>
-                                                            Generating...
-                                                          </span>
-                                                        </div>
-                                                      );
-                                                    }
-                                                    if (
-                                                      guideStatus?.status ===
-                                                      "error"
-                                                    ) {
-                                                      return (
-                                                        <div className="flex items-center space-x-1 text-xs text-red-600">
-                                                          <AlertCircle className="w-3 h-3" />
-                                                          <span>Error</span>
-                                                        </div>
-                                                      );
-                                                    }
-                                                    return null;
-                                                  })()}
-                                                  <Button
-                                                    onClick={() =>
-                                                      window.open(
-                                                        task.recommendedTool!
-                                                          .url,
-                                                        "_blank"
-                                                      )
-                                                    }
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="text-xs px-2 py-1 h-auto"
-                                                  >
-                                                    <ExternalLink className="w-3 h-3 mr-1" />
-                                                    Use
-                                                  </Button>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {/* Connection Lines between subtasks */}
-                                    {index <
-                                      workflowResult.tasks.length - 1 && (
-                                      <motion.div
-                                        className="flex items-center justify-center py-4"
-                                        initial={{ opacity: 0, scale: 0 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        transition={{
-                                          duration: 0.4,
-                                          delay: 0.2 + index * 0.1,
-                                          type: "spring",
-                                          stiffness: 200,
-                                        }}
-                                      >
-                                        <motion.div
-                                          animate={{
-                                            y: [0, -3, 0],
-                                            opacity: [0.6, 1, 0.6],
-                                          }}
-                                          transition={{
-                                            duration: 2,
-                                            repeat: Infinity,
-                                            repeatType: "reverse",
-                                            delay: index * 0.3,
-                                          }}
-                                        >
-                                          <ArrowDown className="w-6 h-6 text-indigo-400" />
-                                        </motion.div>
-                                      </motion.div>
-                                    )}
-                                  </div>
-                                ))}
-
-                                {/* Add New Task - Vertical Layout */}
-                                {isAddingTask && (
-                                  <div className="bg-card border-2 border-dashed border-primary/40 rounded-xl p-5 shadow-lg">
-                                    <div className="flex items-center space-x-4">
-                                      <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg flex-shrink-0">
-                                        +
-                                      </div>
-                                      <div className="flex-1 space-y-3">
-                                        <Input
-                                          value={newTaskText}
-                                          onChange={(e) =>
-                                            setNewTaskText(e.target.value)
-                                          }
-                                          placeholder="Enter new task name..."
-                                          className="w-full"
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter")
-                                              handleAddTask();
-                                            if (e.key === "Escape")
-                                              setIsAddingTask(false);
-                                          }}
-                                          autoFocus
-                                        />
-                                        <div className="flex items-center space-x-2">
-                                          <Button
-                                            size="sm"
-                                            onClick={handleAddTask}
-                                            disabled={!newTaskText.trim()}
-                                            className="bg-green-600 hover:bg-green-700 text-white"
-                                          >
-                                            <Check className="w-4 h-4 mr-1" />
-                                            Add Task
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => {
-                                              setIsAddingTask(false);
-                                              setNewTaskText("");
-                                            }}
-                                          >
-                                            <X className="w-4 h-4 mr-1" />
-                                            Cancel
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : workflowResult &&
-                              workflowResult.status !== "completed" ? (
-                              <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                                <div className="w-16 h-16 border-4 border-indigo-200 dark:border-indigo-800 rounded-full animate-spin border-t-indigo-500"></div>
-                                <p className="text-lg font-medium text-muted-foreground">
-                                  Creating subtasks...
-                                </p>
-                                <p className="text-sm text-muted-foreground text-center max-w-md">
-                                  AI is analyzing the optimal workflow
-                                </p>
-                              </div>
-                            ) : null}
-                          </div>
-                        </motion.div>
-
-                        {/* Resizable Divider */}
-                        {!isLeftPanelCollapsed && (
-                          <div
-                            className="relative flex items-center justify-center w-2 cursor-col-resize group hover:bg-primary/20 transition-colors duration-200"
-                            onMouseDown={(e) => {
-                              const startX = e.clientX;
-                              const startWidth = leftPanelWidth;
-                              const containerWidth = e.currentTarget.parentElement?.offsetWidth || 1000;
-
-                              const handleMouseMove = (e: MouseEvent) => {
-                                const deltaX = e.clientX - startX;
-                                const deltaPercentage = (deltaX / containerWidth) * 100;
-                                const newWidth = Math.max(20, Math.min(80, startWidth + deltaPercentage));
-                                setLeftPanelWidth(newWidth);
-                              };
-
-                              const handleMouseUp = () => {
-                                document.removeEventListener('mousemove', handleMouseMove);
-                                document.removeEventListener('mouseup', handleMouseUp);
-                              };
-
-                              document.addEventListener('mousemove', handleMouseMove);
-                              document.addEventListener('mouseup', handleMouseUp);
-                            }}
-                          >
-                            <div className="absolute inset-y-0 left-1/2 transform -translate-x-1/2 w-1 bg-border group-hover:bg-primary transition-colors duration-200 rounded-full" />
-                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-8 bg-background border border-border rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
-                              <GripVertical className="w-3 h-3 text-muted-foreground" />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Guide View Container */}
-                        <motion.div
-                          style={{ 
-                            width: isLeftPanelCollapsed ? '100%' : `${100 - leftPanelWidth}%`,
-                            flex: '1'
-                          }}
-                        >
-                          <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full">
-                            <div className="flex items-center justify-between mb-6">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
-                                  <BookOpen className="w-5 h-5 text-white" />
-                                </div>
-                                <div>
-                                  <h3 className="text-xl font-bold text-foreground">
-                                    Task Guide
-                                  </h3>
-                                  <p className="text-sm text-muted-foreground">
-                                    Detailed implementation guide
-                                  </p>
-                                </div>
-                              </div>
-                              {isLeftPanelCollapsed && (
-                                <Button
-                                  onClick={() => setIsLeftPanelCollapsed(false)}
-                                  size="sm"
-                                  variant="ghost"
-                                  className="text-muted-foreground hover:text-foreground"
-                                >
-                                  <ChevronRight className="w-4 h-4" />
-                                  <span className="ml-1 text-xs">Show Tasks</span>
-                                </Button>
-                              )}
-                            </div>
-
-                            {/* Guide Content */}
-                            {isGeneratingGuides ? (
-                              /* Loading State */
-                              <div className="flex flex-col items-center justify-center py-16 space-y-4">
-                                <div className="w-16 h-16 border-4 border-emerald-200 dark:border-emerald-800 rounded-full animate-spin border-t-emerald-500"></div>
-                                <div className="text-center space-y-2">
-                                  <h4 className="text-lg font-medium text-foreground">
-                                    Generating guides...
-                                  </h4>
-                                  <p className="text-sm text-muted-foreground max-w-xs">
-                                    AI is creating detailed implementation
-                                    guides for each task.
-                                  </p>
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {
-                                    Array.from(generatedGuides.values()).filter(
-                                      (g) => g.status === "completed"
-                                    ).length
-                                  }{" "}
-                                  / {workflowResult?.tasks.length || 0}{" "}
-                                  completed
-                                </div>
-                              </div>
-                            ) : selectedTask &&
-                              generatedGuides.has(selectedTask) ? (
-                              /* Selected Task Guide */
-                              (() => {
-                                const guide = generatedGuides.get(selectedTask);
-                                const task = workflowResult?.tasks.find(
-                                  (t) => t.id === selectedTask
-                                );
-
-                                if (!guide || !task) return null;
-
-                                if (guide?.status === "error") {
-                                  return (
-                                    <div className="flex flex-col items-center justify-center py-16 space-y-4">
-                                      <div className="w-16 h-16 bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30 rounded-2xl flex items-center justify-center">
-                                        <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
-                                      </div>
-                                      <div className="text-center space-y-2">
-                                        <h4 className="text-lg font-medium text-foreground">
-                                          Guide generation failed
-                                        </h4>
-                                        <p className="text-sm text-red-600 dark:text-red-400 max-w-xs">
-                                          {guide?.error ||
-                                            "Unknown error occurred"}
-                                        </p>
-                                      </div>
-                                      <Button
-                                        onClick={() =>
-                                          retryGuideGeneration(selectedTask)
-                                        }
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={false}
-                                      >
-                                        <RefreshCw className="w-4 h-4 mr-2" />
-                                        Retry
-                                      </Button>
-                                    </div>
-                                  );
-                                }
-
-                                if (guide?.status === "generating") {
-                                  return (
-                                    <div className="flex flex-col items-center justify-center py-16 space-y-4">
-                                      <div className="w-16 h-16 border-4 border-emerald-200 dark:border-emerald-800 rounded-full animate-spin border-t-emerald-500"></div>
-                                      <div className="text-center space-y-2">
-                                        <h4 className="text-lg font-medium text-foreground">
-                                          Generating guide for {task.name}
-                                        </h4>
-                                        <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
-                                          <div
-                                            className="h-full bg-emerald-500 transition-all duration-300"
-                                            style={{
-                                              width: `${guide?.progress || 0}%`,
-                                            }}
-                                          />
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">
-                                          {guide?.progress || 0}% complete
-                                        </p>
-                                      </div>
-                                    </div>
-                                  );
-                                }
-
-                                if (
-                                  guide?.status === "completed" &&
-                                  guide?.guide
-                                ) {
-                                  return (
-                                    <div className="space-y-4">
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-2">
-                                          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                                          <h4 className="text-lg font-medium text-foreground">
-                                            {task.name}
-                                          </h4>
-                                        </div>
-                                        {task.recommendedTool && (
-                                          <Button
-                                            onClick={() =>
-                                              window.open(
-                                                task.recommendedTool!.url,
-                                                "_blank"
-                                              )
-                                            }
-                                            size="sm"
-                                            variant="outline"
-                                          >
-                                            <ExternalLink className="w-4 h-4 mr-2" />
-                                            Open Tool
-                                          </Button>
-                                        )}
-                                      </div>
-                                      <div className="prose prose-sm max-w-none dark:prose-invert">
-                                        <div className="space-y-4 text-sm leading-relaxed">
-                                          <ReactMarkdown
-                                            remarkPlugins={[remarkGfm]}
-                                            components={{
-                                              h1: ({ children }) => (
-                                                <h2 className="text-lg font-bold text-foreground mt-6 mb-3">
-                                                  {children}
-                                                </h2>
-                                              ),
-                                              h2: ({ children }) => (
-                                                <h3 className="text-base font-semibold text-foreground mt-4 mb-2">
-                                                  {children}
-                                                </h3>
-                                              ),
-                                              h3: ({ children }) => (
-                                                <h4 className="text-sm font-medium text-foreground mt-3 mb-1">
-                                                  {children}
-                                                </h4>
-                                              ),
-                                              ul: ({ children }) => (
-                                                <ul className="space-y-1 ml-4">
-                                                  {children}
-                                                </ul>
-                                              ),
-                                              ol: ({ children }) => (
-                                                <ol className="space-y-2 list-none">
-                                                  {children}
-                                                </ol>
-                                              ),
-                                              li: ({ children }) => (
-                                                <li className="ml-4 mb-2">
-                                                  {children}
-                                                </li>
-                                              ),
-                                              p: ({ children }) => (
-                                                <p className="mb-2 leading-relaxed">
-                                                  {children}
-                                                </p>
-                                              ),
-                                              code: ({
-                                                children,
-                                                className,
-                                              }) => {
-                                                const isInline = !className;
-                                                if (isInline) {
-                                                  return (
-                                                    <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground">
-                                                      {children}
-                                                    </code>
-                                                  );
-                                                }
-                                                return (
-                                                  <pre className="bg-muted p-4 rounded-lg overflow-x-auto border">
-                                                    <code className="text-sm font-mono text-foreground">
-                                                      {children}
-                                                    </code>
-                                                  </pre>
-                                                );
-                                              },
-                                              blockquote: ({ children }) => (
-                                                <blockquote className="border-l-4 border-primary/30 pl-4 py-2 italic text-muted-foreground bg-muted/30 rounded-r">
-                                                  {children}
-                                                </blockquote>
-                                              ),
-                                              strong: ({ children }) => (
-                                                <strong className="font-semibold text-foreground">
-                                                  {children}
-                                                </strong>
-                                              ),
-                                              em: ({ children }) => (
-                                                <em className="italic text-muted-foreground">
-                                                  {children}
-                                                </em>
-                                              ),
-                                              a: ({ children, href }) => (
-                                                <a
-                                                  href={href}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                  className="text-primary hover:text-primary/80 underline underline-offset-2"
-                                                >
-                                                  {children}
-                                                </a>
-                                              ),
-                                            }}
-                                          >
-                                            {guide?.guide || ""}
-                                          </ReactMarkdown>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                }
-
-                                return null;
-                              })()
-                            ) : (
-                              /* Empty State - No Task Selected */
-                              <div className="flex flex-col items-center justify-center py-16 space-y-4">
-                                <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-2xl flex items-center justify-center">
-                                  <FileText className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-                                </div>
-                                <div className="text-center space-y-2">
-                                  <h4 className="text-lg font-medium text-foreground">
-                                    {generatedGuides.size > 0
-                                      ? "Select a task to view its guide"
-                                      : "Generate guides first"}
-                                  </h4>
-                                  <p className="text-sm text-muted-foreground max-w-xs">
-                                    {generatedGuides.size > 0
-                                      ? "Choose a task from the left to see detailed implementation steps and recommendations."
-                                      : "Click 'Generate Guides with Tools' to find tools and create AI-powered implementation guides for each task."}
-                                  </p>
-                                </div>
-                                {generatedGuides.size === 0 && (
-                                  <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-                                    <Star className="w-4 h-4" />
-                                    <span>AI-powered guides available</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </motion.div>
-                      </div>
-                    ) : null}
-
-                  {/* Horizontal Layout - Original Subtasks Container */}
-                    {layoutMode === "horizontal" && (
-                      <div
-                        className="flex-1"
+                  {layoutMode === "vertical" ? (
+                    <div className="flex flex-col lg:flex-row gap-8 w-full">
+                      {/* Subtasks Container */}
+                      <motion.div
+                        className={
+                          isLeftPanelCollapsed ? "overflow-hidden" : ""
+                        }
+                        style={{
+                          width: isLeftPanelCollapsed
+                            ? "0%"
+                            : `${leftPanelWidth}%`,
+                          minWidth: isLeftPanelCollapsed ? "0px" : "200px",
+                        }}
+                        animate={{
+                          width: isLeftPanelCollapsed
+                            ? "0%"
+                            : `${leftPanelWidth}%`,
+                          opacity: isLeftPanelCollapsed ? 0 : 1,
+                        }}
+                        transition={{
+                          duration: 0.3,
+                          ease: [0.4, 0.0, 0.2, 1],
+                        }}
                       >
                         <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full">
                           <div className="flex items-center justify-between mb-6">
@@ -1244,48 +614,70 @@ export function WorkflowCanvas() {
                             </div>
                             <div className="flex items-center space-x-3">
                               <Button
-                                onClick={() => setIsAddingTask(true)}
+                                onClick={() => setIsLeftPanelCollapsed(true)}
                                 size="sm"
-                                variant="outline"
-                                className="border-primary/30 text-primary hover:bg-primary/10"
+                                variant="ghost"
+                                className="text-muted-foreground hover:text-foreground"
                               >
-                                <Plus className="w-4 h-4 mr-1" />
-                                Add Task
+                                <ChevronLeft className="w-4 h-4" />
                               </Button>
+                              {(layoutMode as string) === "horizontal" && (
+                                <Button
+                                  onClick={() => setIsAddingTask(true)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-primary/30 text-primary hover:bg-primary/10"
+                                >
+                                  <Plus className="w-4 h-4 mr-1" />
+                                  Add Task
+                                </Button>
+                              )}
                             </div>
                           </div>
 
-                          {/* Subtask Nodes */}
+                          {/* Subtask Nodes - Vertical Layout */}
                           {workflowResult &&
                           workflowResult.status === "completed" ? (
-                            <div
-                              className={`gap-6 ${
-                                (layoutMode as string) === "vertical"
-                                  ? "flex flex-col"
-                                  : "grid grid-cols-1 lg:grid-cols-2"
-                              }`}
-                            >
+                            <div className="flex flex-col gap-6">
                               {workflowResult.tasks.map((task, index) => (
                                 <div key={task.id} className="relative">
                                   {/* Subtask Node */}
                                   <div
-                                    draggable
-                                    onDragStart={(e) =>
-                                      handleDragStart(e, task.id)
+                                    draggable={
+                                      (layoutMode as string) === "horizontal"
                                     }
-                                    onDragOver={(e) =>
-                                      handleDragOver(e, task.id)
+                                    onDragStart={
+                                      (layoutMode as string) === "horizontal"
+                                        ? (e) => handleDragStart(e, task.id)
+                                        : undefined
                                     }
-                                    onDragLeave={handleDragLeave}
-                                    onDrop={(e) => handleDrop(e, task.id)}
+                                    onDragOver={
+                                      (layoutMode as string) === "horizontal"
+                                        ? (e) => handleDragOver(e, task.id)
+                                        : undefined
+                                    }
+                                    onDragLeave={
+                                      (layoutMode as string) === "horizontal"
+                                        ? handleDragLeave
+                                        : undefined
+                                    }
+                                    onDrop={
+                                      (layoutMode as string) === "horizontal"
+                                        ? (e) => handleDrop(e, task.id)
+                                        : undefined
+                                    }
                                     onClick={() => handleTaskClick(task.id)}
-                                    className={`group bg-card border rounded-xl p-5 shadow-lg transition-all duration-200 cursor-pointer ${
+                                    className={`group bg-card border rounded-xl p-5 shadow-lg transition-all duration-200 ${
+                                      layoutMode === "vertical"
+                                        ? "cursor-pointer"
+                                        : "cursor-pointer"
+                                    } ${
                                       draggedTask === task.id
                                         ? "opacity-50 scale-105 border-primary shadow-2xl"
                                         : dragOverTask === task.id
                                         ? "border-primary border-2 shadow-xl scale-105"
                                         : selectedTask === task.id &&
-                                          (layoutMode as string) === "vertical"
+                                          layoutMode === "vertical"
                                         ? "border-primary border-2 shadow-xl bg-primary/5"
                                         : "border-border hover:shadow-xl hover:scale-[1.02]"
                                     }`}
@@ -1335,52 +727,59 @@ export function WorkflowCanvas() {
                                                 {task.name}
                                               </h4>
                                               <div className="flex items-center space-x-1">
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  onClick={() =>
-                                                    handleRematchTool(
-                                                      task.id,
-                                                      task.name
-                                                    )
-                                                  }
-                                                  className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                                                  disabled={rematchingTasks.has(
-                                                    task.id
-                                                  )}
-                                                >
-                                                  {rematchingTasks.has(
-                                                    task.id
-                                                  ) ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                                                  ) : (
-                                                    <RefreshCw className="w-4 h-4 text-muted-foreground hover:text-blue-600" />
-                                                  )}
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  onClick={() =>
-                                                    handleEditStart(
-                                                      task.id,
-                                                      task.name
-                                                    )
-                                                  }
-                                                  className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                  <Edit3 className="w-4 h-4 text-muted-foreground hover:text-primary" />
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="ghost"
-                                                  onClick={() =>
-                                                    handleDeleteTask(task.id)
-                                                  }
-                                                  className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                  <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
-                                                </Button>
-                                                <GripVertical className="w-5 h-5 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-grab active:cursor-grabbing" />
+                                                {(layoutMode as string) ===
+                                                  "horizontal" && (
+                                                  <>
+                                                    <Button
+                                                      size="sm"
+                                                      variant="ghost"
+                                                      onClick={() =>
+                                                        handleRematchTool(
+                                                          task.id,
+                                                          task.name
+                                                        )
+                                                      }
+                                                      className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                                                      disabled={rematchingTasks.has(
+                                                        task.id
+                                                      )}
+                                                    >
+                                                      {rematchingTasks.has(
+                                                        task.id
+                                                      ) ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                                      ) : (
+                                                        <RefreshCw className="w-4 h-4 text-muted-foreground hover:text-blue-600" />
+                                                      )}
+                                                    </Button>
+                                                    <Button
+                                                      size="sm"
+                                                      variant="ghost"
+                                                      onClick={() =>
+                                                        handleEditStart(
+                                                          task.id,
+                                                          task.name
+                                                        )
+                                                      }
+                                                      className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                      <Edit3 className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                                                    </Button>
+                                                    <Button
+                                                      size="sm"
+                                                      variant="ghost"
+                                                      onClick={() =>
+                                                        handleDeleteTask(
+                                                          task.id
+                                                        )
+                                                      }
+                                                      className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                      <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
+                                                    </Button>
+                                                    <GripVertical className="w-5 h-5 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-grab active:cursor-grabbing" />
+                                                  </>
+                                                )}
                                               </div>
                                             </>
                                           )}
@@ -1457,12 +856,17 @@ export function WorkflowCanvas() {
                                                   return null;
                                                 })()}
                                                 <Button
-                                                  onClick={() =>
-                                                    window.open(
-                                                      task.recommendedTool!.url,
-                                                      "_blank"
-                                                    )
-                                                  }
+                                                  onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    if (
+                                                      task.recommendedTool?.url
+                                                    ) {
+                                                      handleToolClick(
+                                                        task.recommendedTool.url
+                                                      );
+                                                    }
+                                                  }}
                                                   size="sm"
                                                   variant="outline"
                                                   className="text-xs px-2 py-1 h-auto"
@@ -1479,38 +883,38 @@ export function WorkflowCanvas() {
                                   </div>
 
                                   {/* Connection Lines between subtasks */}
-                                  {index < workflowResult.tasks.length - 1 &&
-                                    index % 2 === 0 && (
+                                  {index < workflowResult.tasks.length - 1 && (
+                                    <motion.div
+                                      className="flex items-center justify-center py-4"
+                                      initial={{ opacity: 0, scale: 0 }}
+                                      animate={{ opacity: 1, scale: 1 }}
+                                      transition={{
+                                        duration: 0.4,
+                                        delay: 0.2 + index * 0.1,
+                                        type: "spring",
+                                        stiffness: 200,
+                                      }}
+                                    >
                                       <motion.div
-                                        className="absolute top-1/2 -right-3 transform -translate-y-1/2 lg:hidden"
-                                        initial={{ opacity: 0, x: -10 }}
-                                        animate={{ opacity: 1, x: 0 }}
+                                        animate={{
+                                          y: [0, -3, 0],
+                                          opacity: [0.6, 1, 0.6],
+                                        }}
                                         transition={{
-                                          duration: 0.5,
-                                          delay: 0.3 + index * 0.1,
-                                          type: "spring",
+                                          duration: 2,
+                                          repeat: Infinity,
+                                          repeatType: "reverse",
+                                          delay: index * 0.3,
                                         }}
                                       >
-                                        <motion.div
-                                          animate={{
-                                            x: [0, 2, 0],
-                                            scale: [1, 1.1, 1],
-                                          }}
-                                          transition={{
-                                            duration: 2,
-                                            repeat: Infinity,
-                                            repeatType: "reverse",
-                                            delay: index * 0.2,
-                                          }}
-                                        >
-                                          <ChevronRight className="w-6 h-6 text-indigo-400" />
-                                        </motion.div>
+                                        <ArrowDown className="w-6 h-6 text-indigo-400" />
                                       </motion.div>
-                                    )}
+                                    </motion.div>
+                                  )}
                                 </div>
                               ))}
 
-                              {/* Add New Task */}
+                              {/* Add New Task - Vertical Layout */}
                               {isAddingTask && (
                                 <div className="bg-card border-2 border-dashed border-primary/40 rounded-xl p-5 shadow-lg">
                                   <div className="flex items-center space-x-4">
@@ -1573,8 +977,684 @@ export function WorkflowCanvas() {
                             </div>
                           ) : null}
                         </div>
+                      </motion.div>
+
+                      {/* Resizable Divider */}
+                      {!isLeftPanelCollapsed && (
+                        <div
+                          className="relative flex items-center justify-center w-2 cursor-col-resize group hover:bg-primary/20 transition-colors duration-200"
+                          onMouseDown={(e) => {
+                            const startX = e.clientX;
+                            const startWidth = leftPanelWidth;
+                            const containerWidth =
+                              e.currentTarget.parentElement?.offsetWidth ||
+                              1000;
+
+                            const handleMouseMove = (e: MouseEvent) => {
+                              const deltaX = e.clientX - startX;
+                              const deltaPercentage =
+                                (deltaX / containerWidth) * 100;
+                              const newWidth = Math.max(
+                                20,
+                                Math.min(80, startWidth + deltaPercentage)
+                              );
+                              setLeftPanelWidth(newWidth);
+                            };
+
+                            const handleMouseUp = () => {
+                              document.removeEventListener(
+                                "mousemove",
+                                handleMouseMove
+                              );
+                              document.removeEventListener(
+                                "mouseup",
+                                handleMouseUp
+                              );
+                            };
+
+                            document.addEventListener(
+                              "mousemove",
+                              handleMouseMove
+                            );
+                            document.addEventListener("mouseup", handleMouseUp);
+                          }}
+                        >
+                          <div className="absolute inset-y-0 left-1/2 transform -translate-x-1/2 w-1 bg-border group-hover:bg-primary transition-colors duration-200 rounded-full" />
+                          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-8 bg-background border border-border rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
+                            <GripVertical className="w-3 h-3 text-muted-foreground" />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Guide View Container */}
+                      <motion.div
+                        style={{
+                          width: isLeftPanelCollapsed
+                            ? "100%"
+                            : `${100 - leftPanelWidth}%`,
+                          flex: "1",
+                        }}
+                      >
+                        <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full">
+                          <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                                <BookOpen className="w-5 h-5 text-white" />
+                              </div>
+                              <div>
+                                <h3 className="text-xl font-bold text-foreground">
+                                  Task Guide
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                  Detailed implementation guide
+                                </p>
+                              </div>
+                            </div>
+                            {isLeftPanelCollapsed && (
+                              <Button
+                                onClick={() => setIsLeftPanelCollapsed(false)}
+                                size="sm"
+                                variant="ghost"
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                                <span className="ml-1 text-xs">Show Tasks</span>
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Guide Content */}
+                          {isGeneratingGuides ? (
+                            /* Loading State */
+                            <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                              <div className="w-16 h-16 border-4 border-emerald-200 dark:border-emerald-800 rounded-full animate-spin border-t-emerald-500"></div>
+                              <div className="text-center space-y-2">
+                                <h4 className="text-lg font-medium text-foreground">
+                                  Generating guides...
+                                </h4>
+                                <p className="text-sm text-muted-foreground max-w-xs">
+                                  AI is creating detailed implementation guides
+                                  for each task.
+                                </p>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {
+                                  Array.from(generatedGuides.values()).filter(
+                                    (g) => g.status === "completed"
+                                  ).length
+                                }{" "}
+                                / {workflowResult?.tasks.length || 0} completed
+                              </div>
+                            </div>
+                          ) : selectedTask &&
+                            generatedGuides.has(selectedTask) ? (
+                            /* Selected Task Guide */
+                            (() => {
+                              const guide = generatedGuides.get(selectedTask);
+                              const task = workflowResult?.tasks.find(
+                                (t) => t.id === selectedTask
+                              );
+
+                              if (!guide || !task) return null;
+
+                              if (guide?.status === "error") {
+                                return (
+                                  <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                                    <div className="w-16 h-16 bg-gradient-to-br from-red-100 to-red-200 dark:from-red-900/30 dark:to-red-800/30 rounded-2xl flex items-center justify-center">
+                                      <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                                    </div>
+                                    <div className="text-center space-y-2">
+                                      <h4 className="text-lg font-medium text-foreground">
+                                        Guide generation failed
+                                      </h4>
+                                      <p className="text-sm text-red-600 dark:text-red-400 max-w-xs">
+                                        {guide?.error ||
+                                          "Unknown error occurred"}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      onClick={() =>
+                                        retryGuideGeneration(selectedTask)
+                                      }
+                                      variant="outline"
+                                      size="sm"
+                                      disabled={false}
+                                    >
+                                      <RefreshCw className="w-4 h-4 mr-2" />
+                                      Retry
+                                    </Button>
+                                  </div>
+                                );
+                              }
+
+                              if (guide?.status === "generating") {
+                                return (
+                                  <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                                    <div className="w-16 h-16 border-4 border-emerald-200 dark:border-emerald-800 rounded-full animate-spin border-t-emerald-500"></div>
+                                    <div className="text-center space-y-2">
+                                      <h4 className="text-lg font-medium text-foreground">
+                                        Generating guide for {task.name}
+                                      </h4>
+                                      <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-emerald-500 transition-all duration-300"
+                                          style={{
+                                            width: `${guide?.progress || 0}%`,
+                                          }}
+                                        />
+                                      </div>
+                                      <p className="text-xs text-muted-foreground">
+                                        {guide?.progress || 0}% complete
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (
+                                guide?.status === "completed" &&
+                                guide?.guide
+                              ) {
+                                return (
+                                  <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center space-x-2">
+                                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                                        <h4 className="text-lg font-medium text-foreground">
+                                          {task.name}
+                                        </h4>
+                                      </div>
+                                      {task.recommendedTool && (
+                                        <Button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            if (task.recommendedTool?.url) {
+                                              handleToolClick(
+                                                task.recommendedTool.url
+                                              );
+                                            }
+                                          }}
+                                          size="sm"
+                                          variant="outline"
+                                        >
+                                          <ExternalLink className="w-4 h-4 mr-2" />
+                                          Open Tool
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <div className="prose prose-sm max-w-none dark:prose-invert">
+                                      <div className="space-y-4 text-sm leading-relaxed">
+                                        <ReactMarkdown
+                                          remarkPlugins={[remarkGfm]}
+                                          components={{
+                                            h1: ({ children }) => (
+                                              <h2 className="text-lg font-bold text-foreground mt-6 mb-3">
+                                                {children}
+                                              </h2>
+                                            ),
+                                            h2: ({ children }) => (
+                                              <h3 className="text-base font-semibold text-foreground mt-4 mb-2">
+                                                {children}
+                                              </h3>
+                                            ),
+                                            h3: ({ children }) => (
+                                              <h4 className="text-sm font-medium text-foreground mt-3 mb-1">
+                                                {children}
+                                              </h4>
+                                            ),
+                                            ul: ({ children }) => (
+                                              <ul className="space-y-1 ml-4">
+                                                {children}
+                                              </ul>
+                                            ),
+                                            ol: ({ children }) => (
+                                              <ol className="space-y-2 list-none">
+                                                {children}
+                                              </ol>
+                                            ),
+                                            li: ({ children }) => (
+                                              <li className="ml-4 mb-2">
+                                                {children}
+                                              </li>
+                                            ),
+                                            p: ({ children }) => (
+                                              <p className="mb-2 leading-relaxed">
+                                                {children}
+                                              </p>
+                                            ),
+                                            code: ({ children, className }) => {
+                                              const isInline = !className;
+                                              if (isInline) {
+                                                return (
+                                                  <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-foreground">
+                                                    {children}
+                                                  </code>
+                                                );
+                                              }
+                                              return (
+                                                <pre className="bg-muted p-4 rounded-lg overflow-x-auto border">
+                                                  <code className="text-sm font-mono text-foreground">
+                                                    {children}
+                                                  </code>
+                                                </pre>
+                                              );
+                                            },
+                                            blockquote: ({ children }) => (
+                                              <blockquote className="border-l-4 border-primary/30 pl-4 py-2 italic text-muted-foreground bg-muted/30 rounded-r">
+                                                {children}
+                                              </blockquote>
+                                            ),
+                                            strong: ({ children }) => (
+                                              <strong className="font-semibold text-foreground">
+                                                {children}
+                                              </strong>
+                                            ),
+                                            em: ({ children }) => (
+                                              <em className="italic text-muted-foreground">
+                                                {children}
+                                              </em>
+                                            ),
+                                            a: ({ children, href }) => (
+                                              <a
+                                                href={href}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-primary hover:text-primary/80 underline underline-offset-2"
+                                              >
+                                                {children}
+                                              </a>
+                                            ),
+                                          }}
+                                        >
+                                          {guide?.guide || ""}
+                                        </ReactMarkdown>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              return null;
+                            })()
+                          ) : (
+                            /* Empty State - No Task Selected */
+                            <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                              <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-2xl flex items-center justify-center">
+                                <FileText className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                              </div>
+                              <div className="text-center space-y-2">
+                                <h4 className="text-lg font-medium text-foreground">
+                                  {generatedGuides.size > 0
+                                    ? "Select a task to view its guide"
+                                    : "Generate guides first"}
+                                </h4>
+                                <p className="text-sm text-muted-foreground max-w-xs">
+                                  {generatedGuides.size > 0
+                                    ? "Choose a task from the left to see detailed implementation steps and recommendations."
+                                    : "Click 'Generate Guides with Tools' to find tools and create AI-powered implementation guides for each task."}
+                                </p>
+                              </div>
+                              {generatedGuides.size === 0 && (
+                                <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                                  <Star className="w-4 h-4" />
+                                  <span>AI-powered guides available</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    </div>
+                  ) : null}
+
+                  {/* Horizontal Layout - Original Subtasks Container */}
+                  {layoutMode === "horizontal" && (
+                    <div className="flex-1">
+                      <div className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full">
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                              <Sparkles className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-foreground">
+                                Sub Tasks
+                              </h3>
+                              <p className="text-sm text-muted-foreground">
+                                {workflowResult.tasks.length} optimized steps
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <Button
+                              onClick={() => setIsAddingTask(true)}
+                              size="sm"
+                              variant="outline"
+                              className="border-primary/30 text-primary hover:bg-primary/10"
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Add Task
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Subtask Nodes */}
+                        {workflowResult &&
+                        workflowResult.status === "completed" ? (
+                          <div
+                            className={`gap-6 ${
+                              (layoutMode as string) === "vertical"
+                                ? "flex flex-col"
+                                : "grid grid-cols-1 lg:grid-cols-2"
+                            }`}
+                          >
+                            {workflowResult.tasks.map((task, index) => (
+                              <div key={task.id} className="relative">
+                                {/* Subtask Node */}
+                                <div
+                                  draggable
+                                  onDragStart={(e) =>
+                                    handleDragStart(e, task.id)
+                                  }
+                                  onDragOver={(e) => handleDragOver(e, task.id)}
+                                  onDragLeave={handleDragLeave}
+                                  onDrop={(e) => handleDrop(e, task.id)}
+                                  onClick={() => handleTaskClick(task.id)}
+                                  className={`group bg-card border rounded-xl p-5 shadow-lg transition-all duration-200 cursor-pointer ${
+                                    draggedTask === task.id
+                                      ? "opacity-50 scale-105 border-primary shadow-2xl"
+                                      : dragOverTask === task.id
+                                      ? "border-primary border-2 shadow-xl scale-105"
+                                      : selectedTask === task.id &&
+                                        (layoutMode as string) === "vertical"
+                                      ? "border-primary border-2 shadow-xl bg-primary/5"
+                                      : "border-border hover:shadow-xl hover:scale-[1.02]"
+                                  }`}
+                                >
+                                  <div className="flex items-start space-x-4">
+                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg flex-shrink-0">
+                                      {task.order}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between mb-2">
+                                        {editingTask === task.id ? (
+                                          <div className="flex items-center space-x-2 flex-1">
+                                            <Input
+                                              value={editingText}
+                                              onChange={(e) =>
+                                                setEditingText(e.target.value)
+                                              }
+                                              className="flex-1 text-sm"
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter")
+                                                  handleEditSave();
+                                                if (e.key === "Escape")
+                                                  handleEditCancel();
+                                              }}
+                                              autoFocus
+                                            />
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              onClick={handleEditSave}
+                                              className="p-1 h-auto"
+                                            >
+                                              <Check className="w-4 h-4 text-green-600" />
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              onClick={handleEditCancel}
+                                              className="p-1 h-auto"
+                                            >
+                                              <X className="w-4 h-4 text-red-600" />
+                                            </Button>
+                                          </div>
+                                        ) : (
+                                          <>
+                                            <h4 className="font-semibold text-foreground text-base leading-tight flex-1">
+                                              {task.name}
+                                            </h4>
+                                            <div className="flex items-center space-x-1">
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() =>
+                                                  handleRematchTool(
+                                                    task.id,
+                                                    task.name
+                                                  )
+                                                }
+                                                className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                                                disabled={rematchingTasks.has(
+                                                  task.id
+                                                )}
+                                              >
+                                                {rematchingTasks.has(
+                                                  task.id
+                                                ) ? (
+                                                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                                ) : (
+                                                  <RefreshCw className="w-4 h-4 text-muted-foreground hover:text-blue-600" />
+                                                )}
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() =>
+                                                  handleEditStart(
+                                                    task.id,
+                                                    task.name
+                                                  )
+                                                }
+                                                className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                                              >
+                                                <Edit3 className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() =>
+                                                  handleDeleteTask(task.id)
+                                                }
+                                                className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
+                                              >
+                                                <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600" />
+                                              </Button>
+                                              <GripVertical className="w-5 h-5 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-grab active:cursor-grabbing" />
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+
+                                      {task.recommendedTool && (
+                                        <div className="bg-muted/50 border rounded-lg p-3 mt-2">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center space-x-2">
+                                              {task.recommendedTool.logoUrl && (
+                                                <img
+                                                  src={
+                                                    task.recommendedTool.logoUrl
+                                                  }
+                                                  alt={
+                                                    task.recommendedTool.name
+                                                  }
+                                                  className="w-5 h-5 rounded object-cover"
+                                                  onError={(e) => {
+                                                    const target =
+                                                      e.target as HTMLImageElement;
+                                                    target.style.display =
+                                                      "none";
+                                                  }}
+                                                />
+                                              )}
+                                              <span className="text-sm font-medium text-foreground">
+                                                {task.recommendedTool.name}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                              {(() => {
+                                                const guideStatus =
+                                                  generatedGuides.get(task.id);
+                                                if (
+                                                  guideStatus?.status ===
+                                                  "completed"
+                                                ) {
+                                                  return (
+                                                    <div className="flex items-center space-x-1 text-xs text-emerald-600">
+                                                      <CheckCircle2 className="w-3 h-3" />
+                                                      <span>Guide Ready</span>
+                                                    </div>
+                                                  );
+                                                }
+                                                if (
+                                                  guideStatus?.status ===
+                                                  "generating"
+                                                ) {
+                                                  return (
+                                                    <div className="flex items-center space-x-1 text-xs text-blue-600">
+                                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                                      <span>Generating...</span>
+                                                    </div>
+                                                  );
+                                                }
+                                                if (
+                                                  guideStatus?.status ===
+                                                  "error"
+                                                ) {
+                                                  return (
+                                                    <div className="flex items-center space-x-1 text-xs text-red-600">
+                                                      <AlertCircle className="w-3 h-3" />
+                                                      <span>Error</span>
+                                                    </div>
+                                                  );
+                                                }
+                                                return null;
+                                              })()}
+                                              <Button
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                                  if (
+                                                    task.recommendedTool?.url
+                                                  ) {
+                                                    handleToolClick(
+                                                      task.recommendedTool.url
+                                                    );
+                                                  }
+                                                }}
+                                                size="sm"
+                                                variant="outline"
+                                                className="text-xs px-2 py-1 h-auto"
+                                              >
+                                                <ExternalLink className="w-3 h-3 mr-1" />
+                                                Use
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Connection Lines between subtasks */}
+                                {index < workflowResult.tasks.length - 1 &&
+                                  index % 2 === 0 && (
+                                    <motion.div
+                                      className="absolute top-1/2 -right-3 transform -translate-y-1/2 lg:hidden"
+                                      initial={{ opacity: 0, x: -10 }}
+                                      animate={{ opacity: 1, x: 0 }}
+                                      transition={{
+                                        duration: 0.5,
+                                        delay: 0.3 + index * 0.1,
+                                        type: "spring",
+                                      }}
+                                    >
+                                      <motion.div
+                                        animate={{
+                                          x: [0, 2, 0],
+                                          scale: [1, 1.1, 1],
+                                        }}
+                                        transition={{
+                                          duration: 2,
+                                          repeat: Infinity,
+                                          repeatType: "reverse",
+                                          delay: index * 0.2,
+                                        }}
+                                      >
+                                        <ChevronRight className="w-6 h-6 text-indigo-400" />
+                                      </motion.div>
+                                    </motion.div>
+                                  )}
+                              </div>
+                            ))}
+
+                            {/* Add New Task */}
+                            {isAddingTask && (
+                              <div className="bg-card border-2 border-dashed border-primary/40 rounded-xl p-5 shadow-lg">
+                                <div className="flex items-center space-x-4">
+                                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg flex-shrink-0">
+                                    +
+                                  </div>
+                                  <div className="flex-1 space-y-3">
+                                    <Input
+                                      value={newTaskText}
+                                      onChange={(e) =>
+                                        setNewTaskText(e.target.value)
+                                      }
+                                      placeholder="Enter new task name..."
+                                      className="w-full"
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleAddTask();
+                                        if (e.key === "Escape")
+                                          setIsAddingTask(false);
+                                      }}
+                                      autoFocus
+                                    />
+                                    <div className="flex items-center space-x-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={handleAddTask}
+                                        disabled={!newTaskText.trim()}
+                                        className="bg-green-600 hover:bg-green-700 text-white"
+                                      >
+                                        <Check className="w-4 h-4 mr-1" />
+                                        Add Task
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                          setIsAddingTask(false);
+                                          setNewTaskText("");
+                                        }}
+                                      >
+                                        <X className="w-4 h-4 mr-1" />
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : workflowResult &&
+                          workflowResult.status !== "completed" ? (
+                          <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                            <div className="w-16 h-16 border-4 border-indigo-200 dark:border-indigo-800 rounded-full animate-spin border-t-indigo-500"></div>
+                            <p className="text-lg font-medium text-muted-foreground">
+                              Creating subtasks...
+                            </p>
+                            <p className="text-sm text-muted-foreground text-center max-w-md">
+                              AI is analyzing the optimal workflow
+                            </p>
+                          </div>
+                        ) : null}
                       </div>
-                    )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Completion Celebration */}
