@@ -48,9 +48,7 @@
 - **embedding_text** (text): 임베딩 생성 원문(콘텐츠)
 - **embedding** (vector(768)): pgvector 기반 유사도 검색 대상
 - **is_active** (boolean, 기본값 `true`): 비활성화/숨김 처리
-- **bench_score** (numeric): 성능 지표(벤치마크) 기반 가중치
 - **domains** (text[], 기본값 `{}`): 적용 도메인(예: 'code', 'general')
-- **cost_index** (numeric): 비용 민감도 반영 가중치
 - **scores** (jsonb, 기본값 `{}`): 정량 메타데이터 및 가격모델 저장 필드
   - 예시 구조
     - `benchmarks` (객체): {HumanEval: 88.4, MMLU: 80.2}
@@ -98,26 +96,6 @@ AI 기반 도구 사용법 가이드 저장소. 웹 검색 + Google Gemini로 �
 - `idx_tool_guides_performance` (tool_id, expires_at, confidence_score DESC) - 성능 최적화
 
 **RLS**: 공용 읽기 허용, service_role/authenticated만 생성 가능
-
-### search_cache
-
-웹 검색 결과 캐싱으로 API 비용 절약 및 성능 최적화
-
-- **search_key** (text, PK): 검색 쿼리 해시값
-- **search_results** (jsonb, NOT NULL): 검색 결과 데이터
-- **result_count** (integer, 기본값 0): 결과 개수
-- **language** (text, 기본값 'ko'): 검색 언어
-- **created_at** (timestamptz): 캐시 생성 시간, 기본값 `now()`
-- **expires_at** (timestamptz, 기본값 +24h): 캐시 만료 시간
-
-**인덱스:**
-
-- `search_cache_pkey` (search_key) - 기본키
-- `idx_search_cache_expires` (expires_at) WHERE expires_at IS NOT NULL - 만료 기반 정리
-- `idx_search_cache_language` (language) - 언어별 조회
-- `idx_search_cache_created_at` (created_at DESC) - 생성일 기반 정렬
-
-**RLS**: service_role 전용 (내부 시스템 캐시)
 
 ### bookmarks
 
@@ -231,7 +209,7 @@ GROUP BY tool_id;
 
 ### 핵심 검색 함수
 
-#### `match_tools(query_embedding vector, match_threshold double precision DEFAULT 0.5, match_count integer DEFAULT 10)`
+#### `match_tools(query_embedding vector, match_count integer DEFAULT 10, filter jsonb DEFAULT '{}')`
 
 벡터 유사도 기반 도구 검색 함수
 
@@ -244,13 +222,6 @@ GROUP BY tool_id;
 
 **반환값**: 도구 정보 + 하이브리드 점수
 **특징**: 벡터 유사도와 텍스트 유사도를 가중치로 결합
-
-#### `hybrid_search_tools(query_text text, query_embedding vector, match_count integer DEFAULT 10, vector_weight double precision DEFAULT 0.7, text_weight double precision DEFAULT 0.3)`
-
-벡터 타입을 직접 받는 하이브리드 검색 함수
-
-**반환값**: 도구 정보 + 결합 점수
-**특징**: 벡터, 텍스트, 카테고리, 도메인 유사도를 종합적으로 계산
 
 ### 유틸리티 함수
 
@@ -268,30 +239,14 @@ RLS 정책 성능 점검 함수
 
 #### `cleanup_expired_cache()`
 
-만료된 가이드 및 캐시 자동 정리 함수
+만료된 가이드 자동 정리 함수
 
 **반환값**: 삭제된 항목 수
-**정리 대상**: tool_guides.expires_at, search_cache.expires_at
-
-#### `cleanup_expired_entries()`
-
-만료된 항목 정리 및 구체화 뷰 새로고침 함수
-
-**특징**: tool_stats 구체화 뷰 자동 새로고침
-
-#### `refresh_tool_stats()`
-
-도구 통계 구체화 뷰 새로고침 함수
+**정리 대상**: tool_guides.expires_at
 
 ---
 
 ## 트리거
-
-### `handle_new_user()`
-
-신규 사용자 가입 시 자동 프로필 생성 트리거
-
-**동작**: auth.users에 새 사용자 생성 시 public.users에 자동 프로필 생성
 
 ### `update_updated_at_column()`
 
@@ -369,6 +324,17 @@ RLS 정책 성능 점검 함수
 
 ## 최근 마이그레이션
 
+### 2025년 8월 19일
+
+1. **add_bookmarks_tools_foreign_key**: 북마크 테이블에 도구 외래키 추가
+2. **add_reviews_tools_foreign_key**: 리뷰 테이블에 도구 외래키 추가
+3. **add_tool_guides_tools_foreign_key**: 도구 가이드 테이블에 도구 외래키 추가
+
+### 2025년 8월 18일
+
+1. **recreate_match_tools_function**: match_tools 함수 재생성
+2. **fix_match_tools_parameters**: match_tools 함수 파라미터 수정
+
 ### 2025년 8월 17일
 
 1. **fix_foreign_keys_and_references**: 외래키 및 참조 관계 수정
@@ -385,7 +351,7 @@ RLS 정책 성능 점검 함수
 ### 도구 추천 시스템
 
 - **검색 백엔드**: `match_tools`/`hybrid_search_tools` → 후보 도구 ID → 상세 스코어링
-- **가중치**: bench_score, cost_index, domains 기반 최종 순위 결정
+- **가중치**: scores 필드의 benchmarks, user_rating, pricing_model 기반 최종 순위 결정
 
 ### 가이드 시스템
 
@@ -409,8 +375,7 @@ RLS 정책 성능 점검 함수
 
 ### 자동 정리
 
-- `cleanup_expired_cache()`: 만료된 가이드 및 캐시 자동 삭제
-- `cleanup_expired_entries()`: 만료 항목 정리 및 통계 뷰 새로고침
+- `cleanup_expired_cache()`: 만료된 가이드 자동 삭제
 
 ---
 
