@@ -1,7 +1,8 @@
 ## 개요
 
-- 워크플로우 생성/분해(stateless) → 도구 추천(`tools`) → **AI 가이드 생성**(`tool_guides`) → 문의 접수(`contact`)
-- 벡터/하이브리드 검색 함수(`match_tools`, `hybrid_search_tools`)와 인덱스로 추천 성능 최적화
+- 워크플로우 생성/분해(stateless) → **RAG 강화 도구 추천**(`tools` + `rag_knowledge_chunks`) → **AI 가이드 생성**(`tool_guides`) → 문의 접수(`contact`)
+- **RAG 기반 지능형 매칭**: `rag_enhanced_tool_search`, `adaptive_tool_search`로 맥락적 추천 정확도 극대화
+- 기존 벡터/하이브리드 검색(`match_tools`, `hybrid_search_tools`)과 호환성 유지하며 점진적 개선
 - **웹 검색 기반 맞춤형 도구 사용법 가이드 생성 및 캐싱 시스템**
 - **사용자 기능**: 북마크(`bookmarks`), 리뷰/평점(`reviews`) 시스템으로 개인화 강화
 
@@ -69,6 +70,42 @@
 - `idx_tools_scores_gin` (scores jsonb_path_ops)
 
 **RLS**: 공용 읽기 허용, 수정은 service_role 제한(관리 목적)
+
+### rag_knowledge_chunks
+
+**RAG-Anything 기반 지능형 도구 매칭 시스템의 핵심 테이블**. 문서 청크로 분할된 고품질 도구 지식을 저장하여 맥락적 추천 정확도를 극대화.
+
+- **id** (UUID, PK): 지식 청크 고유 식별자, 기본값 `gen_random_uuid()`
+- **tool_id** (UUID, NOT NULL, FK → tools.id): 연결된 도구 참조, CASCADE 삭제
+- **source_type** (source_type ENUM, 기본값 'manual'): 소스 타입 ('pdf', 'web', 'manual', 'api_doc', 'review', 'guide')
+- **source_path** (text): 파일 경로, URL 또는 소스 식별자
+- **source_title** (text): 사람이 읽을 수 있는 소스 제목
+- **chunk_type** (chunk_type ENUM, 기본값 'text'): 청크 타입 ('text', 'image', 'table', 'equation')
+- **chunk_content** (text, NOT NULL): 처리된 텍스트 청크 내용 (길이 > 0 제약)
+- **chunk_metadata** (jsonb, 기본값 '{}'): 청크별 메타데이터 (페이지 번호, 섹션 등)
+- **embedding** (vector(768)): Google text-embedding-004 임베딩 벡터 (768차원)
+- **chunk_index** (integer, 기본값 0): 문서 내 청크 순서 (>= 0 제약)
+- **total_chunks** (integer, 기본값 1): 해당 문서의 총 청크 수 (>= 1 제약)
+- **content_hash** (text, NOT NULL): MD5 해시를 통한 중복 제거 키
+- **quality_score** (real, 기본값 0.5): 청크 품질 점수 0-1 범위 (랭킹에 활용)
+- **created_at** (timestamptz): 생성 시각, 기본값 `now()`
+- **updated_at** (timestamptz): 수정 시각, 기본값 `now()` (트리거로 자동 갱신)
+
+**인덱스:**
+
+- `rag_knowledge_chunks_pkey` (id) - 기본키
+- `idx_rag_chunks_tool_id` (tool_id) - 도구별 조회 최적화
+- `idx_rag_chunks_source` (source_type, source_path) - 소스별 조회
+- `idx_rag_chunks_hash` (content_hash) - 중복 제거 최적화
+- `idx_rag_chunks_quality` (quality_score DESC) - 품질 기반 정렬
+- `idx_rag_chunks_created` (created_at DESC) - 생성일 기반 정렬
+- `idx_rag_chunks_embedding` (embedding IVFFLAT vector_cosine_ops) WITH (lists=10) - 벡터 유사도 검색
+- `idx_rag_chunks_tool_type` (tool_id, chunk_type) - 복합 조회
+- `idx_rag_chunks_source_quality` (source_type, quality_score DESC) - 소스별 품질 정렬
+
+**RLS**: 공용 읽기 허용, service_role만 생성/수정 가능 (ETL 작업 전용)
+
+**트리거**: `update_rag_chunks_updated_at` - updated_at 자동 갱신
 
 ### tool_guides
 
@@ -207,14 +244,47 @@ GROUP BY tool_id;
 
 ## 데이터베이스 함수
 
-### 핵심 검색 함수
+### RAG 강화 검색 함수 (신규)
 
-#### `match_tools(query_embedding vector, match_count integer DEFAULT 10, filter jsonb DEFAULT '{}')`
+#### `rag_enhanced_tool_search(query_text text, query_embedding vector, match_count integer DEFAULT 5, tool_weight double precision DEFAULT 0.7, knowledge_weight double precision DEFAULT 0.3, quality_threshold double precision DEFAULT 0.0)`
+
+**RAG 기반 지능형 도구 검색 함수 - 핵심 추천 엔진**
+
+**반환값**: 도구 정보 + 강화된 점수 + RAG 청크 컨텍스트 + 매칭 이유
+**특징**: 
+- 기존 도구 임베딩과 RAG 지식 청크를 가중치 결합
+- 품질 점수 기반 청크 필터링
+- 상위 3개 관련 청크를 컨텍스트로 제공
+- 매칭 이유 자동 생성 ("Enhanced by knowledge base" 등)
+
+#### `adaptive_tool_search(query_text text, query_embedding vector, match_count integer DEFAULT 5, auto_adjust_weights boolean DEFAULT true)`
+
+**적응형 검색 함수 - 쿼리 타입별 지능형 가중치 조정**
+
+**반환값**: 도구 정보 + 강화된 점수 + RAG 청크 + 검색 전략
+**특징**:
+- 쿼리 패턴 자동 감지 (비교, 튜토리얼, 가격, 일반)
+- 타입별 최적 가중치 자동 적용:
+  - 비교 쿼리: 50/50 (지식베이스 중시)
+  - 튜토리얼: 40/60 (지식 중시)
+  - 가격 쿼리: 80/20 (메타데이터 중시)
+  - 일반: 70/30 (균형)
+
+#### `rag_knowledge_stats(tool_id_filter uuid DEFAULT NULL)`
+
+**RAG 지식베이스 통계 및 모니터링 함수**
+
+**반환값**: 도구별 청크 수, 평균 품질 점수, 최근 업데이트 시간
+**용도**: 시스템 상태 모니터링, 지식베이스 품질 관리
+
+### 기존 검색 함수 (호환성 유지)
+
+#### `match_tools(filter jsonb DEFAULT '{}', match_count integer DEFAULT 5, query_embedding vector DEFAULT NULL)`
 
 벡터 유사도 기반 도구 검색 함수
 
 **반환값**: 도구 정보 + 유사도 점수
-**사용처**: LangChain 호환 벡터 검색
+**사용처**: LangChain 호환 벡터 검색, 기존 시스템 호환성
 
 #### `hybrid_search_tools(query_text text, query_embedding text, match_count integer DEFAULT 3, vector_weight numeric DEFAULT 0.7, text_weight numeric DEFAULT 0.3)`
 
@@ -324,11 +394,25 @@ RLS 정책 성능 점검 함수
 
 ## 최근 마이그레이션
 
+### 2025년 8월 24일 (RAG 시스템 구축)
+
+1. **add_rag_knowledge_chunks_table**: RAG 지식 청크 테이블 및 관련 ENUM, 인덱스, RLS 정책 생성
+2. **add_rag_enhanced_search_functions_v2**: RAG 강화 검색 함수 3개 구현
+   - `rag_enhanced_tool_search`: 기본 RAG 강화 검색
+   - `adaptive_tool_search`: 쿼리 타입별 적응형 검색  
+   - `rag_knowledge_stats`: 지식베이스 통계 및 모니터링
+
 ### 2025년 8월 19일
 
-1. **add_bookmarks_tools_foreign_key**: 북마크 테이블에 도구 외래키 추가
-2. **add_reviews_tools_foreign_key**: 리뷰 테이블에 도구 외래키 추가
-3. **add_tool_guides_tools_foreign_key**: 도구 가이드 테이블에 도구 외래키 추가
+1. **create_workflow_tables**: 워크플로우 관련 테이블 생성
+2. **add_workflow_indexes**: 워크플로우 인덱스 추가
+3. **add_workflow_rls_policies**: 워크플로우 RLS 정책 추가
+4. **add_workflow_functions_triggers**: 워크플로우 함수 및 트리거 추가
+5. **add_workflow_utility_functions_views_fixed**: 워크플로우 유틸리티 함수 및 뷰 추가
+6. **fix_security_definer_views**: 보안 정의자 뷰 수정
+7. **add_bookmarks_tools_foreign_key**: 북마크 테이블에 도구 외래키 추가
+8. **add_reviews_tools_foreign_key**: 리뷰 테이블에 도구 외래키 추가
+9. **add_tool_guides_tools_foreign_key**: 도구 가이드 테이블에 도구 외래키 추가
 
 ### 2025년 8월 18일
 
@@ -348,7 +432,14 @@ RLS 정책 성능 점검 함수
 
 ## 프런트엔드 사용 포인트
 
-### 도구 추천 시스템
+### RAG 강화 도구 추천 시스템 (신규)
+
+- **새로운 검색 파이프라인**: `rag_enhanced_tool_search` / `adaptive_tool_search` → 맥락적 추천
+- **다단계 폴백 전략**: RAG 강화 → 적응형 → 하이브리드 → 벡터 → 키워드  
+- **향상된 컨텍스트**: RAG 청크 정보로 추천 이유와 상세 설명 제공
+- **API 사용**: `/api/tools/smart-recommend?enableRAG=true&enableAdaptive=true`
+
+### 기존 도구 추천 시스템 (호환성 유지)
 
 - **검색 백엔드**: `match_tools`/`hybrid_search_tools` → 후보 도구 ID → 상세 스코어링
 - **가중치**: scores 필드의 benchmarks, user_rating, pricing_model 기반 최종 순위 결정
@@ -381,20 +472,30 @@ RLS 정책 성능 점검 함수
 
 ## 향후 개선 제안
 
+### RAG 시스템 최적화
+
+- **지식베이스 확장**: 핵심 도구별 고품질 문서(리뷰, 비교분석, 공식문서) 체계적 수집
+- **품질 관리**: 사용자 피드백 기반 청크 품질 점수 자동 조정 시스템
+- **다양한 소스**: API 문서, 사용자 리뷰, 비교 분석 등 다양한 지식 소스 통합
+- **자동화**: GitHub Actions 기반 정기적 지식베이스 업데이트 파이프라인
+
 ### 성능 최적화
 
-- **벡터 인덱스 튜닝**: 데이터 증가에 따른 IVFFLAT 파라미터 조정
+- **벡터 인덱스 튜닝**: RAG 청크 증가에 따른 IVFFLAT 파라미터 조정 (lists 값 최적화)
+- **하이브리드 캐싱**: RAG 검색 결과 캐싱으로 응답 시간 단축
 - **구체화 뷰 전략**: 자주 조회되는 복합 데이터의 구체화 뷰 확장
 - **인덱스 분석**: `pg_stat_user_indexes` 기반 인덱스 사용량 분석
 
 ### 기능 확장
 
-- **다국어 지원**: 언어별 전용 임베딩 모델 및 인덱스
-- **사용자 개인화**: 북마크/리뷰 히스토리 기반 맞춤형 추천
-- **가이드 품질 관리**: 사용자 평가 시스템 및 자동 품질 개선
+- **개인화된 RAG**: 사용자 북마크/리뷰 히스토리를 RAG 컨텍스트에 반영
+- **다국어 지원**: 언어별 전용 임베딩 모델 및 RAG 지식베이스
+- **실시간 학습**: 사용자 피드백을 통한 RAG 추천 품질 실시간 개선
+- **A/B 테스팅**: RAG vs 기존 시스템 성능 비교 및 최적화
 
 ### 모니터링 강화
 
+- **RAG 메트릭**: 지식베이스 히트율, 청크 품질 분포, 추천 정확도 추적
 - **성능 메트릭**: 가이드 생성 시간, 캐시 히트율, API 비용 추적
 - **정기 정리**: `cleanup_expired_cache()` 크론잡 스케줄링
-- **알림 시스템**: 성능 저하 시 자동 알림
+- **알림 시스템**: RAG 시스템 성능 저하, 지식베이스 품질 이슈 자동 알림

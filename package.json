@@ -13,7 +13,16 @@
     "import-tools": "tsx scripts/import-tools-data.ts",
     "test:smart-recommend": "tsx --env-file=.env.local scripts/test-smart-recommendation.ts",
     "test:api": "tsx scripts/test-api-endpoints.ts",
-    "test:logic": "tsx scripts/test-recommendation-logic.ts"
+    "test:logic": "tsx scripts/test-recommendation-logic.ts",
+    "test:rag:complete": "tsx --env-file=.env.local src/lib/test/index.ts complete",
+    "test:rag:dev": "tsx --env-file=.env.local src/lib/test/index.ts dev",
+    "test:rag:staging": "tsx --env-file=.env.local src/lib/test/index.ts staging",
+    "test:rag:prod": "tsx --env-file=.env.local src/lib/test/index.ts prod",
+    "test:rag:benefits": "tsx --env-file=.env.local src/lib/test/index.ts benefits",
+    "test:rag:monitoring": "tsx --env-file=.env.local src/lib/test/index.ts monitoring",
+    "test:rag:health": "tsx --env-file=.env.local src/lib/test/index.ts health",
+    "test:rag:reports": "tsx --env-file=.env.local src/lib/test/index.ts reports",
+    "test:rag:help": "tsx src/lib/test/index.ts help"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { getEnvVar } from "@/lib/config/env-validation";
-import { getRelevantTools } from "@/lib/supabase/vector-store";
+import { getRelevantTools, advancedHybridSearch } from "@/lib/supabase/vector-store";
 import { logger } from "@/lib/logger/structured-logger";
 import { guideGenerationService } from "./guide-generation-service";
 import type { ManagedReadableStream } from "./stream-service";
@@ -171,12 +171,53 @@ export async function processTasksInParallel(
         taskName: task.name,
       });
 
-      // Retrieve similar tools using enhanced search
-      const relevantTools = await getRelevantTools(
-        task.name,
-        3,
-        userPreferences
-      );
+      // Try Advanced Hybrid Search first for better accuracy
+      let relevantTools;
+      try {
+        logger.debug("Attempting Advanced Hybrid Search", { taskName: task.name });
+        const hybridResults = await advancedHybridSearch(
+          task.name,
+          3,
+          0.6, // traditional_weight
+          0.4, // rag_weight
+          userPreferences
+        );
+        
+        if (hybridResults && hybridResults.length > 0) {
+          // Convert RagDocument[] to Document[] for compatibility
+          relevantTools = hybridResults.map((doc: any) => ({
+            ...doc,
+            metadata: {
+              ...doc.metadata,
+              // Add hybrid search score information
+              hybrid_score: doc.metadata.final_score,
+              traditional_score: doc.metadata.traditional_score,
+              rag_score: doc.metadata.rag_score
+            }
+          }));
+          
+          logger.debug("Advanced Hybrid Search successful", {
+            taskName: task.name,
+            foundTools: relevantTools.length,
+            avgScore: relevantTools.reduce((sum: number, tool: any) => 
+              sum + (tool.metadata.final_score || 0), 0) / relevantTools.length
+          });
+        } else {
+          throw new Error("No hybrid results");
+        }
+      } catch (error) {
+        logger.debug("Advanced Hybrid Search failed, using legacy search", {
+          taskName: task.name,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        
+        // Fallback to legacy search
+        relevantTools = await getRelevantTools(
+          task.name,
+          3,
+          userPreferences
+        );
+      }
 
       const searchEndTime = Date.now();
       const searchDuration = searchEndTime - taskStartTime;
@@ -443,12 +484,53 @@ export async function getToolRecommendationForTask(
   const taskId = crypto.randomUUID();
 
   try {
-    // Retrieve similar tools using enhanced search
-    const relevantTools = await getRelevantTools(
-      taskName,
-      3,
-      userPreferences
-    );
+    // Try Advanced Hybrid Search first for better accuracy
+    let relevantTools;
+    try {
+      logger.debug("Single task: Attempting Advanced Hybrid Search", { taskName });
+      const hybridResults = await advancedHybridSearch(
+        taskName,
+        3,
+        0.6, // traditional_weight
+        0.4, // rag_weight
+        userPreferences
+      );
+      
+      if (hybridResults && hybridResults.length > 0) {
+        // Convert RagDocument[] to Document[] for compatibility
+        relevantTools = hybridResults.map((doc: any) => ({
+          ...doc,
+          metadata: {
+            ...doc.metadata,
+            // Add hybrid search score information
+            hybrid_score: doc.metadata.final_score,
+            traditional_score: doc.metadata.traditional_score,
+            rag_score: doc.metadata.rag_score
+          }
+        }));
+        
+        logger.debug("Single task: Advanced Hybrid Search successful", {
+          taskName,
+          foundTools: relevantTools.length,
+          avgScore: relevantTools.reduce((sum: number, tool: any) => 
+            sum + (tool.metadata.final_score || 0), 0) / relevantTools.length
+        });
+      } else {
+        throw new Error("No hybrid results");
+      }
+    } catch (error) {
+      logger.debug("Single task: Advanced Hybrid Search failed, using legacy search", {
+        taskName,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      
+      // Fallback to legacy search
+      relevantTools = await getRelevantTools(
+        taskName,
+        3,
+        userPreferences
+      );
+    }
 
     const searchEndTime = Date.now();
     const searchDuration = searchEndTime - taskStartTime;

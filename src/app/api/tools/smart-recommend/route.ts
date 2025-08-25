@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { smartRecommendationEngine } from "@/lib/services/smart-recommendation-service";
 import { getUserPreferences } from "@/lib/services/workflow-service";
+import { SearchStrategy } from "@/types/rag-search";
 
 const requestSchema = z.object({
   taskName: z.string().min(1, "taskName is required"),
@@ -14,6 +15,10 @@ const requestSchema = z.object({
     })
     .optional(),
   language: z.string().min(2).max(10).default("en"),
+  // RAG-enhanced search options
+  enableRAG: z.boolean().optional().default(true),
+  enableAdaptive: z.boolean().optional().default(true),
+  fallbackToLegacy: z.boolean().optional().default(true),
 });
 
 const batchRequestSchema = z.object({
@@ -31,6 +36,10 @@ const batchRequestSchema = z.object({
     .optional(),
   language: z.string().min(2).max(10).default("en"),
   workflowId: z.string().optional(),
+  // RAG-enhanced search options
+  enableRAG: z.boolean().optional().default(true),
+  enableAdaptive: z.boolean().optional().default(true),
+  fallbackToLegacy: z.boolean().optional().default(true),
 });
 
 /**
@@ -74,14 +83,15 @@ async function handleSingleRecommendation(body: any) {
   });
 
   try {
-    const { taskName, preferences, language } = requestSchema.parse(body);
+    const { taskName, preferences, language, enableRAG, enableAdaptive, fallbackToLegacy } = requestSchema.parse(body);
 
     console.log("Request data validation complete", {
       requestId,
       taskName,
       language,
       hasPreferences: !!preferences,
-      preferences: preferences ? Object.keys(preferences) : null
+      preferences: preferences ? Object.keys(preferences) : null,
+      ragOptions: { enableRAG, enableAdaptive, fallbackToLegacy }
     });
 
     const userPreferences = getUserPreferences({ preferences });
@@ -90,19 +100,37 @@ async function handleSingleRecommendation(body: any) {
       language,
     };
 
+    const ragOptions = {
+      enableRAG,
+      enableAdaptive,
+      fallbackToLegacy
+    };
+
     console.log("User context preparation complete", {
       requestId,
       userContext,
-      userPreferences: userPreferences ? Object.keys(userPreferences) : null
+      userPreferences: userPreferences ? Object.keys(userPreferences) : null,
+      ragOptions
     });
 
-    const recommendation = await smartRecommendationEngine.getSmartRecommendation(
-      taskName,
-      userPreferences,
-      userContext
-    );
+    // Use RAG-enhanced recommendation if enabled, otherwise fall back to legacy
+    const recommendation = (enableRAG || enableAdaptive) ?
+      await smartRecommendationEngine.getSmartRecommendationWithRAG(
+        taskName,
+        userPreferences,
+        userContext,
+        ragOptions
+      ) :
+      await smartRecommendationEngine.getSmartRecommendation(
+        taskName,
+        userPreferences,
+        userContext
+      );
 
     const processingTime = Date.now() - startTime;
+
+    const searchStrategy = (recommendation as any).searchStrategy;
+    const isRagEnhanced = enableRAG || enableAdaptive;
 
     console.log("Single tool recommendation complete", {
       requestId,
@@ -110,21 +138,25 @@ async function handleSingleRecommendation(body: any) {
       recommendedTool: recommendation.toolName,
       finalScore: recommendation.finalScore,
       taskType: recommendation.taskType,
+      searchStrategy: searchStrategy || "legacy",
       processingTime,
       searchDuration: recommendation.searchDuration,
       rerankingDuration: recommendation.rerankingDuration,
-      success: !!recommendation.toolId
+      success: !!recommendation.toolId,
+      ragEnhanced: isRagEnhanced
     });
 
     return NextResponse.json({
       success: true,
       data: recommendation,
       metadata: {
-        algorithm: "2-stage-search-then-rerank",
+        algorithm: isRagEnhanced ? "2-stage-rag-enhanced-search-then-rerank" : "2-stage-search-then-rerank",
         version: "1.0",
         timestamp: new Date().toISOString(),
         processingTime,
-        requestId
+        requestId,
+        searchStrategy: searchStrategy || "legacy",
+        ragOptions: isRagEnhanced ? ragOptions : undefined
       }
     });
   } catch (error) {
@@ -154,7 +186,7 @@ async function handleBatchRecommendation(body: any) {
   });
 
   try {
-    const { tasks, preferences, language, workflowId } = batchRequestSchema.parse(body);
+    const { tasks, preferences, language, workflowId, enableRAG, enableAdaptive, fallbackToLegacy } = batchRequestSchema.parse(body);
 
     console.log("Batch request data validation complete", {
       requestId,
@@ -162,7 +194,8 @@ async function handleBatchRecommendation(body: any) {
       totalTasks: tasks.length,
       language,
       hasPreferences: !!preferences,
-      taskNames: tasks.map(t => t.name.substring(0, 50))
+      taskNames: tasks.map(t => t.name.substring(0, 50)),
+      ragOptions: { enableRAG, enableAdaptive, fallbackToLegacy }
     });
 
     const userPreferences = getUserPreferences({ preferences });
@@ -171,25 +204,53 @@ async function handleBatchRecommendation(body: any) {
       language,
     };
 
+    const ragOptions = {
+      enableRAG,
+      enableAdaptive,
+      fallbackToLegacy
+    };
+
     console.log("Starting batch processing", {
       requestId,
       workflowId,
       totalTasks: tasks.length,
-      userContext
+      userContext,
+      ragOptions
     });
 
-    const recommendations = await smartRecommendationEngine.processTasksInParallel(
-      tasks as Array<{ id: string; name: string }>,
-      userPreferences,
-      userContext,
-      workflowId
-    );
+    // Use RAG-enhanced batch processing if enabled, otherwise fall back to legacy
+    const recommendations = (enableRAG || enableAdaptive) ?
+      await smartRecommendationEngine.processTasksInParallelWithRAG(
+        tasks as Array<{ id: string; name: string }>,
+        userPreferences,
+        userContext,
+        workflowId,
+        ragOptions
+      ) :
+      await smartRecommendationEngine.processTasksInParallel(
+        tasks as Array<{ id: string; name: string }>,
+        userPreferences,
+        userContext,
+        workflowId
+      );
 
     const processingTime = Date.now() - startTime;
     const successfulRecommendations = recommendations.filter(r => r.toolId !== null);
     const averageFinalScore = successfulRecommendations.length > 0 
       ? successfulRecommendations.reduce((sum, r) => sum + r.finalScore, 0) / successfulRecommendations.length
       : 0;
+
+    const isRagEnhanced = enableRAG || enableAdaptive;
+    
+    // Extract search strategy statistics for RAG-enhanced results
+    const searchStrategies = recommendations
+      .map(r => (r as any).searchStrategy)
+      .filter(Boolean);
+    
+    const strategyStats = searchStrategies.reduce((acc, strategy) => {
+      acc[strategy] = (acc[strategy] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
     console.log("Batch tool recommendation complete", {
       requestId,
@@ -201,12 +262,15 @@ async function handleBatchRecommendation(body: any) {
       processingTime,
       averageSearchDuration: recommendations.reduce((sum, r) => sum + r.searchDuration, 0) / recommendations.length,
       averageRerankingDuration: recommendations.reduce((sum, r) => sum + r.rerankingDuration, 0) / recommendations.length,
+      ragEnhanced: isRagEnhanced,
+      strategyUsage: isRagEnhanced ? strategyStats : undefined,
       recommendationResults: recommendations.map(r => ({
         taskId: r.taskId,
         taskName: r.taskName.substring(0, 50),
         toolName: r.toolName,
         finalScore: r.finalScore,
         taskType: r.taskType,
+        searchStrategy: (r as any).searchStrategy || "legacy",
         success: !!r.toolId
       }))
     });
@@ -215,7 +279,7 @@ async function handleBatchRecommendation(body: any) {
       success: true,
       data: recommendations,
       metadata: {
-        algorithm: "2-stage-search-then-rerank",
+        algorithm: isRagEnhanced ? "2-stage-rag-enhanced-search-then-rerank" : "2-stage-search-then-rerank",
         version: "1.0",
         timestamp: new Date().toISOString(),
         totalTasks: tasks.length,
@@ -223,7 +287,9 @@ async function handleBatchRecommendation(body: any) {
         averageFinalScore,
         processingTime,
         requestId,
-        workflowId
+        workflowId,
+        ragOptions: isRagEnhanced ? ragOptions : undefined,
+        strategyUsage: isRagEnhanced ? strategyStats : undefined
       }
     });
   } catch (error) {
@@ -251,27 +317,50 @@ export async function GET() {
   return NextResponse.json({
     success: true,
     data: {
-      algorithm: "2-stage-search-then-rerank",
-      version: "1.0",
-      description: "Intelligent recommendation engine using vector search and adaptive quality scoring",
+      algorithm: "2-stage-rag-enhanced-search-then-rerank",
+      version: "2.0",
+      description: "Advanced intelligent recommendation engine with RAG-enhanced search, adaptive query processing, and multi-strategy fallback",
       features: {
-        stage1: "Vector-based candidate selection (top 10)",
+        stage1: "RAG-enhanced candidate selection with adaptive query type detection",
         stage2: "Adaptive reranking based on task type and quality metrics",
+        searchStrategies: [
+          "RAG-enhanced search (primary)",
+          "Adaptive search with query type detection", 
+          "Hybrid vector + text search",
+          "Pure vector search",
+          "Keyword-based search (fallback)"
+        ],
         taskTypes: [
           "coding", "math", "analysis", "general", 
           "design", "writing", "communication"
+        ],
+        queryTypes: [
+          "specific_tool", "functional", "category", "general"
         ],
         qualityMetrics: [
           "benchmarks (HumanEval, SWE_Bench, MATH, GPQA)",
           "user_rating (G2, Capterra, TrustPilot)",
           "performance_score",
-          "reliability_score"
+          "reliability_score",
+          "knowledge_coverage",
+          "confidence_score"
         ],
-        scoringFormula: "final_score = (similarity * 0.6) + (quality_score * 0.4)"
+        scoringFormula: "final_score = (similarity * 0.6) + (quality_score * 0.4)",
+        ragFeatures: {
+          knowledgeEnhanced: "Leverages curated knowledge base for better recommendations",
+          adaptiveWeights: "Adjusts scoring weights based on query type",
+          contextAlignment: "Evaluates contextual relevance beyond semantic similarity",
+          confidenceThresholding: "Uses confidence scores to trigger fallback strategies"
+        }
       },
       endpoints: {
-        single: "POST /api/tools/smart-recommend { taskName, preferences?, language? }",
-        batch: "POST /api/tools/smart-recommend { tasks, preferences?, language?, workflowId? }"
+        single: "POST /api/tools/smart-recommend { taskName, preferences?, language?, enableRAG?, enableAdaptive?, fallbackToLegacy? }",
+        batch: "POST /api/tools/smart-recommend { tasks, preferences?, language?, workflowId?, enableRAG?, enableAdaptive?, fallbackToLegacy? }"
+      },
+      databaseFunctions: {
+        ragEnhanced: "rag_enhanced_tool_search() - Main RAG search with weighted scoring",
+        adaptive: "adaptive_tool_search() - Query-type adaptive search",
+        knowledgeStats: "rag_knowledge_stats() - Knowledge base statistics"
       }
     },
     timestamp: new Date().toISOString()
