@@ -61,6 +61,57 @@ export function WorkflowCanvas() {
   );
   const [leftPanelWidth, setLeftPanelWidth] = React.useState(35); // 35% for 3.5:6.5 ratio
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = React.useState(false);
+  const [loadingStep, setLoadingStep] = React.useState(0);
+  const [loadingProgress, setLoadingProgress] = React.useState(0);
+
+  // Loading steps for enhanced UX
+  const loadingSteps = [
+    { text: "Analyzing your goal...", progress: 20 },
+    { text: "Breaking down into tasks...", progress: 50 },
+    { text: "Optimizing workflow...", progress: 80 },
+    { text: "Creating subtasks...", progress: 100 }
+  ];
+
+  // Simulate loading progress
+  React.useEffect(() => {
+    if (isLoading) {
+      setLoadingStep(0);
+      setLoadingProgress(0);
+      
+      const interval = setInterval(() => {
+        setLoadingStep(prev => {
+          const nextStep = prev + 1;
+          if (nextStep < loadingSteps.length) {
+            setLoadingProgress(loadingSteps[nextStep].progress);
+            return nextStep;
+          }
+          return prev;
+        });
+      }, 800);
+
+      return () => clearInterval(interval);
+    } else {
+      setLoadingStep(0);
+      setLoadingProgress(0);
+    }
+  }, [isLoading]);
+
+  // Auto scroll when subtasks are completed
+  React.useEffect(() => {
+    if (workflowResult?.status === "completed") {
+      setTimeout(() => {
+        const canvasHeader = document.querySelector('[data-workflow-canvas-header]');
+        if (canvasHeader) {
+          const headerRect = canvasHeader.getBoundingClientRect();
+          const scrollTop = window.pageYOffset + headerRect.top - 80; // 80px 여유 공간
+          window.scrollTo({ 
+            top: scrollTop, 
+            behavior: 'smooth' 
+          });
+        }
+      }, 500); // Small delay to ensure rendering is complete
+    }
+  }, [workflowResult?.status]);
 
   const handleNewWorkflow = () => {
     clearWorkflow();
@@ -99,6 +150,39 @@ export function WorkflowCanvas() {
     if (!workflowResult) return 0;
     const completed = getCompletedTasksCount();
     return Math.round((completed / workflowResult.tasks.length) * 100);
+  };
+
+  // Helper function to determine task status based on guides
+  const getTaskStatus = (taskId: string): "pending" | "in_progress" | "completed" => {
+    const guide = generatedGuides.get(taskId);
+    if (guide?.status === "completed") return "completed";
+    if (guide?.status === "generating") return "in_progress";
+    return "pending";
+  };
+
+  // Helper function to get task color based on status
+  const getTaskColors = (taskId: string) => {
+    const status = getTaskStatus(taskId);
+    switch (status) {
+      case "completed":
+        return {
+          gradient: "from-emerald-500 to-green-500",
+          border: "border-emerald-200",
+          bg: "bg-emerald-50 dark:bg-emerald-900/20"
+        };
+      case "in_progress":
+        return {
+          gradient: "from-amber-500 to-orange-500",
+          border: "border-amber-200",
+          bg: "bg-amber-50 dark:bg-amber-900/20"
+        };
+      default:
+        return {
+          gradient: "from-blue-500 to-indigo-500",
+          border: "border-blue-200",
+          bg: "bg-blue-50 dark:bg-blue-900/20"
+        };
+    }
   };
 
   const areAllGuidesCompleted = () => {
@@ -304,7 +388,10 @@ export function WorkflowCanvas() {
                        w-[calc(100vw-2rem)] sm:w-[calc(100vw-3rem)] lg:w-[calc(100vw-4rem)] xl:w-[calc(100vw-6rem)]"
         >
           {/* Header - Inside Card */}
-          <div className="px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-4 sm:pb-6 border-b-2 border-white/30 dark:border-slate-600/50 shadow-sm">
+          <div 
+            className="px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-4 sm:pb-6 border-b-2 border-white/30 dark:border-slate-600/50 shadow-sm"
+            data-workflow-canvas-header
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2 sm:space-x-3">
@@ -371,10 +458,24 @@ export function WorkflowCanvas() {
           </div>
 
           {/* Content Area - Inside Card */}
-          <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
+          <div className="p-4 sm:p-6 lg:p-8 xl:p-12 relative">
+            {/* Canvas Grid Background */}
+            <div className="absolute inset-0 opacity-30 pointer-events-none">
+              <div 
+                className="w-full h-full"
+                style={{
+                  backgroundImage: `
+                    linear-gradient(rgba(99, 102, 241, 0.1) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(99, 102, 241, 0.1) 1px, transparent 1px)
+                  `,
+                  backgroundSize: '20px 20px'
+                }}
+              />
+            </div>
+
             {/* Loading State - Show main node immediately when loading */}
             {isLoading && (
-              <div className="space-y-8" data-workflow-canvas>
+              <div className="space-y-8 relative z-10" data-workflow-canvas>
                 {/* Show Main Task Node immediately even during loading */}
                 <div
                   className={`flex gap-8 items-start ${
@@ -417,28 +518,23 @@ export function WorkflowCanvas() {
                     </div>
                   </motion.div>
 
-                  {/* Connection Arrow - Conditional Display */}
+                  {/* Enhanced Connection with Flow Animation */}
                   <motion.div
                     className={`${
                       layoutMode === "vertical"
-                        ? "flex items-center justify-center py-4"
-                        : "hidden lg:flex items-center justify-center py-4"
+                        ? "flex items-center justify-center py-6"
+                        : "hidden lg:flex items-center justify-center py-6"
                     }`}
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.5, delay: 0.3 }}
                   >
-                    <div className="flex items-center space-x-2">
-                      <motion.div
-                        className="w-12 h-px bg-gradient-to-r from-primary to-indigo-400"
-                        initial={{ scaleX: 0 }}
-                        animate={{ scaleX: 1 }}
-                        transition={{ duration: 0.6, delay: 0.4 }}
-                        style={{ originX: 0 }}
-                      />
+                    <div className="relative flex items-center justify-center">
+                      {/* Single clean arrow */}
                       <motion.div
                         animate={{
-                          y: [0, -2, 0],
+                          y: layoutMode === "vertical" ? [0, -4, 0] : 0,
+                          x: layoutMode === "vertical" ? 0 : [0, 4, 0],
                           scale: [1, 1.1, 1],
                         }}
                         transition={{
@@ -446,60 +542,149 @@ export function WorkflowCanvas() {
                           repeat: Infinity,
                           repeatType: "reverse",
                         }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.5 }}
                       >
                         <ArrowDown
-                          className={`w-5 h-5 text-indigo-400 transition-transform duration-300 ${
-                            layoutMode === "vertical" ? "" : "rotate-90"
+                          className={`w-8 h-8 text-indigo-400 transition-transform duration-300 drop-shadow-lg ${
+                            layoutMode === "vertical" ? "" : "-rotate-90"
                           }`}
                         />
                       </motion.div>
-                      <motion.div
-                        className="w-12 h-px bg-gradient-to-r from-indigo-400 to-purple-400"
-                        initial={{ scaleX: 0 }}
-                        animate={{ scaleX: 1 }}
-                        transition={{ duration: 0.6, delay: 0.5 }}
-                        style={{ originX: 1 }}
-                      />
                     </div>
                   </motion.div>
 
-                  {/* Subtasks Container - Loading state */}
+                  {/* Subtasks Container - Compact Loading state */}
                   <motion.div
                     className="flex-1"
                     layout
                     transition={{ duration: 0.5, ease: "easeInOut" }}
                   >
                     <motion.div
-                      className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-3xl p-4 sm:p-8 backdrop-blur-sm min-h-[400px] h-full"
+                      className="bg-muted/30 border-2 border-dashed border-muted-foreground/40 rounded-2xl p-4 sm:p-6 backdrop-blur-sm flex flex-col justify-center min-h-full"
                       initial={{ scale: 0.95, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ duration: 0.4, delay: 0.3 }}
                     >
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <Sparkles className="w-5 h-5 text-white" />
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-bold text-foreground">
-                              Sub Tasks
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              AI is analyzing optimal tasks...
-                            </p>
-                          </div>
+                      {/* Header Section - Same structure as Main Task */}
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+                          <Sparkles className="w-5 h-5 text-white" />
                         </div>
+                        <h3 className="font-bold text-foreground text-lg">
+                          Sub Tasks
+                        </h3>
                       </div>
 
-                      {/* Loading animation for subtasks only */}
-                      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                        <div className="w-16 h-16 border-4 border-indigo-200 dark:border-indigo-800 rounded-full animate-spin border-t-indigo-500"></div>
-                        <p className="text-lg font-medium text-muted-foreground">
-                          Creating subtasks...
-                        </p>
-                        <p className="text-sm text-muted-foreground text-center max-w-md">
-                          AI is analyzing the optimal workflow
-                        </p>
+                      {/* Content Section - Same structure as Main Task */}
+                      <div className="bg-muted/10 rounded-lg p-4 backdrop-blur-sm">
+                        <div className="space-y-4">
+                          {/* Current Step */}
+                          <div className="text-center">
+                            <p className="text-muted-foreground text-sm font-medium mb-2">
+                              {loadingSteps[loadingStep]?.text || "Initializing..."}
+                            </p>
+                          </div>
+
+                          {/* Central Loading Animation */}
+                          <div className="flex justify-center mb-4">
+                            <div className="relative">
+                              <motion.div
+                                className="w-16 h-16 border-4 border-indigo-200 dark:border-indigo-800 rounded-full"
+                                animate={{ rotate: 360 }}
+                                transition={{
+                                  duration: 2.5,
+                                  repeat: Infinity,
+                                  ease: "linear"
+                                }}
+                              >
+                                <motion.div
+                                  className="w-3 h-3 bg-indigo-500 rounded-full absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+                                  animate={{
+                                    scale: [1, 1.4, 1],
+                                    opacity: [0.7, 1, 0.7]
+                                  }}
+                                  transition={{
+                                    duration: 1.2,
+                                    repeat: Infinity,
+                                    ease: "easeInOut"
+                                  }}
+                                />
+                              </motion.div>
+                              
+                              {/* Inner nodes representing subtasks being created */}
+                              {[0, 1, 2].map((i) => (
+                                <motion.div
+                                  key={i}
+                                  className="absolute w-2 h-2 bg-purple-400 rounded-full"
+                                  style={{
+                                    top: "50%",
+                                    left: "50%",
+                                    transform: "translate(-50%, -50%)"
+                                  }}
+                                  animate={{
+                                    x: [0, Math.cos((i * 120) * Math.PI / 180) * 20],
+                                    y: [0, Math.sin((i * 120) * Math.PI / 180) * 20],
+                                    opacity: loadingStep > i ? [0, 1] : 0,
+                                  }}
+                                  transition={{
+                                    duration: 0.8,
+                                    delay: i * 0.3,
+                                    repeat: loadingStep > i ? Infinity : 0,
+                                    repeatType: "reverse"
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Progress Section */}
+                          <div className="space-y-3">
+                            {/* Progress bar */}
+                            <div className="w-full h-2 bg-background/50 rounded-full overflow-hidden">
+                              <motion.div
+                                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${loadingProgress}%` }}
+                                transition={{
+                                  duration: 0.8,
+                                  ease: "easeOut"
+                                }}
+                              />
+                            </div>
+                            
+                            {/* Step indicators */}
+                            <div className="flex justify-between items-center">
+                              {loadingSteps.map((step, index) => (
+                                <div key={index} className="flex items-center space-x-2">
+                                  <motion.div
+                                    className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+                                      index <= loadingStep 
+                                        ? 'bg-indigo-500' 
+                                        : 'bg-muted-foreground/30'
+                                    }`}
+                                    animate={{
+                                      scale: index === loadingStep ? [1, 1.3, 1] : 1
+                                    }}
+                                    transition={{
+                                      duration: 0.6,
+                                      repeat: index === loadingStep ? Infinity : 0,
+                                      repeatType: "reverse"
+                                    }}
+                                  />
+                                  <span className={`text-xs transition-colors duration-300 ${
+                                    index <= loadingStep 
+                                      ? 'text-foreground' 
+                                      : 'text-muted-foreground/60'
+                                  }`}>
+                                    {index + 1}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </motion.div>
                   </motion.div>
@@ -527,7 +712,7 @@ export function WorkflowCanvas() {
 
             {/* Workflow Canvas */}
             {!isLoading && workflowResult && (
-              <div className="space-y-8" data-workflow-canvas>
+              <div className="space-y-8 relative z-10" data-workflow-canvas>
                 {/* Dynamic Layout: Main Node + Subtask Container */}
                 <div
                   className={`flex gap-8 items-start ${
@@ -571,6 +756,35 @@ export function WorkflowCanvas() {
                       </p>
                     </div>
                   </motion.div>
+
+                  {/* Connection Arrow - Always show when workflow exists */}
+                  {workflowResult && (
+                    <motion.div
+                      className="flex items-center justify-center py-6"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.5, delay: 0.3 }}
+                    >
+                      <div className="relative flex items-center justify-center">
+                        {/* Single clean arrow */}
+                        <motion.div
+                          animate={{
+                            y: [0, -4, 0],
+                            scale: [1, 1.1, 1],
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            repeatType: "reverse",
+                          }}
+                        >
+                          <ArrowDown className={`w-8 h-8 text-indigo-400 transition-transform duration-300 drop-shadow-lg ${
+                            layoutMode === "vertical" ? "" : "-rotate-90"
+                          }`} />
+                        </motion.div>
+                      </div>
+                    </motion.div>
+                  )}
 
                   {/* Subtasks and Guide View Container - Vertical Layout Only */}
                   {layoutMode === "vertical" ? (
@@ -640,7 +854,25 @@ export function WorkflowCanvas() {
                           workflowResult.status === "completed" ? (
                             <div className="flex flex-col gap-6">
                               {workflowResult.tasks.map((task, index) => (
-                                <div key={task.id} className="relative">
+                                <motion.div 
+                                  key={task.id} 
+                                  className="relative"
+                                  initial={{ 
+                                    opacity: 0, 
+                                    y: 50,
+                                    scale: 0.9 
+                                  }}
+                                  animate={{ 
+                                    opacity: 1, 
+                                    y: 0,
+                                    scale: 1 
+                                  }}
+                                  transition={{
+                                    duration: 0.6,
+                                    delay: index * 0.2,
+                                    ease: "easeOut"
+                                  }}
+                                >
                                   {/* Subtask Node */}
                                   <div
                                     draggable={
@@ -683,8 +915,22 @@ export function WorkflowCanvas() {
                                     }`}
                                   >
                                     <div className="flex items-start space-x-4">
-                                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg flex-shrink-0">
+                                      <div className={`w-10 h-10 bg-gradient-to-br ${getTaskColors(task.id).gradient} rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg flex-shrink-0 relative`}>
                                         {task.order}
+                                        {/* Status indicator pulse */}
+                                        {getTaskStatus(task.id) === "in_progress" && (
+                                          <motion.div
+                                            className="absolute inset-0 rounded-full bg-amber-400"
+                                            animate={{
+                                              scale: [1, 1.3, 1],
+                                              opacity: [0.7, 0, 0.7],
+                                            }}
+                                            transition={{
+                                              duration: 1.5,
+                                              repeat: Infinity,
+                                            }}
+                                          />
+                                        )}
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-2">
@@ -730,28 +976,6 @@ export function WorkflowCanvas() {
                                                 {(layoutMode as string) ===
                                                   "horizontal" && (
                                                   <>
-                                                    <Button
-                                                      size="sm"
-                                                      variant="ghost"
-                                                      onClick={() =>
-                                                        handleRematchTool(
-                                                          task.id,
-                                                          task.name
-                                                        )
-                                                      }
-                                                      className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                                                      disabled={rematchingTasks.has(
-                                                        task.id
-                                                      )}
-                                                    >
-                                                      {rematchingTasks.has(
-                                                        task.id
-                                                      ) ? (
-                                                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                                                      ) : (
-                                                        <RefreshCw className="w-4 h-4 text-muted-foreground hover:text-blue-600" />
-                                                      )}
-                                                    </Button>
                                                     <Button
                                                       size="sm"
                                                       variant="ghost"
@@ -882,36 +1106,72 @@ export function WorkflowCanvas() {
                                     </div>
                                   </div>
 
-                                  {/* Connection Lines between subtasks */}
+                                  {/* Enhanced Connection Lines between subtasks */}
                                   {index < workflowResult.tasks.length - 1 && (
                                     <motion.div
-                                      className="flex items-center justify-center py-4"
+                                      className="flex items-center justify-center py-6 relative"
                                       initial={{ opacity: 0, scale: 0 }}
                                       animate={{ opacity: 1, scale: 1 }}
                                       transition={{
                                         duration: 0.4,
-                                        delay: 0.2 + index * 0.1,
+                                        delay: 0.4 + index * 0.2,
                                         type: "spring",
                                         stiffness: 200,
                                       }}
                                     >
+                                      {/* Connection line */}
+                                      <motion.div
+                                        className="absolute w-0.5 h-8 bg-gradient-to-b from-indigo-300 to-purple-400 rounded-full"
+                                        initial={{ scaleY: 0 }}
+                                        animate={{ scaleY: 1 }}
+                                        transition={{
+                                          duration: 0.6,
+                                          delay: 0.6 + index * 0.2
+                                        }}
+                                      />
+                                      
+                                      {/* Flowing particles on connection */}
+                                      <motion.div
+                                        className="absolute"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: 1 + index * 0.2 }}
+                                      >
+                                        {[...Array(2)].map((_, i) => (
+                                          <motion.div
+                                            key={i}
+                                            className="absolute w-1 h-1 bg-indigo-400 rounded-full"
+                                            animate={{
+                                              y: [0, 32, 0],
+                                              opacity: [0, 1, 0],
+                                            }}
+                                            transition={{
+                                              duration: 2,
+                                              repeat: Infinity,
+                                              delay: i * 0.8,
+                                              ease: "easeInOut",
+                                            }}
+                                          />
+                                        ))}
+                                      </motion.div>
+                                      
                                       <motion.div
                                         animate={{
-                                          y: [0, -3, 0],
-                                          opacity: [0.6, 1, 0.6],
+                                          y: [0, -4, 0],
+                                          scale: [1, 1.1, 1],
                                         }}
                                         transition={{
                                           duration: 2,
                                           repeat: Infinity,
                                           repeatType: "reverse",
-                                          delay: index * 0.3,
+                                          delay: index * 0.5,
                                         }}
                                       >
-                                        <ArrowDown className="w-6 h-6 text-indigo-400" />
+                                        <ArrowDown className="w-8 h-8 text-indigo-400 drop-shadow-lg" />
                                       </motion.div>
                                     </motion.div>
                                   )}
-                                </div>
+                                </motion.div>
                               ))}
 
                               {/* Add New Task - Vertical Layout */}
@@ -1342,15 +1602,27 @@ export function WorkflowCanvas() {
                         {/* Subtask Nodes */}
                         {workflowResult &&
                         workflowResult.status === "completed" ? (
-                          <div
-                            className={`gap-6 ${
-                              (layoutMode as string) === "vertical"
-                                ? "flex flex-col"
-                                : "grid grid-cols-1 lg:grid-cols-2"
-                            }`}
-                          >
+                          <div className="flex flex-col gap-6">
                             {workflowResult.tasks.map((task, index) => (
-                              <div key={task.id} className="relative">
+                              <motion.div 
+                                key={task.id} 
+                                className="relative"
+                                initial={{ 
+                                  opacity: 0, 
+                                  scale: 0.8,
+                                  y: 30 
+                                }}
+                                animate={{ 
+                                  opacity: 1, 
+                                  scale: 1,
+                                  y: 0 
+                                }}
+                                transition={{
+                                  duration: 0.5,
+                                  delay: index * 0.15,
+                                  ease: "easeOut"
+                                }}
+                              >
                                 {/* Subtask Node */}
                                 <div
                                   draggable
@@ -1373,8 +1645,22 @@ export function WorkflowCanvas() {
                                   }`}
                                 >
                                   <div className="flex items-start space-x-4">
-                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg flex-shrink-0">
+                                    <div className={`w-10 h-10 bg-gradient-to-br ${getTaskColors(task.id).gradient} rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg flex-shrink-0 relative`}>
                                       {task.order}
+                                      {/* Status indicator pulse */}
+                                      {getTaskStatus(task.id) === "in_progress" && (
+                                        <motion.div
+                                          className="absolute inset-0 rounded-full bg-amber-400"
+                                          animate={{
+                                            scale: [1, 1.3, 1],
+                                            opacity: [0.7, 0, 0.7],
+                                          }}
+                                          transition={{
+                                            duration: 1.5,
+                                            repeat: Infinity,
+                                          }}
+                                        />
+                                      )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center justify-between mb-2">
@@ -1417,28 +1703,6 @@ export function WorkflowCanvas() {
                                               {task.name}
                                             </h4>
                                             <div className="flex items-center space-x-1">
-                                              <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() =>
-                                                  handleRematchTool(
-                                                    task.id,
-                                                    task.name
-                                                  )
-                                                }
-                                                className="p-1 h-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                                                disabled={rematchingTasks.has(
-                                                  task.id
-                                                )}
-                                              >
-                                                {rematchingTasks.has(
-                                                  task.id
-                                                ) ? (
-                                                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                                                ) : (
-                                                  <RefreshCw className="w-4 h-4 text-muted-foreground hover:text-blue-600" />
-                                                )}
-                                              </Button>
                                               <Button
                                                 size="sm"
                                                 variant="ghost"
@@ -1588,7 +1852,7 @@ export function WorkflowCanvas() {
                                       </motion.div>
                                     </motion.div>
                                   )}
-                              </div>
+                              </motion.div>
                             ))}
 
                             {/* Add New Task */}
