@@ -69,19 +69,145 @@ interface ToolMetrics {
 }
 
 async function getPolicyWeights(): Promise<PolicyWeights> {
-  // DB table removed. Use static defaults.
-  return { bench: 0.6, domain: 0.3, cost: 0.1 };
+  // Updated weights to prioritize domain matching for better task-tool alignment
+  return { 
+    domain: 0.5,   // Domain matching is most important (task relevance)
+    bench: 0.35,   // Performance/quality within relevant domain
+    cost: 0.15     // Pricing consideration (increased from 0.1)
+  };
 }
 
 function computeDomainMatch(
   query: string,
   domains: string[] | null | undefined
 ): number {
-  const q = query.toLowerCase();
-  const isCode =
-    q.includes("code") || q.includes("implement") || q.includes("function");
-  if (isCode && (domains || []).includes("code")) return 1.0;
-  return 0.0;
+  if (!domains || domains.length === 0) return 0.0;
+  
+  const queryLower = query.toLowerCase();
+  
+  // Primary task type detection - these override domain matching
+  const primaryTaskTypes = {
+    'research': ['research', 'identify', 'gather', 'find', 'analyze', 'study', 'investigate', 'explore', 'discover'],
+    'create': ['create', 'make', 'build', 'generate', 'produce', 'develop', 'design', 'craft'],
+    'write': ['write', 'draft', 'compose', 'author', 'blog', 'article', 'content', 'copy'],
+    'manage': ['manage', 'organize', 'schedule', 'plan', 'coordinate', 'track', 'monitor'],
+    'analyze': ['analyze', 'report', 'dashboard', 'metrics', 'data', 'statistics', 'insights']
+  };
+  
+  // Check if this is primarily a research task
+  const researchKeywords = primaryTaskTypes.research;
+  const researchMatches = researchKeywords.filter(keyword => queryLower.includes(keyword)).length;
+  
+  // If it's clearly a research task, prioritize research-capable tools
+  if (researchMatches >= 2) {
+    const researchCapableDomains = ['General Purpose', 'Education', 'Business Analytics', 'Research'];
+    if (domains.some(domain => researchCapableDomains.includes(domain))) {
+      console.log("Research task detected - boosting research-capable tool:", {
+        query: queryLower.substring(0, 50) + "...",
+        domains,
+        researchMatches
+      });
+      return 0.8; // High score for research-capable tools
+    }
+    // Penalize non-research tools for research tasks
+    if (domains.includes('Sales') || domains.includes('Marketing') || domains.includes('CRM')) {
+      console.log("Research task detected - penalizing non-research tool:", {
+        query: queryLower.substring(0, 50) + "...",
+        domains
+      });
+      return 0.1; // Low score for CRM/Sales/Marketing tools on research tasks
+    }
+  }
+  
+  // Content creation task detection
+  const writeKeywords = primaryTaskTypes.write;
+  const writeMatches = writeKeywords.filter(keyword => queryLower.includes(keyword)).length;
+  
+  if (writeMatches >= 1) {
+    const contentCapableDomains = ['Content Creation', 'Writing', 'General Purpose', 'Education'];
+    if (domains.some(domain => contentCapableDomains.includes(domain))) {
+      console.log("Writing task detected - boosting content-capable tool:", {
+        query: queryLower.substring(0, 50) + "...",
+        domains,
+        writeMatches
+      });
+      return 0.7; // High score for content creation tools
+    }
+  }
+  
+  // Domain-specific keyword mapping - using actual domain names from database
+  const domainKeywords = {
+    // Actual domains from database (with variations)
+    'Social Media': ['social', 'instagram', 'facebook', 'twitter', 'tiktok', 'youtube', 'reel', 'story', 'post', 'share'],
+    'Advertising': ['ad', 'campaign', 'marketing', 'promotion', 'targeting', 'audience', 'conversion', 'roi', 'impression'],
+    'Marketing': ['marketing', 'campaign', 'ad', 'social', 'seo', 'analytics', 'promotion', 'audience', 'engagement', 'conversion'],
+    'Content Creation': ['content', 'create', 'write', 'copy', 'script', 'article', 'blog', 'creative', 'produce'],
+    'Social Media Management': ['manage', 'schedule', 'publish', 'social', 'content', 'calendar', 'analytics'],
+    'Video Editing': ['video', 'edit', 'movie', 'film', 'clip', 'montage', 'animation', 'motion', 'render', 'footage'],
+    'Entertainment': ['entertainment', 'creative', 'art', 'music', 'game', 'story', 'cinematic', 'visual'],
+    'Creative Industries': ['creative', 'design', 'art', 'visual', 'brand', 'aesthetic', 'artistic', 'illustration'],
+    'Education': ['education', 'learn', 'teach', 'tutorial', 'guide', 'course', 'training', 'knowledge'],
+    'Small Business': ['business', 'startup', 'entrepreneur', 'company', 'brand', 'commerce', 'sales'],
+    'Software Development': ['code', 'develop', 'program', 'software', 'app', 'website', 'api', 'debug'],
+    'Engineering': ['engineer', 'technical', 'system', 'architecture', 'infrastructure', 'build'],
+    'DevOps': ['deploy', 'devops', 'infrastructure', 'ci', 'cd', 'automation', 'monitoring', 'ops'],
+    'E-commerce': ['ecommerce', 'shop', 'store', 'retail', 'product', 'sell', 'buy', 'commerce'],
+    'Retail': ['retail', 'store', 'shop', 'product', 'inventory', 'sales', 'customer'],
+    'Dropshipping': ['dropship', 'fulfillment', 'supplier', 'inventory', 'logistics'],
+    'Enterprise Commerce': ['enterprise', 'b2b', 'business', 'corporate', 'scale', 'integration'],
+    // Legacy mappings for backward compatibility
+    'design': ['design', 'logo', 'graphic', 'visual', 'ui', 'ux', 'mockup', 'prototype', 'banner', 'poster'],
+    'video': ['video', 'edit', 'movie', 'film', 'youtube', 'tiktok', 'reel', 'clip', 'animation'],
+    'marketing': ['marketing', 'campaign', 'ad', 'social', 'seo', 'analytics', 'promotion'],
+    'code': ['code', 'develop', 'program', 'function', 'api', 'debug', 'software', 'app'],
+    'data': ['data', 'analysis', 'chart', 'dashboard', 'report', 'database', 'metrics'],
+    'content': ['write', 'content', 'blog', 'article', 'copy', 'text', 'script'],
+    'productivity': ['document', 'note', 'organize', 'plan', 'task', 'project', 'manage'],
+    'communication': ['email', 'message', 'chat', 'meeting', 'collaboration', 'discuss'],
+    'finance': ['finance', 'budget', 'cost', 'expense', 'revenue', 'profit', 'invoice'],
+    'monitoring': ['monitor', 'track', 'observe', 'log', 'metric', 'alert', 'performance']
+  };
+  
+  let maxScore = 0;
+  
+  // Check each domain that the tool supports
+  for (const domain of domains) {
+    const keywords = domainKeywords[domain as keyof typeof domainKeywords];
+    if (!keywords) continue;
+    
+    // Count keyword matches and calculate relevance score
+    let matchCount = 0;
+    let totalRelevance = 0;
+    
+    for (const keyword of keywords) {
+      if (queryLower.includes(keyword)) {
+        matchCount++;
+        // Give higher weight to longer, more specific keywords
+        const keywordWeight = keyword.length > 5 ? 1.2 : 1.0;
+        totalRelevance += keywordWeight;
+      }
+    }
+    
+    if (matchCount > 0) {
+      // Normalize score based on query length and keyword specificity
+      const queryWords = queryLower.split(/\s+/).length;
+      const relevanceRatio = totalRelevance / Math.max(queryWords, 3);
+      const domainScore = Math.min(1.0, relevanceRatio * 0.8 + (matchCount * 0.2));
+      maxScore = Math.max(maxScore, domainScore);
+      
+      console.log("Domain match found:", {
+        domain,
+        matchCount,
+        totalRelevance,
+        queryWords,
+        relevanceRatio,
+        domainScore,
+        query: queryLower.substring(0, 50) + "..."
+      });
+    }
+  }
+  
+  return maxScore;
 }
 
 function computeScore(
@@ -123,49 +249,66 @@ function computeScore(
   return { score, bench, domain, cost };
 }
 
+function detectTaskDomain(taskName: string): string {
+  const taskLower = taskName.toLowerCase();
+  
+  // Simplified domain detection for fallback selection
+  const taskPatterns = {
+    'video': ['video', 'edit', 'movie', 'film', 'youtube', 'tiktok', 'reel', 'clip', 'animation'],
+    'design': ['design', 'logo', 'graphic', 'visual', 'ui', 'ux', 'mockup', 'prototype', 'banner'],
+    'marketing': ['marketing', 'campaign', 'ad', 'social', 'seo', 'promotion', 'audience'],
+    'code': ['code', 'develop', 'program', 'function', 'api', 'debug', 'software', 'app'],
+    'data': ['data', 'analysis', 'chart', 'dashboard', 'report', 'metrics', 'analytics'],
+    'content': ['write', 'content', 'blog', 'article', 'copy', 'text', 'script'],
+    'productivity': ['document', 'note', 'organize', 'plan', 'task', 'project', 'manage'],
+    'presentation': ['presentation', 'slide', 'present', 'pitch', 'demo'],
+    'research': ['research', 'gather', 'information', 'study', 'analyze'],
+    'communication': ['email', 'message', 'chat', 'meeting', 'collaboration'],
+    'monitoring': ['monitor', 'track', 'observe', 'log', 'metric', 'alert', 'performance']
+  };
+  
+  // Find the domain with the most keyword matches
+  let bestDomain = 'general';
+  let maxMatches = 0;
+  
+  for (const [domain, keywords] of Object.entries(taskPatterns)) {
+    const matches = keywords.filter(keyword => taskLower.includes(keyword)).length;
+    if (matches > maxMatches) {
+      maxMatches = matches;
+      bestDomain = domain;
+    }
+  }
+  
+  return bestDomain;
+}
+
 function getFallbackTool(
   taskName: string
 ): { id: string; name: string } | null {
-  const task = taskName.toLowerCase();
-
-  // 프레젠테이션 관련
-  if (
-    task.includes("presentation") ||
-    task.includes("slide") ||
-    task.includes("present")
-  ) {
-    return { id: "google-slides-fallback", name: "Google Slides" };
-  }
-
-  // 리서치 관련
-  if (
-    task.includes("research") ||
-    task.includes("gathering") ||
-    task.includes("information")
-  ) {
-    return { id: "google-search-fallback", name: "Google Search" };
-  }
-
-  // 글쓰기 관련
-  if (
-    task.includes("write") ||
-    task.includes("script") ||
-    task.includes("document")
-  ) {
-    return { id: "google-docs-fallback", name: "Google Docs" };
-  }
-
-  // 구조화/계획 관련
-  if (
-    task.includes("outline") ||
-    task.includes("structure") ||
-    task.includes("organize")
-  ) {
-    return { id: "notion-fallback", name: "Notion" };
-  }
-
-  // 기본 fallback
-  return { id: "chatgpt-fallback", name: "ChatGPT" };
+  // Domain-specific fallback tools based on actual tools in our database
+  const domainFallbacks: Record<string, { id: string; name: string }> = {
+    'video': { id: 'invideo-fallback', name: 'InVideo' },
+    'design': { id: 'canva-fallback', name: 'Canva' },
+    'marketing': { id: 'hubspot-fallback', name: 'HubSpot' },
+    'code': { id: 'github-copilot-fallback', name: 'GitHub Copilot' },
+    'data': { id: 'airtable-fallback', name: 'Airtable' },
+    'content': { id: 'grammarly-fallback', name: 'Grammarly' },
+    'productivity': { id: 'notion-fallback', name: 'Notion AI' },
+    'presentation': { id: 'canva-fallback', name: 'Canva' }, // Canva supports presentations
+    'research': { id: 'perplexity-fallback', name: 'Perplexity AI' },
+    'communication': { id: 'slack-fallback', name: 'Slack' },
+    'monitoring': { id: 'datadog-fallback', name: 'Datadog' }
+  };
+  
+  const taskDomain = detectTaskDomain(taskName);
+  
+  console.log("Fallback tool selection:", {
+    taskName,
+    detectedDomain: taskDomain,
+    selectedFallback: domainFallbacks[taskDomain] || domainFallbacks['general']
+  });
+  
+  return domainFallbacks[taskDomain] || { id: 'chatgpt-fallback', name: 'ChatGPT' };
 }
 
 /**
@@ -202,8 +345,8 @@ export async function processTasksInParallel(
         const hybridResults = await advancedHybridSearch(
           task.name,
           3,
-          0.6, // traditional_weight
-          0.4, // rag_weight
+          0.8, // traditional_weight
+          0.2, // rag_weight
           userPreferences
         );
 
@@ -258,20 +401,26 @@ export async function processTasksInParallel(
         }
       );
 
-      // console.log("Task processing result:", {
-      //   taskName: task.name,
-      //   relevantToolsFound: relevantTools.length,
-      //   candidateIds: relevantTools.map(t => t.metadata.id),
-      //   candidateNames: relevantTools.map(t => t.metadata.name)
-      // });
+      console.log("Task processing result:", {
+        taskName: task.name,
+        relevantToolsFound: relevantTools.length,
+        candidateIds: relevantTools.map(t => t.metadata.id),
+        candidateNames: relevantTools.map(t => t.metadata.name),
+        hybridScores: relevantTools.map(t => ({
+          name: t.metadata.name,
+          finalScore: t.metadata.final_score,
+          traditionalScore: t.metadata.traditional_score,
+          ragScore: t.metadata.rag_score
+        }))
+      });
 
       if (relevantTools.length === 0) {
-        // console.log("No tools found, using fallback for:", task.name);
+        console.log("No tools found, using fallback for:", task.name);
         // Fallback: 태스크 타입에 따라 기본 도구 제안
         const fallbackTool = getFallbackTool(task.name);
 
         if (fallbackTool) {
-          // console.log("Fallback tool selected:", fallbackTool);
+          console.log("Fallback tool selected:", fallbackTool);
           return {
             taskId: task.id,
             taskName: task.name,
@@ -302,10 +451,11 @@ export async function processTasksInParallel(
         .map((d) => d.metadata.id)
         .filter(Boolean);
 
-      // console.log("Starting scoring for task:", {
-      //   taskName: task.name,
-      //   candidateCount: candidateIds.length
-      // });
+      console.log("Starting scoring for task:", {
+        taskName: task.name,
+        candidateCount: candidateIds.length,
+        freeToolsOnly: userPreferences?.freeToolsOnly || false
+      });
 
       let bestTool: {
         metrics: ToolMetrics;
@@ -316,7 +466,7 @@ export async function processTasksInParallel(
       } | null = null;
 
       if (candidateIds.length > 0) {
-        // console.log("Querying database for tool metrics:", { candidateIds });
+        console.log("Querying database for tool metrics:", { candidateIds });
         const { data: metricsList, error } = await supabase
           .from("tools")
           .select("id,name,domains,scores,url,logo_url")
@@ -326,55 +476,63 @@ export async function processTasksInParallel(
           console.error("Database query error:", error);
         }
 
-        // console.log("Database query result:", {
-        //   taskName: task.name,
-        //   queryCount: candidateIds.length,
-        //   resultCount: metricsList?.length || 0,
-        //   results: metricsList?.map(m => ({
-        //     id: m.id,
-        //     name: m.name,
-        //     domains: m.domains,
-        //     scores: m.scores
-        //   }))
-        // });
+        console.log("Database query result:", {
+          taskName: task.name,
+          queryCount: candidateIds.length,
+          resultCount: metricsList?.length || 0,
+          results: metricsList?.map(m => ({
+            id: m.id,
+            name: m.name,
+            domains: m.domains,
+            pricingModel: m.scores?.pricing_model,
+            userRating: m.scores?.user_rating
+          }))
+        });
 
         (metricsList as ToolMetrics[] | null)?.forEach((m) => {
           // Hard filter for free tools only if requested
           if (userPreferences?.freeToolsOnly && m.scores?.pricing_model !== 'free') {
+            console.log("Filtered out non-free tool:", {
+              toolName: m.name,
+              pricingModel: m.scores?.pricing_model,
+              reason: "freeToolsOnly filter applied"
+            });
             return; // Skip non-free tools entirely
           }
           
           const scored = computeScore(task.name, m, weights);
-          // console.log("Tool scoring result:", {
-          //   taskName: task.name,
-          //   toolName: m.name,
-          //   domains: m.domains,
-          //   scores: m.scores,
-          //   calculatedScore: scored.score,
-          //   benchComponent: scored.bench,
-          //   domainComponent: scored.domain,
-          //   costComponent: scored.cost,
-          //   weights
-          // });
+          console.log("Tool scoring result:", {
+            taskName: task.name,
+            toolName: m.name,
+            toolDomains: m.domains,
+            pricingModel: m.scores?.pricing_model,
+            calculatedScore: scored.score,
+            benchComponent: scored.bench,
+            domainComponent: scored.domain,
+            costComponent: scored.cost,
+            weights,
+            isNewBest: !bestTool || scored.score > bestTool.score
+          });
 
           if (!bestTool || scored.score > bestTool.score) {
-            // console.log("New best tool found:", {
-            //   toolName: m.name,
-            //   score: scored.score,
-            //   previousBest: bestTool?.metrics.name || "none"
-            // });
+            console.log("New best tool found:", {
+              toolName: m.name,
+              score: scored.score,
+              previousBest: bestTool?.metrics.name || "none"
+            });
             bestTool = { metrics: m, ...scored };
           }
         });
 
-        // console.log("Final best tool for task:", {
-        //   taskName: task.name,
-        //   bestTool: bestTool ? {
-        //     name: bestTool.metrics.name,
-        //     id: bestTool.metrics.id,
-        //     finalScore: bestTool.score
-        //   } : null
-        // });
+        console.log("Final best tool for task:", {
+          taskName: task.name,
+          bestTool: bestTool ? {
+            name: bestTool.metrics.name,
+            id: bestTool.metrics.id,
+            finalScore: bestTool.score,
+            pricingModel: bestTool.metrics.scores?.pricing_model
+          } : null
+        });
       }
 
       const recommendationEndTime = Date.now();
@@ -522,8 +680,8 @@ export async function getToolRecommendationForTask(
       const hybridResults = await advancedHybridSearch(
         taskName,
         3,
-        0.6, // traditional_weight
-        0.4, // rag_weight
+        0.8, // traditional_weight
+        0.2, // rag_weight
         userPreferences
       );
 
@@ -604,14 +762,19 @@ export async function getToolRecommendationForTask(
       .map((d) => d.metadata.id)
       .filter(Boolean);
 
-    // console.log("Processing candidate tools:", {
-    //   candidateCount: candidateIds.length,
-    //   candidateIds: candidateIds,
-    //   relevantTools: relevantTools.map(t => ({
-    //     id: t.metadata.id,
-    //     name: t.metadata.name
-    //   }))
-    // });
+    console.log("Processing candidate tools for single task:", {
+      taskName,
+      candidateCount: candidateIds.length,
+      candidateIds: candidateIds,
+      relevantTools: relevantTools.map(t => ({
+        id: t.metadata.id,
+        name: t.metadata.name,
+        finalScore: t.metadata.final_score,
+        traditionalScore: t.metadata.traditional_score,
+        ragScore: t.metadata.rag_score
+      })),
+      freeToolsOnly: userPreferences?.freeToolsOnly || false
+    });
 
     let bestTool: {
       metrics: ToolMetrics;
@@ -627,35 +790,52 @@ export async function getToolRecommendationForTask(
         .select("id,name,domains,scores,url,logo_url")
         .in("id", candidateIds);
 
-      // console.log("Retrieved metrics for tools:", {
-      //   queryCount: candidateIds.length,
-      //   resultCount: metricsList?.length || 0,
-      //   metrics: metricsList?.map(m => ({
-      //     id: m.id,
-      //     name: m.name,
-      //     domains: m.domains,
-      //     scores: m.scores
-      //   }))
-      // });
+      console.log("Retrieved metrics for single task tools:", {
+        taskName,
+        queryCount: candidateIds.length,
+        resultCount: metricsList?.length || 0,
+        metrics: metricsList?.map(m => ({
+          id: m.id,
+          name: m.name,
+          domains: m.domains,
+          pricingModel: m.scores?.pricing_model,
+          userRating: m.scores?.user_rating
+        }))
+      });
 
       (metricsList as ToolMetrics[] | null)?.forEach((m) => {
         // Hard filter for free tools only if requested
         if (userPreferences?.freeToolsOnly && m.scores?.pricing_model !== 'free') {
+          console.log("Single task - Filtered out non-free tool:", {
+            taskName,
+            toolName: m.name,
+            pricingModel: m.scores?.pricing_model,
+            reason: "freeToolsOnly filter applied"
+          });
           return; // Skip non-free tools entirely
         }
         
         const scored = computeScore(taskName, m, weights);
-        // console.log("Tool score calculated:", {
-        //   toolName: m.name,
-        //   toolId: m.id,
-        //   score: scored.score,
-        //   bench: scored.bench,
-        //   domain: scored.domain,
-        //   cost: scored.cost,
-        //   isBest: !bestTool || scored.score > bestTool.score
-        // });
+        console.log("Single task - Tool score calculated:", {
+          taskName,
+          toolName: m.name,
+          toolId: m.id,
+          toolDomains: m.domains,
+          pricingModel: m.scores?.pricing_model,
+          score: scored.score,
+          bench: scored.bench,
+          domain: scored.domain,
+          cost: scored.cost,
+          isBest: !bestTool || scored.score > bestTool.score
+        });
 
         if (!bestTool || scored.score > bestTool.score) {
+          console.log("Single task - New best tool found:", {
+            taskName,
+            toolName: m.name,
+            score: scored.score,
+            previousBest: bestTool?.metrics.name || "none"
+          });
           bestTool = { metrics: m, ...scored };
         }
       });
