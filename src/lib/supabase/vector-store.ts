@@ -871,8 +871,8 @@ export const getRelevantToolsWithRAG = async (
 export const advancedHybridSearch = async (
   query: string,
   k: number = 3,
-  traditionalWeight: number = 0.6,
-  ragWeight: number = 0.4,
+  traditionalWeight: number = 0.8,
+  ragWeight: number = 0.2,
   userPreferences?: {
     categories?: string[];
     difficulty_level?: string;

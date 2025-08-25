@@ -1,6 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { getEnvVar } from "@/lib/config/env-validation";
-import { getRelevantTools, advancedHybridSearch } from "@/lib/supabase/vector-store";
+import {
+  getRelevantTools,
+  advancedHybridSearch,
+} from "@/lib/supabase/vector-store";
 import { logger } from "@/lib/logger/structured-logger";
 import { guideGenerationService } from "./guide-generation-service";
 import type { ManagedReadableStream } from "./stream-service";
@@ -91,23 +94,23 @@ function computeScore(
   let bench = 0;
   if (userRating) {
     // Use G2 rating if available, otherwise use first available rating
-    const rating = userRating['G2'] || Object.values(userRating)[0] || 0;
+    const rating = userRating["G2"] || Object.values(userRating)[0] || 0;
     bench = rating / 5.0; // Normalize to 0-1 scale (assuming 5-star rating)
   }
 
   const domain = computeDomainMatch(query, tool.domains ?? []);
-  
+
   // Extract cost from pricing model
   let cost = 0;
   if (tool.scores?.pricing_model) {
     switch (tool.scores.pricing_model.toLowerCase()) {
-      case 'free':
+      case "free":
         cost = 1.0; // Free is best
         break;
-      case 'freemium':
+      case "freemium":
         cost = 0.8; // Freemium is good
         break;
-      case 'paid':
+      case "paid":
         cost = 0.3; // Paid is okay
         break;
       default:
@@ -115,33 +118,52 @@ function computeScore(
     }
   }
 
-  const score = bench * weights.bench + domain * weights.domain + cost * weights.cost;
+  const score =
+    bench * weights.bench + domain * weights.domain + cost * weights.cost;
   return { score, bench, domain, cost };
 }
 
-function getFallbackTool(taskName: string): { id: string; name: string } | null {
+function getFallbackTool(
+  taskName: string
+): { id: string; name: string } | null {
   const task = taskName.toLowerCase();
-  
+
   // 프레젠테이션 관련
-  if (task.includes("presentation") || task.includes("slide") || task.includes("present")) {
+  if (
+    task.includes("presentation") ||
+    task.includes("slide") ||
+    task.includes("present")
+  ) {
     return { id: "google-slides-fallback", name: "Google Slides" };
   }
-  
+
   // 리서치 관련
-  if (task.includes("research") || task.includes("gathering") || task.includes("information")) {
+  if (
+    task.includes("research") ||
+    task.includes("gathering") ||
+    task.includes("information")
+  ) {
     return { id: "google-search-fallback", name: "Google Search" };
   }
-  
+
   // 글쓰기 관련
-  if (task.includes("write") || task.includes("script") || task.includes("document")) {
+  if (
+    task.includes("write") ||
+    task.includes("script") ||
+    task.includes("document")
+  ) {
     return { id: "google-docs-fallback", name: "Google Docs" };
   }
-  
+
   // 구조화/계획 관련
-  if (task.includes("outline") || task.includes("structure") || task.includes("organize")) {
+  if (
+    task.includes("outline") ||
+    task.includes("structure") ||
+    task.includes("organize")
+  ) {
     return { id: "notion-fallback", name: "Notion" };
   }
-  
+
   // 기본 fallback
   return { id: "chatgpt-fallback", name: "ChatGPT" };
 }
@@ -174,7 +196,9 @@ export async function processTasksInParallel(
       // Try Advanced Hybrid Search first for better accuracy
       let relevantTools;
       try {
-        logger.debug("Attempting Advanced Hybrid Search", { taskName: task.name });
+        logger.debug("Attempting Advanced Hybrid Search", {
+          taskName: task.name,
+        });
         const hybridResults = await advancedHybridSearch(
           task.name,
           3,
@@ -182,7 +206,7 @@ export async function processTasksInParallel(
           0.4, // rag_weight
           userPreferences
         );
-        
+
         if (hybridResults && hybridResults.length > 0) {
           // Convert RagDocument[] to Document[] for compatibility
           relevantTools = hybridResults.map((doc: any) => ({
@@ -192,15 +216,19 @@ export async function processTasksInParallel(
               // Add hybrid search score information
               hybrid_score: doc.metadata.final_score,
               traditional_score: doc.metadata.traditional_score,
-              rag_score: doc.metadata.rag_score
-            }
+              rag_score: doc.metadata.rag_score,
+            },
           }));
-          
+
           logger.debug("Advanced Hybrid Search successful", {
             taskName: task.name,
             foundTools: relevantTools.length,
-            avgScore: relevantTools.reduce((sum: number, tool: any) => 
-              sum + (tool.metadata.final_score || 0), 0) / relevantTools.length
+            avgScore:
+              relevantTools.reduce(
+                (sum: number, tool: any) =>
+                  sum + (tool.metadata.final_score || 0),
+                0
+              ) / relevantTools.length,
           });
         } else {
           throw new Error("No hybrid results");
@@ -208,15 +236,11 @@ export async function processTasksInParallel(
       } catch (error) {
         logger.debug("Advanced Hybrid Search failed, using legacy search", {
           taskName: task.name,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
-        
+
         // Fallback to legacy search
-        relevantTools = await getRelevantTools(
-          task.name,
-          3,
-          userPreferences
-        );
+        relevantTools = await getRelevantTools(task.name, 3, userPreferences);
       }
 
       const searchEndTime = Date.now();
@@ -234,20 +258,20 @@ export async function processTasksInParallel(
         }
       );
 
-      console.log("Task processing result:", {
-        taskName: task.name,
-        relevantToolsFound: relevantTools.length,
-        candidateIds: relevantTools.map(t => t.metadata.id),
-        candidateNames: relevantTools.map(t => t.metadata.name)
-      });
+      // console.log("Task processing result:", {
+      //   taskName: task.name,
+      //   relevantToolsFound: relevantTools.length,
+      //   candidateIds: relevantTools.map(t => t.metadata.id),
+      //   candidateNames: relevantTools.map(t => t.metadata.name)
+      // });
 
       if (relevantTools.length === 0) {
-        console.log("No tools found, using fallback for:", task.name);
+        // console.log("No tools found, using fallback for:", task.name);
         // Fallback: 태스크 타입에 따라 기본 도구 제안
         const fallbackTool = getFallbackTool(task.name);
-        
+
         if (fallbackTool) {
-          console.log("Fallback tool selected:", fallbackTool);
+          // console.log("Fallback tool selected:", fallbackTool);
           return {
             taskId: task.id,
             taskName: task.name,
@@ -278,10 +302,10 @@ export async function processTasksInParallel(
         .map((d) => d.metadata.id)
         .filter(Boolean);
 
-      console.log("Starting scoring for task:", {
-        taskName: task.name,
-        candidateCount: candidateIds.length
-      });
+      // console.log("Starting scoring for task:", {
+      //   taskName: task.name,
+      //   candidateCount: candidateIds.length
+      // });
 
       let bestTool: {
         metrics: ToolMetrics;
@@ -292,7 +316,7 @@ export async function processTasksInParallel(
       } | null = null;
 
       if (candidateIds.length > 0) {
-        console.log("Querying database for tool metrics:", { candidateIds });
+        // console.log("Querying database for tool metrics:", { candidateIds });
         const { data: metricsList, error } = await supabase
           .from("tools")
           .select("id,name,domains,scores,url,logo_url")
@@ -302,50 +326,55 @@ export async function processTasksInParallel(
           console.error("Database query error:", error);
         }
 
-        console.log("Database query result:", {
-          taskName: task.name,
-          queryCount: candidateIds.length,
-          resultCount: metricsList?.length || 0,
-          results: metricsList?.map(m => ({
-            id: m.id,
-            name: m.name,
-            domains: m.domains,
-            scores: m.scores
-          }))
-        });
+        // console.log("Database query result:", {
+        //   taskName: task.name,
+        //   queryCount: candidateIds.length,
+        //   resultCount: metricsList?.length || 0,
+        //   results: metricsList?.map(m => ({
+        //     id: m.id,
+        //     name: m.name,
+        //     domains: m.domains,
+        //     scores: m.scores
+        //   }))
+        // });
 
         (metricsList as ToolMetrics[] | null)?.forEach((m) => {
-          const scored = computeScore(task.name, m, weights);
-          console.log("Tool scoring result:", {
-            taskName: task.name,
-            toolName: m.name,
-            domains: m.domains,
-            scores: m.scores,
-            calculatedScore: scored.score,
-            benchComponent: scored.bench,
-            domainComponent: scored.domain,
-            costComponent: scored.cost,
-            weights
-          });
+          // Hard filter for free tools only if requested
+          if (userPreferences?.freeToolsOnly && m.scores?.pricing_model !== 'free') {
+            return; // Skip non-free tools entirely
+          }
           
+          const scored = computeScore(task.name, m, weights);
+          // console.log("Tool scoring result:", {
+          //   taskName: task.name,
+          //   toolName: m.name,
+          //   domains: m.domains,
+          //   scores: m.scores,
+          //   calculatedScore: scored.score,
+          //   benchComponent: scored.bench,
+          //   domainComponent: scored.domain,
+          //   costComponent: scored.cost,
+          //   weights
+          // });
+
           if (!bestTool || scored.score > bestTool.score) {
-            console.log("New best tool found:", { 
-              toolName: m.name, 
-              score: scored.score,
-              previousBest: bestTool?.metrics.name || "none"
-            });
+            // console.log("New best tool found:", {
+            //   toolName: m.name,
+            //   score: scored.score,
+            //   previousBest: bestTool?.metrics.name || "none"
+            // });
             bestTool = { metrics: m, ...scored };
           }
         });
 
-        console.log("Final best tool for task:", {
-          taskName: task.name,
-          bestTool: bestTool ? {
-            name: bestTool.metrics.name,
-            id: bestTool.metrics.id,
-            finalScore: bestTool.score
-          } : null
-        });
+        // console.log("Final best tool for task:", {
+        //   taskName: task.name,
+        //   bestTool: bestTool ? {
+        //     name: bestTool.metrics.name,
+        //     id: bestTool.metrics.id,
+        //     finalScore: bestTool.score
+        //   } : null
+        // });
       }
 
       const recommendationEndTime = Date.now();
@@ -355,7 +384,7 @@ export async function processTasksInParallel(
       if (!bestTool) {
         // Fallback: 태스크 타입에 따라 기본 도구 제안
         const fallbackTool = getFallbackTool(task.name);
-        
+
         if (fallbackTool) {
           return {
             taskId: task.id,
@@ -368,7 +397,7 @@ export async function processTasksInParallel(
             recommendationDuration,
           };
         }
-        
+
         return {
           taskId: task.id,
           taskName: task.name,
@@ -487,7 +516,9 @@ export async function getToolRecommendationForTask(
     // Try Advanced Hybrid Search first for better accuracy
     let relevantTools;
     try {
-      logger.debug("Single task: Attempting Advanced Hybrid Search", { taskName });
+      logger.debug("Single task: Attempting Advanced Hybrid Search", {
+        taskName,
+      });
       const hybridResults = await advancedHybridSearch(
         taskName,
         3,
@@ -495,7 +526,7 @@ export async function getToolRecommendationForTask(
         0.4, // rag_weight
         userPreferences
       );
-      
+
       if (hybridResults && hybridResults.length > 0) {
         // Convert RagDocument[] to Document[] for compatibility
         relevantTools = hybridResults.map((doc: any) => ({
@@ -505,31 +536,34 @@ export async function getToolRecommendationForTask(
             // Add hybrid search score information
             hybrid_score: doc.metadata.final_score,
             traditional_score: doc.metadata.traditional_score,
-            rag_score: doc.metadata.rag_score
-          }
+            rag_score: doc.metadata.rag_score,
+          },
         }));
-        
+
         logger.debug("Single task: Advanced Hybrid Search successful", {
           taskName,
           foundTools: relevantTools.length,
-          avgScore: relevantTools.reduce((sum: number, tool: any) => 
-            sum + (tool.metadata.final_score || 0), 0) / relevantTools.length
+          avgScore:
+            relevantTools.reduce(
+              (sum: number, tool: any) =>
+                sum + (tool.metadata.final_score || 0),
+              0
+            ) / relevantTools.length,
         });
       } else {
         throw new Error("No hybrid results");
       }
     } catch (error) {
-      logger.debug("Single task: Advanced Hybrid Search failed, using legacy search", {
-        taskName,
-        error: error instanceof Error ? error.message : String(error)
-      });
-      
-      // Fallback to legacy search
-      relevantTools = await getRelevantTools(
-        taskName,
-        3,
-        userPreferences
+      logger.debug(
+        "Single task: Advanced Hybrid Search failed, using legacy search",
+        {
+          taskName,
+          error: error instanceof Error ? error.message : String(error),
+        }
       );
+
+      // Fallback to legacy search
+      relevantTools = await getRelevantTools(taskName, 3, userPreferences);
     }
 
     const searchEndTime = Date.now();
@@ -538,7 +572,7 @@ export async function getToolRecommendationForTask(
     if (relevantTools.length === 0) {
       // Fallback: 태스크 타입에 따라 기본 도구 제안
       const fallbackTool = getFallbackTool(taskName);
-      
+
       if (fallbackTool) {
         return {
           taskId,
@@ -551,7 +585,7 @@ export async function getToolRecommendationForTask(
           recommendationDuration: 0,
         };
       }
-      
+
       return {
         taskId,
         taskName,
@@ -570,14 +604,14 @@ export async function getToolRecommendationForTask(
       .map((d) => d.metadata.id)
       .filter(Boolean);
 
-    console.log("Processing candidate tools:", {
-      candidateCount: candidateIds.length,
-      candidateIds: candidateIds,
-      relevantTools: relevantTools.map(t => ({ 
-        id: t.metadata.id, 
-        name: t.metadata.name 
-      }))
-    });
+    // console.log("Processing candidate tools:", {
+    //   candidateCount: candidateIds.length,
+    //   candidateIds: candidateIds,
+    //   relevantTools: relevantTools.map(t => ({
+    //     id: t.metadata.id,
+    //     name: t.metadata.name
+    //   }))
+    // });
 
     let bestTool: {
       metrics: ToolMetrics;
@@ -593,29 +627,34 @@ export async function getToolRecommendationForTask(
         .select("id,name,domains,scores,url,logo_url")
         .in("id", candidateIds);
 
-      console.log("Retrieved metrics for tools:", {
-        queryCount: candidateIds.length,
-        resultCount: metricsList?.length || 0,
-        metrics: metricsList?.map(m => ({
-          id: m.id,
-          name: m.name,
-          domains: m.domains,
-          scores: m.scores
-        }))
-      });
+      // console.log("Retrieved metrics for tools:", {
+      //   queryCount: candidateIds.length,
+      //   resultCount: metricsList?.length || 0,
+      //   metrics: metricsList?.map(m => ({
+      //     id: m.id,
+      //     name: m.name,
+      //     domains: m.domains,
+      //     scores: m.scores
+      //   }))
+      // });
 
       (metricsList as ToolMetrics[] | null)?.forEach((m) => {
-        const scored = computeScore(taskName, m, weights);
-        console.log("Tool score calculated:", {
-          toolName: m.name,
-          toolId: m.id,
-          score: scored.score,
-          bench: scored.bench,
-          domain: scored.domain,
-          cost: scored.cost,
-          isBest: !bestTool || scored.score > bestTool.score
-        });
+        // Hard filter for free tools only if requested
+        if (userPreferences?.freeToolsOnly && m.scores?.pricing_model !== 'free') {
+          return; // Skip non-free tools entirely
+        }
         
+        const scored = computeScore(taskName, m, weights);
+        // console.log("Tool score calculated:", {
+        //   toolName: m.name,
+        //   toolId: m.id,
+        //   score: scored.score,
+        //   bench: scored.bench,
+        //   domain: scored.domain,
+        //   cost: scored.cost,
+        //   isBest: !bestTool || scored.score > bestTool.score
+        // });
+
         if (!bestTool || scored.score > bestTool.score) {
           bestTool = { metrics: m, ...scored };
         }
@@ -710,12 +749,12 @@ export async function processTasksWithGuidesInParallel(
   // Process all tasks in parallel
   const taskPromises = tasks.map(async (task, index) => {
     const taskStartTime = Date.now();
-    
+
     try {
       // Send initial task start event
       managedStream.sendProgress(
         `task_${task.id}_start`,
-        55 + (index * 5), // Distribute progress across remaining 35%
+        55 + index * 5, // Distribute progress across remaining 35%
         `작업 "${task.name}" 처리 시작...`
       );
 
@@ -729,8 +768,8 @@ export async function processTasksWithGuidesInParallel(
       // Send tool recommendation complete event
       managedStream.sendProgress(
         `task_${task.id}_tool_complete`,
-        55 + (index * 5) + 2,
-        `"${task.name}" 도구 추천 완료: ${recommendation.toolName || '없음'}`
+        55 + index * 5 + 2,
+        `"${task.name}" 도구 추천 완료: ${recommendation.toolName || "없음"}`
       );
 
       let guide = null;
@@ -739,20 +778,22 @@ export async function processTasksWithGuidesInParallel(
       // Step 2: Generate guide only if we have a tool
       if (recommendation.toolId && recommendation.toolName) {
         const guideStartTime = Date.now();
-        
+
         try {
           managedStream.sendProgress(
             `task_${task.id}_guide_start`,
-            55 + (index * 5) + 3,
+            55 + index * 5 + 3,
             `"${recommendation.toolName}" 가이드 생성 중...`
           );
 
-          const generatedGuide = await guideGenerationService.generateToolGuide({
-            toolName: recommendation.toolName,
-            taskContext: task.name,
-            language: userContext.language,
-            userContext,
-          });
+          const generatedGuide = await guideGenerationService.generateToolGuide(
+            {
+              toolName: recommendation.toolName,
+              taskContext: task.name,
+              language: userContext.language,
+              userContext,
+            }
+          );
 
           guide = {
             id: generatedGuide.id,
@@ -766,7 +807,7 @@ export async function processTasksWithGuidesInParallel(
 
           managedStream.sendProgress(
             `task_${task.id}_guide_complete`,
-            55 + (index * 5) + 4,
+            55 + index * 5 + 4,
             `"${recommendation.toolName}" 가이드 생성 완료`
           );
 
@@ -778,22 +819,24 @@ export async function processTasksWithGuidesInParallel(
             guideGenerationDuration,
             confidenceScore: guide.confidenceScore,
           });
-
         } catch (guideError) {
           guideGenerationDuration = Date.now() - guideStartTime;
-          
+
           logger.error("Guide generation failed for task", {
             ...userContext,
             workflowId,
             taskId: task.id,
             toolName: recommendation.toolName,
-            error: guideError instanceof Error ? guideError.message : String(guideError),
+            error:
+              guideError instanceof Error
+                ? guideError.message
+                : String(guideError),
             guideGenerationDuration,
           });
 
           managedStream.sendProgress(
             `task_${task.id}_guide_error`,
-            55 + (index * 5) + 4,
+            55 + index * 5 + 4,
             `"${recommendation.toolName}" 가이드 생성 실패`
           );
         }
@@ -802,7 +845,7 @@ export async function processTasksWithGuidesInParallel(
       // Send task completion event
       managedStream.sendProgress(
         `task_${task.id}_complete`,
-        55 + (index * 5) + 5,
+        55 + index * 5 + 5,
         `작업 "${task.name}" 처리 완료`
       );
 
@@ -825,10 +868,9 @@ export async function processTasksWithGuidesInParallel(
         guide,
         guideGenerationDuration,
       };
-
     } catch (error) {
       const totalDuration = Date.now() - taskStartTime;
-      
+
       logger.error("Task processing failed", {
         ...userContext,
         workflowId,
@@ -840,7 +882,7 @@ export async function processTasksWithGuidesInParallel(
 
       managedStream.sendProgress(
         `task_${task.id}_error`,
-        55 + (index * 5) + 5,
+        55 + index * 5 + 5,
         `작업 "${task.name}" 처리 실패`
       );
 
@@ -869,7 +911,11 @@ export async function processTasksWithGuidesInParallel(
     successfulRecommendations: results.filter((r) => r.toolId !== null).length,
     successfulGuides: results.filter((r) => r.guide !== null).length,
     totalProcessingTime: results.reduce(
-      (sum, r) => sum + (r.guideGenerationDuration || 0) + r.searchDuration + r.recommendationDuration,
+      (sum, r) =>
+        sum +
+        (r.guideGenerationDuration || 0) +
+        r.searchDuration +
+        r.recommendationDuration,
       0
     ),
   });

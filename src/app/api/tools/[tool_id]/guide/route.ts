@@ -232,29 +232,29 @@ export async function POST(
     // Parse and validate request body
     const body = await request.json();
 
-    logger.info("Request body received", {
-      ...userContext,
-      tool_id,
-      body: JSON.stringify(body),
-    });
+    // logger.info("Request body received", {
+    //   ...userContext,
+    //   tool_id,
+    //   body: JSON.stringify(body),
+    // });
 
     const validatedData = guideRequestSchema.parse(body);
 
-    logger.info("Guide generation request validated", {
-      ...userContext,
-      tool_id,
-      taskContext: validatedData.taskContext,
-      language: validatedData.language,
-      forceRefresh: validatedData.forceRefresh,
-    });
+    // logger.info("Guide generation request validated", {
+    //   ...userContext,
+    //   tool_id,
+    //   taskContext: validatedData.taskContext,
+    //   language: validatedData.language,
+    //   forceRefresh: validatedData.forceRefresh,
+    // });
 
     // Get tool information from database
-    logger.info("Querying tool from database", {
-      ...userContext,
-      tool_id,
-      query:
-        "SELECT id, name, description, url, logo_url FROM tools WHERE id = ? AND is_active = true",
-    });
+    // logger.info("Querying tool from database", {
+    //   ...userContext,
+    //   tool_id,
+    //   query:
+    //     "SELECT id, name, description, url, logo_url FROM tools WHERE id = ? AND is_active = true",
+    // });
 
     const { data: tool, error: toolError } = await supabase
       .from("tools")
@@ -275,12 +275,12 @@ export async function POST(
       return NextResponse.json({ error: "Tool not found." }, { status: 404 });
     }
 
-    logger.info("Tool found successfully", {
-      ...userContext,
-      tool_id,
-      toolName: tool.name,
-      toolUrl: tool.url,
-    });
+    // logger.info("Tool found successfully", {
+    //   ...userContext,
+    //   tool_id,
+    //   toolName: tool.name,
+    //   toolUrl: tool.url,
+    // });
 
     // Check for existing guide if not forcing refresh
     if (!validatedData.forceRefresh) {

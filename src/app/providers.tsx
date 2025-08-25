@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
+// import { useEffect } from "react";
 
 function makeQueryClient() {
   return new QueryClient({
@@ -47,6 +48,21 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   //       suspend because React will throw away the client on the initial
   //       render if it suspends and there is no boundary
   const queryClient = getQueryClient();
+
+  // 환경변수 검증을 애플리케이션 시작 시 한 번만 실행
+  // useEffect(() => {
+  //   if (typeof window !== "undefined") {
+  //     // 클라이언트 사이드에서만 환경변수 검증 실행
+  //     import("@/lib/config/env-validation").then(({ getValidatedEnv }) => {
+  //       try {
+  //         getValidatedEnv();
+  //         console.info("✅ Environment variables validated successfully");
+  //       } catch (error) {
+  //         console.error("❌ Environment validation failed:", error);
+  //       }
+  //     });
+  //   }
+  // }, []);
 
   return (
     <ThemeProvider

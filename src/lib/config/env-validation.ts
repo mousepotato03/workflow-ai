@@ -4,16 +4,23 @@ import { z } from "zod";
 const envSchema = z.object({
   // Supabase
   NEXT_PUBLIC_SUPABASE_URL: z.string().url("Invalid Supabase URL"),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "Supabase service role key is required"),
-  
+  SUPABASE_SERVICE_ROLE_KEY: z
+    .string()
+    .min(1, "Supabase service role key is required"),
+
   // Google AI
   GOOGLE_API_KEY: z.string().min(1, "Google AI API key is required"),
-  
+
   // Optional OpenAI
   OPENAI_API_KEY: z.string().optional(),
-  
+
   // Node environment
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
+
+  // Log level for debugging
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
@@ -37,7 +44,9 @@ export function getValidatedEnv(): EnvConfig {
       const errorMessages = error.errors.map(
         (err) => `${err.path.join(".")}: ${err.message}`
       );
-      throw new Error(`Environment validation failed:\n${errorMessages.join("\n")}`);
+      throw new Error(
+        `Environment validation failed:\n${errorMessages.join("\n")}`
+      );
     }
     throw error;
   }
@@ -61,11 +70,11 @@ export function validateEnvironment(): boolean {
 export function getEnvVar(key: keyof EnvConfig): string {
   const env = getValidatedEnv();
   const value = env[key];
-  
+
   if (!value && key !== "OPENAI_API_KEY") {
     throw new Error(`Required environment variable ${key} is not set`);
   }
-  
+
   return value || "";
 }
 
@@ -77,25 +86,17 @@ export function getMaskedEnvForLogging() {
     const env = getValidatedEnv();
     return {
       NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY: `${env.SUPABASE_SERVICE_ROLE_KEY.slice(0, 10)}...`,
+      SUPABASE_SERVICE_ROLE_KEY: `${env.SUPABASE_SERVICE_ROLE_KEY.slice(
+        0,
+        10
+      )}...`,
       GOOGLE_API_KEY: `${env.GOOGLE_API_KEY.slice(0, 10)}...`,
-      OPENAI_API_KEY: env.OPENAI_API_KEY ? `${env.OPENAI_API_KEY.slice(0, 10)}...` : "not set",
+      OPENAI_API_KEY: env.OPENAI_API_KEY
+        ? `${env.OPENAI_API_KEY.slice(0, 10)}...`
+        : "not set",
       NODE_ENV: env.NODE_ENV,
     };
   } catch {
     return { error: "Environment validation failed" };
-  }
-}
-
-// Initialize environment validation on module load
-if (typeof window === "undefined") {
-  try {
-    getValidatedEnv();
-    console.info("✅ Environment variables validated successfully");
-  } catch (error) {
-    console.error("❌ Environment validation failed:", error);
-    if (process.env.NODE_ENV === "production") {
-      process.exit(1);
-    }
   }
 }

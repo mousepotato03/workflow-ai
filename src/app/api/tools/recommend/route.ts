@@ -29,10 +29,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     
-    console.log("=== TOOL RECOMMENDATION REQUEST ===", {
-      body: JSON.stringify(body),
-      timestamp: new Date().toISOString()
-    });
+    // console.log("=== TOOL RECOMMENDATION REQUEST ===", {
+    //   body: JSON.stringify(body),
+    //   timestamp: new Date().toISOString()
+    // });
     
     const { 
       taskName, 
@@ -44,18 +44,18 @@ export async function POST(req: NextRequest) {
       fallbackToLegacy 
     } = requestSchema.parse(body);
 
-    console.log("Tool recommendation request parsed", {
-      taskName,
-      preferences: JSON.stringify(preferences),
-      language,
-      useSmartEngine,
-      ragOptions: {
-        enableRAG,
-        enableAdaptive,
-        fallbackToLegacy
-      },
-      timestamp: new Date().toISOString()
-    });
+    // console.log("Tool recommendation request parsed", {
+    //   taskName,
+    //   preferences: JSON.stringify(preferences),
+    //   language,
+    //   useSmartEngine,
+    //   ragOptions: {
+    //     enableRAG,
+    //     enableAdaptive,
+    //     fallbackToLegacy
+    //   },
+    //   timestamp: new Date().toISOString()
+    // });
 
     const userPreferences = getUserPreferences({ preferences });
     const userContext = {
@@ -75,11 +75,11 @@ export async function POST(req: NextRequest) {
 
       // Use RAG-enhanced engine if enabled, otherwise fall back to legacy
       if (enableRAG || enableAdaptive) {
-        console.log("Using RAG-enhanced smart engine", {
-          taskName,
-          ragOptions,
-          timestamp: new Date().toISOString()
-        });
+        // console.log("Using RAG-enhanced smart engine", {
+        //   taskName,
+        //   ragOptions,
+        //   timestamp: new Date().toISOString()
+        // });
 
         const ragRecommendation = await smartRecommendationEngine.getSmartRecommendationWithRAG(
           taskName,
@@ -111,21 +111,21 @@ export async function POST(req: NextRequest) {
           }
         };
 
-        console.log("RAG-enhanced smart engine recommendation result", {
-          taskName,
-          searchStrategy: ragRecommendation.searchStrategy,
-          recommendationResult: JSON.stringify(compatibleRecommendation),
-          timestamp: new Date().toISOString()
-        });
+        // console.log("RAG-enhanced smart engine recommendation result", {
+        //   taskName,
+        //   searchStrategy: ragRecommendation.searchStrategy,
+        //   recommendationResult: JSON.stringify(compatibleRecommendation),
+        //   timestamp: new Date().toISOString()
+        // });
 
         return NextResponse.json(compatibleRecommendation);
       } else {
         // Legacy smart engine
-        console.log("Using legacy smart engine", {
-          taskName,
-          ragOptions,
-          timestamp: new Date().toISOString()
-        });
+        // console.log("Using legacy smart engine", {
+        //   taskName,
+        //   ragOptions,
+        //   timestamp: new Date().toISOString()
+        // });
 
         recommendation = await smartRecommendationEngine.getSmartRecommendation(
           taskName,
@@ -153,21 +153,21 @@ export async function POST(req: NextRequest) {
           }
         };
 
-        console.log("Legacy smart engine recommendation result", {
-          taskName,
-          recommendationResult: JSON.stringify(compatibleRecommendation),
-          timestamp: new Date().toISOString()
-        });
+        // console.log("Legacy smart engine recommendation result", {
+        //   taskName,
+        //   recommendationResult: JSON.stringify(compatibleRecommendation),
+        //   timestamp: new Date().toISOString()
+        // });
 
         return NextResponse.json(compatibleRecommendation);
       }
     } else {
       // 기존 추천 엔진 사용
-      console.log("Using legacy recommendation engine", {
-        taskName,
-        userPreferences: JSON.stringify(userPreferences),
-        timestamp: new Date().toISOString()
-      });
+      // console.log("Using legacy recommendation engine", {
+      //   taskName,
+      //   userPreferences: JSON.stringify(userPreferences),
+      //   timestamp: new Date().toISOString()
+      // });
       
       recommendation = await getToolRecommendationForTask(
         taskName,
@@ -175,11 +175,11 @@ export async function POST(req: NextRequest) {
         userContext
       );
       
-      console.log("Legacy engine recommendation result", {
-        taskName,
-        recommendationResult: JSON.stringify(recommendation),
-        timestamp: new Date().toISOString()
-      });
+      // console.log("Legacy engine recommendation result", {
+      //   taskName,
+      //   recommendationResult: JSON.stringify(recommendation),
+      //   timestamp: new Date().toISOString()
+      // });
       
       return NextResponse.json(recommendation);
     }

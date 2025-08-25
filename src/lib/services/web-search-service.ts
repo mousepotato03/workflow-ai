@@ -79,7 +79,7 @@ export class WebSearchService {
       return null;
     }
 
-    logger.info("Search cache hit", { cacheKey, cachedAt: cached.cachedAt });
+    // logger.info("Search cache hit", { cacheKey, cachedAt: cached.cachedAt });
     return cached.results;
   }
 
@@ -96,12 +96,6 @@ export class WebSearchService {
       cachedAt: now,
       expiresAt,
     });
-
-    logger.info("Search results cached", {
-      cacheKey,
-      resultCount: results.length,
-      expiresAt: new Date(expiresAt).toISOString(),
-    });
   }
 
   /**
@@ -117,14 +111,6 @@ export class WebSearchService {
     // Construct search query for tool guides
     const query = this.constructSearchQuery(toolName, taskContext, language);
     const cacheKey = this.generateCacheKey(query, language);
-
-    logger.info("Starting web search for tool guides", {
-      toolName,
-      taskContext,
-      query,
-      language,
-    });
-
     // Check cache first
     const cachedResults = this.getCachedResult(cacheKey);
     if (cachedResults) {
@@ -139,7 +125,12 @@ export class WebSearchService {
     // Fallback to mock results if API key is not available
     if (!this.apiKey) {
       logger.warn("No API key available, returning mock search results");
-      return this.getMockSearchResults(toolName, taskContext);
+      return {
+        results: [],
+        totalResults: 0,
+        searchTime: Date.now() - startTime,
+        isFallback: true,
+      };
     }
 
     try {
@@ -171,13 +162,6 @@ export class WebSearchService {
 
       const searchTime = Date.now() - startTime;
 
-      logger.info("Web search completed successfully", {
-        toolName,
-        query,
-        resultCount: filteredResults.length,
-        searchTime,
-      });
-
       return {
         results: filteredResults,
         totalResults: filteredResults.length,
@@ -192,8 +176,12 @@ export class WebSearchService {
         searchTime: Date.now() - startTime,
       });
 
-      // Return mock results as fallback
-      return this.getMockSearchResults(toolName, taskContext);
+      return {
+        results: [],
+        totalResults: 0,
+        searchTime: Date.now() - startTime,
+        isFallback: true,
+      };
     }
   }
 
@@ -263,45 +251,10 @@ export class WebSearchService {
   }
 
   /**
-   * Generate mock search results for development/fallback
-   */
-  private getMockSearchResults(
-    toolName: string,
-    taskContext: string
-  ): WebSearchResponse {
-    const mockResults: SearchResult[] = [
-      {
-        title: `${toolName} 공식 사용 가이드 - 시작하기`,
-        link: `https://${toolName.toLowerCase()}.com/docs/getting-started`,
-        snippet: `${toolName}을 사용하여 ${taskContext} 작업을 수행하는 방법에 대한 공식 가이드입니다. 단계별로 설명된 튜토리얼을 통해 쉽게 시작할 수 있습니다.`,
-      },
-      {
-        title: `${toolName} 튜토리얼 - ${taskContext} 프로젝트`,
-        link: `https://tutorial.example.com/${toolName.toLowerCase()}-${taskContext}`,
-        snippet: `실제 ${taskContext} 프로젝트를 통해 ${toolName}의 주요 기능을 배워보세요. 초보자도 쉽게 따라할 수 있는 상세한 설명을 제공합니다.`,
-      },
-      {
-        title: `${toolName} 사용법 완벽 가이드`,
-        link: `https://guide.example.com/${toolName.toLowerCase()}`,
-        snippet: `${toolName}의 모든 기능을 활용하는 방법을 알아보세요. 기본 사용법부터 고급 기능까지 체계적으로 정리된 가이드입니다.`,
-      },
-    ];
-
-    return {
-      results: mockResults,
-      totalResults: mockResults.length,
-      searchTime: 100, // Mock search time
-      isFallback: true,
-    };
-  }
-
-  /**
    * Extract main content from a webpage (simplified version)
    */
   async extractWebContent(url: string): Promise<string | null> {
     try {
-      logger.info("Extracting web content", { url });
-
       const response = await axios.get(url, {
         timeout: 8000,
         headers: {

@@ -1,9 +1,21 @@
 import { createClient } from "@supabase/supabase-js";
 import { getEnvVar } from "@/lib/config/env-validation";
-import { getRelevantTools, getRelevantToolsWithRAG, ragEnhancedSearchTools, adaptiveSearchTools, getRagKnowledgeStats, advancedHybridSearch } from "@/lib/supabase/vector-store";
+import {
+  getRelevantTools,
+  getRelevantToolsWithRAG,
+  ragEnhancedSearchTools,
+  adaptiveSearchTools,
+  getRagKnowledgeStats,
+  advancedHybridSearch,
+} from "@/lib/supabase/vector-store";
 import { logger } from "@/lib/logger/structured-logger";
 import { Document } from "@langchain/core/documents";
-import { SearchStrategy, QueryType, RagDocument, RagSearchOptions } from "@/types/rag-search";
+import {
+  SearchStrategy,
+  QueryType,
+  RagDocument,
+  RagSearchOptions,
+} from "@/types/rag-search";
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -28,12 +40,12 @@ export interface SmartRecommendationResult {
 
 export enum TaskType {
   CODING = "coding",
-  MATH = "math", 
+  MATH = "math",
   ANALYSIS = "analysis",
   GENERAL = "general",
   DESIGN = "design",
   WRITING = "writing",
-  COMMUNICATION = "communication"
+  COMMUNICATION = "communication",
 }
 
 interface ToolCandidate {
@@ -70,7 +82,7 @@ export class SmartRecommendationEngine {
   private readonly SIMILARITY_WEIGHT = 0.6;
   private readonly QUALITY_WEIGHT = 0.4;
   private readonly CANDIDATE_COUNT = 10;
-  
+
   // RAG-enhanced search configuration
   private readonly RAG_CONFIDENCE_THRESHOLD = 0.7;
   private readonly ADAPTIVE_CONFIDENCE_THRESHOLD = 0.6;
@@ -81,57 +93,93 @@ export class SmartRecommendationEngine {
    */
   detectTaskType(taskName: string): TaskType {
     const taskLower = taskName.toLowerCase();
-    
+
     // 코딩 관련 키워드
     const codingKeywords = [
-      'code', 'coding', 'programming', 'develop', 'implement', 'function', 
-      'api', 'algorithm', 'debug', 'test', 'deploy'
-    ];
-    
-    // 수학/분석 관련 키워드
-    const mathKeywords = [
-      'math', 'mathematical', 'calculate', 'analysis', 'analyze', 'statistics',
-      'data analysis', 'statistical', 'computation'
-    ];
-    
-    // 디자인 관련 키워드
-    const designKeywords = [
-      'design', 'visual', 'graphic', 'ui', 'ux', 'interface', 'prototype',
-      'mockup', 'wireframe'
-    ];
-    
-    // 작성 관련 키워드
-    const writingKeywords = [
-      'write', 'writing', 'content', 'document', 'article', 'blog', 'copy',
-      'text', 'essay'
-    ];
-    
-    // 커뮤니케이션 관련 키워드
-    const communicationKeywords = [
-      'communication', 'collaborate', 'team', 'meeting', 'chat', 'message',
-      'email', 'notification'
+      "code",
+      "coding",
+      "programming",
+      "develop",
+      "implement",
+      "function",
+      "api",
+      "algorithm",
+      "debug",
+      "test",
+      "deploy",
     ];
 
-    if (codingKeywords.some(keyword => taskLower.includes(keyword))) {
+    // 수학/분석 관련 키워드
+    const mathKeywords = [
+      "math",
+      "mathematical",
+      "calculate",
+      "analysis",
+      "analyze",
+      "statistics",
+      "data analysis",
+      "statistical",
+      "computation",
+    ];
+
+    // 디자인 관련 키워드
+    const designKeywords = [
+      "design",
+      "visual",
+      "graphic",
+      "ui",
+      "ux",
+      "interface",
+      "prototype",
+      "mockup",
+      "wireframe",
+    ];
+
+    // 작성 관련 키워드
+    const writingKeywords = [
+      "write",
+      "writing",
+      "content",
+      "document",
+      "article",
+      "blog",
+      "copy",
+      "text",
+      "essay",
+    ];
+
+    // 커뮤니케이션 관련 키워드
+    const communicationKeywords = [
+      "communication",
+      "collaborate",
+      "team",
+      "meeting",
+      "chat",
+      "message",
+      "email",
+      "notification",
+    ];
+
+    if (codingKeywords.some((keyword) => taskLower.includes(keyword))) {
       return TaskType.CODING;
     }
-    
-    if (mathKeywords.some(keyword => taskLower.includes(keyword))) {
+
+    if (mathKeywords.some((keyword) => taskLower.includes(keyword))) {
       return TaskType.MATH;
     }
-    
-    if (designKeywords.some(keyword => taskLower.includes(keyword))) {
+
+    if (designKeywords.some((keyword) => taskLower.includes(keyword))) {
       return TaskType.DESIGN;
     }
-    
-    if (writingKeywords.some(keyword => taskLower.includes(keyword))) {
+
+    if (writingKeywords.some((keyword) => taskLower.includes(keyword))) {
       return TaskType.WRITING;
     }
-    
-    if (communicationKeywords.some(keyword => taskLower.includes(keyword))) {
+
+    if (communicationKeywords.some((keyword) => taskLower.includes(keyword))) {
       return TaskType.COMMUNICATION;
     }
-    
+
     return TaskType.GENERAL;
   }
 
@@ -142,7 +190,7 @@ export class SmartRecommendationEngine {
     if (!scores) return 0.5; // 기본값
 
     const metrics: QualityMetrics = scores;
-    
+
     try {
       // 태스크 유형별 적응형 품질 평가
       switch (taskType) {
@@ -158,7 +206,7 @@ export class SmartRecommendationEngine {
             return this.normalizeScore(metrics.user_rating.G2, 1, 5);
           }
           break;
-          
+
         case TaskType.MATH:
         case TaskType.ANALYSIS:
           // 수학/분석: MATH, GPQA > user_rating
@@ -172,7 +220,7 @@ export class SmartRecommendationEngine {
             return this.normalizeScore(metrics.user_rating.G2, 1, 5);
           }
           break;
-          
+
         default:
           // 일반: user_rating을 주로 사용
           if (metrics.user_rating?.G2) {
@@ -185,7 +233,7 @@ export class SmartRecommendationEngine {
             return this.normalizeScore(metrics.user_rating.TrustPilot, 1, 5);
           }
       }
-      
+
       // 폴백: 사용 가능한 첫 번째 점수 사용
       if (metrics.user_rating?.G2) {
         return this.normalizeScore(metrics.user_rating.G2, 1, 5);
@@ -193,11 +241,14 @@ export class SmartRecommendationEngine {
       if (metrics.performance_score) {
         return this.normalizeScore(metrics.performance_score, 0, 100);
       }
-      
     } catch (error) {
-      logger.warn("Quality score extraction failed", { scores, taskType, error });
+      logger.warn("Quality score extraction failed", {
+        scores,
+        taskType,
+        error,
+      });
     }
-    
+
     return 0.5; // 기본값
   }
 
@@ -207,7 +258,6 @@ export class SmartRecommendationEngine {
   private normalizeScore(score: number, min: number, max: number): number {
     return Math.max(0, Math.min(1, (score - min) / (max - min)));
   }
-
 
   /**
    * RAG knowledge base status check
@@ -219,15 +269,17 @@ export class SmartRecommendationEngine {
         logger.warn("RAG knowledge base stats not available");
         return false;
       }
-      
+
       logger.info("RAG knowledge base status", {
         total_entries: stats.total_knowledge_entries,
         quality_score: stats.knowledge_quality_score,
-        last_updated: stats.last_updated
+        last_updated: stats.last_updated,
       });
-      
+
       // Consider RAG ready if we have sufficient knowledge entries
-      return stats.total_knowledge_entries > 0 && stats.knowledge_quality_score > 0.5;
+      return (
+        stats.total_knowledge_entries > 0 && stats.knowledge_quality_score > 0.5
+      );
     } catch (error) {
       logger.error("Failed to check RAG knowledge base", { error });
       return false;
@@ -245,49 +297,54 @@ export class SmartRecommendationEngine {
       enableAdaptive?: boolean;
       fallbackToLegacy?: boolean;
     } = {}
-  ): Promise<{ candidates: ToolCandidate[], searchDuration: number, strategy: SearchStrategy }> {
+  ): Promise<{
+    candidates: ToolCandidate[];
+    searchDuration: number;
+    strategy: SearchStrategy;
+  }> {
     const startTime = Date.now();
-    
-    try {
-      logger.info("RAG-enhanced 도구 매칭 1단계: 시작", {
-        taskName,
-        candidateCount: this.CANDIDATE_COUNT,
-        userPreferences: userPreferences ? Object.keys(userPreferences) : null,
-        options
-      });
 
-      const enableRAG = options.enableRAG !== false && this.ENABLE_RAG_BY_DEFAULT;
+    try {
+      // logger.info("RAG-enhanced 도구 매칭 1단계: 시작", {
+      //   taskName,
+      //   candidateCount: this.CANDIDATE_COUNT,
+      //   userPreferences: userPreferences ? Object.keys(userPreferences) : null,
+      //   options
+      // });
+
+      const enableRAG =
+        options.enableRAG !== false && this.ENABLE_RAG_BY_DEFAULT;
       const enableAdaptive = options.enableAdaptive !== false;
 
       // Check RAG knowledge base availability
       const isRagReady = enableRAG ? await this.checkRagKnowledgeBase() : false;
-      
+
       let relevantTools: RagDocument[] = [];
       let strategyUsed: SearchStrategy = SearchStrategy.KEYWORD;
 
       if (isRagReady) {
         try {
           // Try Advanced Hybrid Search first (from design document)
-          logger.info("Attempting Advanced Hybrid Search", { taskName });
+          // logger.info("Attempting Advanced Hybrid Search", { taskName });
           const hybridResults = await advancedHybridSearch(
             taskName,
             this.CANDIDATE_COUNT,
             0.6, // traditional_weight
-            0.4, // rag_weight  
+            0.4, // rag_weight
             userPreferences
           );
-          
+
           if (hybridResults && hybridResults.length > 0) {
             // Convert to expected format
             relevantTools = hybridResults;
             strategyUsed = SearchStrategy.RAG_ENHANCED;
-            
-            logger.info("Advanced Hybrid Search 성공", {
-              taskName,
-              foundToolsCount: relevantTools.length,
-              avgFinalScore: relevantTools.reduce((sum, tool) => 
-                sum + (tool.metadata.final_score || 0), 0) / relevantTools.length
-            });
+
+            // logger.info("Advanced Hybrid Search 성공", {
+            //   taskName,
+            //   foundToolsCount: relevantTools.length,
+            //   avgFinalScore: relevantTools.reduce((sum, tool) =>
+            //     sum + (tool.metadata.final_score || 0), 0) / relevantTools.length
+            // });
           } else {
             // Fallback to existing RAG search
             relevantTools = await getRelevantToolsWithRAG(
@@ -303,43 +360,46 @@ export class SmartRecommendationEngine {
                   SearchStrategy.ADAPTIVE,
                   SearchStrategy.HYBRID,
                   SearchStrategy.VECTOR,
-                  SearchStrategy.KEYWORD
-                ]
+                  SearchStrategy.KEYWORD,
+                ],
               }
             );
           }
 
-          if (relevantTools.length > 0 && relevantTools[0].metadata.search_strategy) {
+          if (
+            relevantTools.length > 0 &&
+            relevantTools[0].metadata.search_strategy
+          ) {
             strategyUsed = relevantTools[0].metadata.search_strategy;
-            
-            logger.info("RAG-enhanced search 성공", {
-              taskName,
-              strategyUsed,
-              foundToolsCount: relevantTools.length,
-              avgConfidence: relevantTools.reduce((sum, tool) => 
-                sum + (tool.metadata.confidence_score || 0), 0) / relevantTools.length
-            });
+
+            // logger.info("RAG-enhanced search 성공", {
+            //   taskName,
+            //   strategyUsed,
+            //   foundToolsCount: relevantTools.length,
+            //   avgConfidence: relevantTools.reduce((sum, tool) =>
+            //     sum + (tool.metadata.confidence_score || 0), 0) / relevantTools.length
+            // });
           }
         } catch (error) {
           logger.warn("RAG-enhanced search 실패, fallback 실행", {
             taskName,
-            error: error instanceof Error ? error.message : String(error)
+            error: error instanceof Error ? error.message : String(error),
           });
         }
       }
 
       // Fallback to legacy search if RAG failed or not available
       if (relevantTools.length === 0 && options.fallbackToLegacy !== false) {
-        logger.info("Falling back to legacy vector search", { taskName });
-        
+        // logger.info("Falling back to legacy vector search", { taskName });
+
         const legacyResults = await getRelevantTools(
           taskName,
           this.CANDIDATE_COUNT,
           userPreferences
         );
-        
+
         // Convert legacy Document[] to RagDocument[]
-        relevantTools = legacyResults.map(doc => {
+        relevantTools = legacyResults.map((doc) => {
           const ragDoc = doc as RagDocument;
           if (ragDoc.metadata) {
             ragDoc.metadata.search_strategy = SearchStrategy.VECTOR; // Assume vector strategy for legacy
@@ -347,23 +407,23 @@ export class SmartRecommendationEngine {
           }
           return ragDoc;
         });
-        
+
         strategyUsed = SearchStrategy.VECTOR;
       }
 
-      logger.info("벡터 검색 완료", {
-        taskName,
-        strategyUsed,
-        foundToolsCount: relevantTools.length,
-        searchTime: Date.now() - startTime
-      });
+      // logger.info("벡터 검색 완료", {
+      //   taskName,
+      //   strategyUsed,
+      //   foundToolsCount: relevantTools.length,
+      //   searchTime: Date.now() - startTime
+      // });
 
       if (relevantTools.length === 0) {
-        logger.warn("전체 검색 결과 없음", { taskName, strategyUsed });
-        return { 
-          candidates: [], 
-          searchDuration: Date.now() - startTime, 
-          strategy: strategyUsed 
+        // logger.warn("전체 검색 결과 없음", { taskName, strategyUsed });
+        return {
+          candidates: [],
+          searchDuration: Date.now() - startTime,
+          strategy: strategyUsed,
         };
       }
 
@@ -372,31 +432,34 @@ export class SmartRecommendationEngine {
         .map((doc) => doc.metadata.id)
         .filter(Boolean);
 
-      logger.debug("후보 도구 메타데이터 조회 시작", {
-        taskName,
-        candidateIds,
-        candidateCount: candidateIds.length
-      });
+      // logger.debug("후보 도구 메타데이터 조회 시작", {
+      //   taskName,
+      //   candidateIds,
+      //   candidateCount: candidateIds.length
+      // });
 
       const { data: toolsData } = await supabase
         .from("tools")
         .select("id, name, scores, url, logo_url")
         .in("id", candidateIds);
 
-      logger.debug("후보 도구 메타데이터 조회 완료", {
-        taskName,
-        retrievedDataCount: toolsData?.length || 0
-      });
+      // logger.debug("후보 도구 메타데이터 조회 완료", {
+      //   taskName,
+      //   retrievedDataCount: toolsData?.length || 0
+      // });
 
       const candidates: ToolCandidate[] = relevantTools.map((doc, index) => {
-        const toolData = toolsData?.find((tool: any) => tool.id === doc.metadata.id);
-        
+        const toolData = toolsData?.find(
+          (tool: any) => tool.id === doc.metadata.id
+        );
+
         // 유사도 점수 추출 (RAG score > hybrid_score > vector_similarity > fallback)
-        const similarity = doc.metadata.rag_score || 
-                          doc.metadata.hybrid_score || 
-                          doc.metadata.vector_similarity ||
-                          doc.metadata.score ||
-                          (1 - (index / this.CANDIDATE_COUNT)); // 순서 기반 유사도
+        const similarity =
+          doc.metadata.rag_score ||
+          doc.metadata.hybrid_score ||
+          doc.metadata.vector_similarity ||
+          doc.metadata.score ||
+          1 - index / this.CANDIDATE_COUNT; // 순서 기반 유사도
 
         const candidate = {
           id: doc.metadata.id,
@@ -404,50 +467,40 @@ export class SmartRecommendationEngine {
           similarity: Math.max(0, Math.min(1, similarity)),
           scores: toolData?.scores || {},
           url: toolData?.url,
-          logo_url: toolData?.logo_url
+          logo_url: toolData?.logo_url,
         };
 
-        logger.debug("후보 도구 정보", {
-          taskName,
-          toolId: candidate.id,
-          toolName: candidate.name,
-          similarity: candidate.similarity,
-          searchStrategy: doc.metadata.search_strategy,
-          confidenceScore: doc.metadata.confidence_score,
-          hasScores: Object.keys(candidate.scores).length > 0,
-          rank: index + 1
-        });
+        // console.log(`🔍 후보 #${index + 1}: ${candidate.name} - RAG:${(doc.metadata.rag_score || 0).toFixed(3)} 기존:${(doc.metadata.vector_similarity || 0).toFixed(3)}`);
 
         return candidate;
       });
 
-      logger.info("RAG-enhanced 도구 매칭 1단계 완료", {
-        taskName,
-        strategyUsed,
-        candidatesCount: candidates.length,
-        searchDuration: Date.now() - startTime,
-        topCandidates: candidates.slice(0, 3).map(c => ({
-          name: c.name,
-          similarity: c.similarity
-        }))
-      });
+      // logger.info("RAG-enhanced 도구 매칭 1단계 완료", {
+      //   taskName,
+      //   strategyUsed,
+      //   candidatesCount: candidates.length,
+      //   searchDuration: Date.now() - startTime,
+      //   topCandidates: candidates.slice(0, 3).map(c => ({
+      //     name: c.name,
+      //     similarity: c.similarity
+      //   }))
+      // });
 
-      return { 
-        candidates, 
+      return {
+        candidates,
         searchDuration: Date.now() - startTime,
-        strategy: strategyUsed
+        strategy: strategyUsed,
       };
-
     } catch (error) {
-      logger.error("RAG-enhanced 도구 매칭 1단계 실패", { 
-        taskName, 
+      logger.error("RAG-enhanced 도구 매칭 1단계 실패", {
+        taskName,
         error: error instanceof Error ? error.message : String(error),
-        searchDuration: Date.now() - startTime 
-      });
-      return { 
-        candidates: [], 
         searchDuration: Date.now() - startTime,
-        strategy: SearchStrategy.KEYWORD
+      });
+      return {
+        candidates: [],
+        searchDuration: Date.now() - startTime,
+        strategy: SearchStrategy.KEYWORD,
       };
     }
   }
@@ -458,15 +511,15 @@ export class SmartRecommendationEngine {
   async searchCandidates(
     taskName: string,
     userPreferences?: any
-  ): Promise<{ candidates: ToolCandidate[], searchDuration: number }> {
+  ): Promise<{ candidates: ToolCandidate[]; searchDuration: number }> {
     const startTime = Date.now();
-    
+
     try {
-      logger.info("도구 매칭 1단계: 벡터 검색 시작", {
-        taskName,
-        candidateCount: this.CANDIDATE_COUNT,
-        userPreferences: userPreferences ? Object.keys(userPreferences) : null
-      });
+      // logger.info("도구 매칭 1단계: 벡터 검색 시작", {
+      //   taskName,
+      //   candidateCount: this.CANDIDATE_COUNT,
+      //   userPreferences: userPreferences ? Object.keys(userPreferences) : null
+      // });
 
       // 벡터 검색으로 후보군 확보
       const relevantTools = await getRelevantTools(
@@ -475,14 +528,14 @@ export class SmartRecommendationEngine {
         userPreferences
       );
 
-      logger.info("벡터 검색 완료", {
-        taskName,
-        foundToolsCount: relevantTools.length,
-        searchTime: Date.now() - startTime
-      });
+      // logger.info("벡터 검색 완료", {
+      //   taskName,
+      //   foundToolsCount: relevantTools.length,
+      //   searchTime: Date.now() - startTime
+      // });
 
       if (relevantTools.length === 0) {
-        logger.warn("벡터 검색 결과 없음", { taskName });
+        // logger.warn("벡터 검색 결과 없음", { taskName });
         return { candidates: [], searchDuration: Date.now() - startTime };
       }
 
@@ -491,30 +544,33 @@ export class SmartRecommendationEngine {
         .map((doc) => doc.metadata.id)
         .filter(Boolean);
 
-      logger.debug("후보 도구 메타데이터 조회 시작", {
-        taskName,
-        candidateIds,
-        candidateCount: candidateIds.length
-      });
+      // logger.debug("후보 도구 메타데이터 조회 시작", {
+      //   taskName,
+      //   candidateIds,
+      //   candidateCount: candidateIds.length
+      // });
 
       const { data: toolsData } = await supabase
         .from("tools")
         .select("id, name, scores, url, logo_url")
         .in("id", candidateIds);
 
-      logger.debug("후보 도구 메타데이터 조회 완료", {
-        taskName,
-        retrievedDataCount: toolsData?.length || 0
-      });
+      // logger.debug("후보 도구 메타데이터 조회 완료", {
+      //   taskName,
+      //   retrievedDataCount: toolsData?.length || 0
+      // });
 
       const candidates: ToolCandidate[] = relevantTools.map((doc, index) => {
-        const toolData = toolsData?.find((tool: any) => tool.id === doc.metadata.id);
-        
+        const toolData = toolsData?.find(
+          (tool: any) => tool.id === doc.metadata.id
+        );
+
         // 유사도 점수 추출 (메타데이터에 있거나 순서 기반으로 계산)
-        const similarity = doc.metadata.hybrid_score || 
-                          doc.metadata.vector_similarity ||
-                          doc.metadata.score ||
-                          (1 - (index / this.CANDIDATE_COUNT)); // 순서 기반 유사도
+        const similarity =
+          doc.metadata.hybrid_score ||
+          doc.metadata.vector_similarity ||
+          doc.metadata.score ||
+          1 - index / this.CANDIDATE_COUNT; // 순서 기반 유사도
 
         const candidate = {
           id: doc.metadata.id,
@@ -522,41 +578,40 @@ export class SmartRecommendationEngine {
           similarity: Math.max(0, Math.min(1, similarity)),
           scores: toolData?.scores || {},
           url: toolData?.url,
-          logo_url: toolData?.logo_url
+          logo_url: toolData?.logo_url,
         };
 
-        logger.debug("후보 도구 정보", {
-          taskName,
-          toolId: candidate.id,
-          toolName: candidate.name,
-          similarity: candidate.similarity,
-          hasScores: Object.keys(candidate.scores).length > 0,
-          rank: index + 1
-        });
+        // logger.debug("후보 도구 정보", {
+        //   taskName,
+        //   toolId: candidate.id,
+        //   toolName: candidate.name,
+        //   similarity: candidate.similarity,
+        //   hasScores: Object.keys(candidate.scores).length > 0,
+        //   rank: index + 1
+        // });
 
         return candidate;
       });
 
-      logger.info("도구 매칭 1단계 완료", {
-        taskName,
-        candidatesCount: candidates.length,
+      // logger.info("도구 매칭 1단계 완료", {
+      //   taskName,
+      //   candidatesCount: candidates.length,
+      //   searchDuration: Date.now() - startTime,
+      //   topCandidates: candidates.slice(0, 3).map(c => ({
+      //     name: c.name,
+      //     similarity: c.similarity
+      //   }))
+      // });
+
+      return {
+        candidates,
         searchDuration: Date.now() - startTime,
-        topCandidates: candidates.slice(0, 3).map(c => ({
-          name: c.name,
-          similarity: c.similarity
-        }))
-      });
-
-      return { 
-        candidates, 
-        searchDuration: Date.now() - startTime 
       };
-
     } catch (error) {
-      logger.error("도구 매칭 1단계 실패", { 
-        taskName, 
+      logger.error("도구 매칭 1단계 실패", {
+        taskName,
         error: error instanceof Error ? error.message : String(error),
-        searchDuration: Date.now() - startTime 
+        searchDuration: Date.now() - startTime,
       });
       return { candidates: [], searchDuration: Date.now() - startTime };
     }
@@ -568,79 +623,68 @@ export class SmartRecommendationEngine {
   async rerankCandidates(
     candidates: ToolCandidate[],
     taskType: TaskType
-  ): Promise<{ rankedCandidates: (ToolCandidate & { finalScore: number, qualityScore: number })[], rerankingDuration: number }> {
+  ): Promise<{
+    rankedCandidates: (ToolCandidate & {
+      finalScore: number;
+      qualityScore: number;
+    })[];
+    rerankingDuration: number;
+  }> {
     const startTime = Date.now();
-    
+
     try {
-      logger.info("도구 매칭 2단계: 재랭킹 시작", {
-        candidatesCount: candidates.length,
-        taskType,
-        similarityWeight: this.SIMILARITY_WEIGHT,
-        qualityWeight: this.QUALITY_WEIGHT
-      });
+      // logger.info("도구 매칭 2단계: 재랭킹 시작", {
+      //   candidatesCount: candidates.length,
+      //   taskType,
+      //   similarityWeight: this.SIMILARITY_WEIGHT,
+      //   qualityWeight: this.QUALITY_WEIGHT
+      // });
 
       const rankedCandidates = candidates.map((candidate, index) => {
-        const qualityScore = this.extractQualityScore(candidate.scores, taskType);
-        const finalScore = (candidate.similarity * this.SIMILARITY_WEIGHT) + 
-                          (qualityScore * this.QUALITY_WEIGHT);
-        
+        const qualityScore = this.extractQualityScore(
+          candidate.scores,
+          taskType
+        );
+        const finalScore =
+          candidate.similarity * this.SIMILARITY_WEIGHT +
+          qualityScore * this.QUALITY_WEIGHT;
+
         const rankedCandidate = {
           ...candidate,
           qualityScore,
-          finalScore
+          finalScore,
         };
 
-        logger.debug("후보 도구 재랭킹 점수", {
-          toolName: candidate.name,
-          taskType,
-          similarity: candidate.similarity,
-          qualityScore,
-          finalScore,
-          scoringDetail: {
-            similarityContribution: candidate.similarity * this.SIMILARITY_WEIGHT,
-            qualityContribution: qualityScore * this.QUALITY_WEIGHT
-          },
-          originalRank: index + 1
-        });
+        // console.log(`📊 ${candidate.name}: 최종점수=${finalScore.toFixed(3)} (유사도=${candidate.similarity.toFixed(3)} + 품질=${qualityScore.toFixed(3)})`);
 
         return rankedCandidate;
       });
 
       // 최종 점수로 정렬
       rankedCandidates.sort((a, b) => b.finalScore - a.finalScore);
-      
-      logger.info("도구 매칭 2단계 완료", {
-        taskType,
-        candidatesCount: rankedCandidates.length,
-        rerankingDuration: Date.now() - startTime,
-        finalRankings: rankedCandidates.slice(0, 5).map((c, idx) => ({
-          rank: idx + 1,
-          name: c.name,
-          finalScore: c.finalScore,
-          similarity: c.similarity,
-          qualityScore: c.qualityScore
-        })),
-        bestTool: rankedCandidates[0] ? {
-          name: rankedCandidates[0].name,
-          finalScore: rankedCandidates[0].finalScore
-        } : null
-      });
-      
+
+      // console.log("🏆 최종 선택:", rankedCandidates[0] ?
+      //   `${rankedCandidates[0].name} (점수: ${rankedCandidates[0].finalScore.toFixed(3)})` :
+      //   "선택된 도구 없음");
+
       return {
         rankedCandidates,
-        rerankingDuration: Date.now() - startTime
+        rerankingDuration: Date.now() - startTime,
       };
-
     } catch (error) {
-      logger.error("도구 매칭 2단계 실패", { 
-        candidates: candidates.length, 
-        taskType, 
+      logger.error("도구 매칭 2단계 실패", {
+        candidates: candidates.length,
+        taskType,
         error: error instanceof Error ? error.message : String(error),
-        rerankingDuration: Date.now() - startTime 
+        rerankingDuration: Date.now() - startTime,
       });
-      return { 
-        rankedCandidates: candidates.map(c => ({ ...c, finalScore: 0, qualityScore: 0 })), 
-        rerankingDuration: Date.now() - startTime 
+      return {
+        rankedCandidates: candidates.map((c) => ({
+          ...c,
+          finalScore: 0,
+          qualityScore: 0,
+        })),
+        rerankingDuration: Date.now() - startTime,
       };
     }
   }
@@ -660,35 +704,32 @@ export class SmartRecommendationEngine {
   ): Promise<SmartRecommendationResult & { searchStrategy?: SearchStrategy }> {
     const taskId = crypto.randomUUID();
     const overallStartTime = Date.now();
-    
+
     try {
       // 서브태스크 유형 감지
       const taskType = this.detectTaskType(taskName);
-      
-      logger.info("RAG-enhanced 스마트 도구 추천 시작", {
-        taskId,
-        taskName,
-        taskType,
-        userPreferences: userPreferences ? Object.keys(userPreferences) : null,
-        options,
-        ...userContext
-      });
+
+      // logger.info("RAG-enhanced 스마트 도구 추천 시작", {
+      //   taskId,
+      //   taskName,
+      //   taskType,
+      //   userPreferences: userPreferences ? Object.keys(userPreferences) : null,
+      //   options,
+      //   ...userContext
+      // });
 
       // 1단계: RAG-enhanced 벡터 검색으로 후보군 선정
-      const { candidates, searchDuration, strategy } = await this.searchCandidatesWithRAG(
-        taskName, 
-        userPreferences,
-        options
-      );
+      const { candidates, searchDuration, strategy } =
+        await this.searchCandidatesWithRAG(taskName, userPreferences, options);
 
       if (candidates.length === 0) {
-        logger.warn("RAG-enhanced 도구 매칭 실패: 후보 도구 없음", {
-          taskId,
-          taskName,
-          taskType,
-          searchStrategy: strategy,
-          totalDuration: Date.now() - overallStartTime
-        });
+        // logger.warn("RAG-enhanced 도구 매칭 실패: 후보 도구 없음", {
+        //   taskId,
+        //   taskName,
+        //   taskType,
+        //   searchStrategy: strategy,
+        //   totalDuration: Date.now() - overallStartTime
+        // });
 
         return {
           taskId,
@@ -703,51 +744,54 @@ export class SmartRecommendationEngine {
           taskType,
           searchDuration,
           rerankingDuration: 0,
-          searchStrategy: strategy
+          searchStrategy: strategy,
         };
       }
 
       // 2단계: 재랭킹 및 최종 선정
-      const { rankedCandidates, rerankingDuration } = await this.rerankCandidates(
-        candidates,
-        taskType
-      );
+      const { rankedCandidates, rerankingDuration } =
+        await this.rerankCandidates(candidates, taskType);
 
       const bestTool = rankedCandidates[0];
-      
-      const reason = `Final Score: ${bestTool.finalScore.toFixed(3)} ` +
-                    `(Similarity: ${bestTool.similarity.toFixed(3)} × ${this.SIMILARITY_WEIGHT} + ` +
-                    `Quality: ${bestTool.qualityScore.toFixed(3)} × ${this.QUALITY_WEIGHT}) ` +
-                    `| Task Type: ${taskType} | Strategy: ${strategy}`;
+
+      const reason =
+        `Final Score: ${bestTool.finalScore.toFixed(3)} ` +
+        `(Similarity: ${bestTool.similarity.toFixed(3)} × ${
+          this.SIMILARITY_WEIGHT
+        } + ` +
+        `Quality: ${bestTool.qualityScore.toFixed(3)} × ${
+          this.QUALITY_WEIGHT
+        }) ` +
+        `| Task Type: ${taskType} | Strategy: ${strategy}`;
 
       const totalDuration = Date.now() - overallStartTime;
 
-      logger.info("RAG-enhanced 스마트 도구 추천 완료", {
-        taskId,
-        taskName,
-        taskType,
-        searchStrategy: strategy,
-        recommendedTool: {
-          id: bestTool.id,
-          name: bestTool.name,
-          finalScore: bestTool.finalScore,
-          similarity: bestTool.similarity,
-          qualityScore: bestTool.qualityScore
-        },
-        performance: {
-          totalDuration,
-          searchDuration,
-          rerankingDuration,
-          candidatesEvaluated: candidates.length
-        },
-        scoringBreakdown: {
-          similarityWeight: this.SIMILARITY_WEIGHT,
-          qualityWeight: this.QUALITY_WEIGHT,
-          similarityContribution: bestTool.similarity * this.SIMILARITY_WEIGHT,
-          qualityContribution: bestTool.qualityScore * this.QUALITY_WEIGHT
-        },
-        ...userContext
-      });
+      // logger.info("RAG-enhanced 스마트 도구 추천 완료", {
+      //   taskId,
+      //   taskName,
+      //   taskType,
+      //   searchStrategy: strategy,
+      //   recommendedTool: {
+      //     id: bestTool.id,
+      //     name: bestTool.name,
+      //     finalScore: bestTool.finalScore,
+      //     similarity: bestTool.similarity,
+      //     qualityScore: bestTool.qualityScore
+      //   },
+      //   performance: {
+      //     totalDuration,
+      //     searchDuration,
+      //     rerankingDuration,
+      //     candidatesEvaluated: candidates.length
+      //   },
+      //   scoringBreakdown: {
+      //     similarityWeight: this.SIMILARITY_WEIGHT,
+      //     qualityWeight: this.QUALITY_WEIGHT,
+      //     similarityContribution: bestTool.similarity * this.SIMILARITY_WEIGHT,
+      //     qualityContribution: bestTool.qualityScore * this.QUALITY_WEIGHT
+      //   },
+      //   ...userContext
+      // });
 
       return {
         taskId,
@@ -762,20 +806,20 @@ export class SmartRecommendationEngine {
         taskType,
         searchDuration,
         rerankingDuration,
-        searchStrategy: strategy
+        searchStrategy: strategy,
       };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       const totalDuration = Date.now() - overallStartTime;
-      
-      logger.error("RAG-enhanced 스마트 도구 추천 실패", {
-        taskId,
-        taskName,
-        error: errorMessage,
-        totalDuration,
-        ...userContext
-      });
+
+      // logger.error("RAG-enhanced 스마트 도구 추천 실패", {
+      //   taskId,
+      //   taskName,
+      //   error: errorMessage,
+      //   totalDuration,
+      //   ...userContext
+      // });
 
       return {
         taskId,
@@ -790,7 +834,7 @@ export class SmartRecommendationEngine {
         taskType: TaskType.GENERAL,
         searchDuration: totalDuration,
         rerankingDuration: 0,
-        searchStrategy: SearchStrategy.KEYWORD
+        searchStrategy: SearchStrategy.KEYWORD,
       };
     }
   }
@@ -805,32 +849,32 @@ export class SmartRecommendationEngine {
   ): Promise<SmartRecommendationResult> {
     const taskId = crypto.randomUUID();
     const overallStartTime = Date.now();
-    
+
     try {
       // 서브태스크 유형 감지
       const taskType = this.detectTaskType(taskName);
-      
-      logger.info("스마트 도구 추천 시작", {
-        taskId,
-        taskName,
-        taskType,
-        userPreferences: userPreferences ? Object.keys(userPreferences) : null,
-        ...userContext
-      });
+
+      // logger.info("스마트 도구 추천 시작", {
+      //   taskId,
+      //   taskName,
+      //   taskType,
+      //   userPreferences: userPreferences ? Object.keys(userPreferences) : null,
+      //   ...userContext
+      // });
 
       // 1단계: 벡터 검색으로 후보군 선정
       const { candidates, searchDuration } = await this.searchCandidates(
-        taskName, 
+        taskName,
         userPreferences
       );
 
       if (candidates.length === 0) {
-        logger.warn("도구 매칭 실패: 후보 도구 없음", {
-          taskId,
-          taskName,
-          taskType,
-          totalDuration: Date.now() - overallStartTime
-        });
+        // logger.warn("도구 매칭 실패: 후보 도구 없음", {
+        //   taskId,
+        //   taskName,
+        //   taskType,
+        //   totalDuration: Date.now() - overallStartTime
+        // });
 
         return {
           taskId,
@@ -844,50 +888,53 @@ export class SmartRecommendationEngine {
           qualityScore: 0,
           taskType,
           searchDuration,
-          rerankingDuration: 0
+          rerankingDuration: 0,
         };
       }
 
       // 2단계: 재랭킹 및 최종 선정
-      const { rankedCandidates, rerankingDuration } = await this.rerankCandidates(
-        candidates,
-        taskType
-      );
+      const { rankedCandidates, rerankingDuration } =
+        await this.rerankCandidates(candidates, taskType);
 
       const bestTool = rankedCandidates[0];
-      
-      const reason = `Final Score: ${bestTool.finalScore.toFixed(3)} ` +
-                    `(Similarity: ${bestTool.similarity.toFixed(3)} × ${this.SIMILARITY_WEIGHT} + ` +
-                    `Quality: ${bestTool.qualityScore.toFixed(3)} × ${this.QUALITY_WEIGHT}) ` +
-                    `| Task Type: ${taskType}`;
+
+      const reason =
+        `Final Score: ${bestTool.finalScore.toFixed(3)} ` +
+        `(Similarity: ${bestTool.similarity.toFixed(3)} × ${
+          this.SIMILARITY_WEIGHT
+        } + ` +
+        `Quality: ${bestTool.qualityScore.toFixed(3)} × ${
+          this.QUALITY_WEIGHT
+        }) ` +
+        `| Task Type: ${taskType}`;
 
       const totalDuration = Date.now() - overallStartTime;
 
-      logger.info("스마트 도구 추천 완료", {
-        taskId,
-        taskName,
-        taskType,
-        recommendedTool: {
-          id: bestTool.id,
-          name: bestTool.name,
-          finalScore: bestTool.finalScore,
-          similarity: bestTool.similarity,
-          qualityScore: bestTool.qualityScore
-        },
-        performance: {
-          totalDuration,
-          searchDuration,
-          rerankingDuration,
-          candidatesEvaluated: candidates.length
-        },
-        scoringBreakdown: {
-          similarityWeight: this.SIMILARITY_WEIGHT,
-          qualityWeight: this.QUALITY_WEIGHT,
-          similarityContribution: bestTool.similarity * this.SIMILARITY_WEIGHT,
-          qualityContribution: bestTool.qualityScore * this.QUALITY_WEIGHT
-        },
-        ...userContext
-      });
+      // logger.info("스마트 도구 추천 완료", {
+      //   taskId,
+      //   taskName,
+      //   taskType,
+      //   recommendedTool: {
+      //     id: bestTool.id,
+      //     name: bestTool.name,
+      //     finalScore: bestTool.finalScore,
+      //     similarity: bestTool.similarity,
+      //     qualityScore: bestTool.qualityScore
+      //   },
+      //   performance: {
+      //     totalDuration,
+      //     searchDuration,
+      //     rerankingDuration,
+      //     candidatesEvaluated: candidates.length
+      //   },
+      //   scoringBreakdown: {
+      //     similarityWeight: this.SIMILARITY_WEIGHT,
+      //     qualityWeight: this.QUALITY_WEIGHT,
+      //     similarityContribution: bestTool.similarity * this.SIMILARITY_WEIGHT,
+      //     qualityContribution: bestTool.qualityScore * this.QUALITY_WEIGHT
+      //   },
+      //   ...userContext
+      // });
 
       return {
         taskId,
@@ -901,20 +948,20 @@ export class SmartRecommendationEngine {
         qualityScore: bestTool.qualityScore,
         taskType,
         searchDuration,
-        rerankingDuration
+        rerankingDuration,
       };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       const totalDuration = Date.now() - overallStartTime;
-      
-      logger.error("스마트 도구 추천 실패", {
-        taskId,
-        taskName,
-        error: errorMessage,
-        totalDuration,
-        ...userContext
-      });
+
+      // logger.error("스마트 도구 추천 실패", {
+      //   taskId,
+      //   taskName,
+      //   error: errorMessage,
+      //   totalDuration,
+      //   ...userContext
+      // });
 
       return {
         taskId,
@@ -928,7 +975,7 @@ export class SmartRecommendationEngine {
         qualityScore: 0,
         taskType: TaskType.GENERAL,
         searchDuration: totalDuration,
-        rerankingDuration: 0
+        rerankingDuration: 0,
       };
     }
   }
@@ -946,7 +993,9 @@ export class SmartRecommendationEngine {
       enableAdaptive?: boolean;
       fallbackToLegacy?: boolean;
     } = {}
-  ): Promise<(SmartRecommendationResult & { searchStrategy?: SearchStrategy })[]> {
+  ): Promise<
+    (SmartRecommendationResult & { searchStrategy?: SearchStrategy })[]
+  > {
     const taskPromises = tasks.map(async (task) => {
       const result = await this.getSmartRecommendationWithRAG(
         task.name,
@@ -954,33 +1003,33 @@ export class SmartRecommendationEngine {
         userContext,
         options
       );
-      
+
       // 기존 TaskRecommendation 형식과 호환되도록 taskId 변경
       return {
         ...result,
-        taskId: task.id
+        taskId: task.id,
       };
     });
 
     const results = await Promise.all(taskPromises);
-    
-    const successfulRecommendations = results.filter(r => r.toolId !== null);
-    const ragStrategies = results.map(r => r.searchStrategy).filter(Boolean);
+
+    const successfulRecommendations = results.filter((r) => r.toolId !== null);
+    const ragStrategies = results.map((r) => r.searchStrategy).filter(Boolean);
     const strategyStats = ragStrategies.reduce((acc, strategy) => {
       acc[strategy!] = (acc[strategy!] || 0) + 1;
       return acc;
     }, {} as Record<SearchStrategy, number>);
-    
-    logger.info("RAG-enhanced batch recommendation completed", {
-      workflowId,
-      totalTasks: tasks.length,
-      successfulRecommendations: successfulRecommendations.length,
-      strategyUsage: strategyStats,
-      avgFinalScore: successfulRecommendations.length > 0 
-        ? successfulRecommendations.reduce((sum, r) => sum + r.finalScore, 0) / successfulRecommendations.length
-        : 0,
-      ...userContext
-    });
+
+    // logger.info("RAG-enhanced batch recommendation completed", {
+    //   workflowId,
+    //   totalTasks: tasks.length,
+    //   successfulRecommendations: successfulRecommendations.length,
+    //   strategyUsage: strategyStats,
+    //   avgFinalScore: successfulRecommendations.length > 0
+    //     ? successfulRecommendations.reduce((sum, r) => sum + r.finalScore, 0) / successfulRecommendations.length
+    //     : 0,
+    //   ...userContext
+    // });
 
     return results;
   }
@@ -1000,22 +1049,22 @@ export class SmartRecommendationEngine {
         userPreferences,
         userContext
       );
-      
+
       // 기존 TaskRecommendation 형식과 호환되도록 taskId 변경
       return {
         ...result,
-        taskId: task.id
+        taskId: task.id,
       };
     });
 
     const results = await Promise.all(taskPromises);
-    
-    logger.info("Smart batch recommendation completed", {
-      workflowId,
-      totalTasks: tasks.length,
-      successfulRecommendations: results.filter(r => r.toolId !== null).length,
-      ...userContext
-    });
+
+    // logger.info("Smart batch recommendation completed", {
+    //   workflowId,
+    //   totalTasks: tasks.length,
+    //   successfulRecommendations: results.filter(r => r.toolId !== null).length,
+    //   ...userContext
+    // });
 
     return results;
   }

@@ -59,26 +59,28 @@ export class GuideGenerationService {
     const startTime = Date.now();
     const { toolName, taskContext, language = "en", userContext } = options;
 
-    logger.info("Starting tool guide generation", {
-      toolName,
-      taskContext,
-      language,
-      ...userContext,
-    });
+    // logger.info("Starting tool guide generation", {
+    //   toolName,
+    //   taskContext,
+    //   language,
+    //   ...userContext,
+    // });
 
     try {
       // Step 1: Search for relevant web content
+      // console.log(`🕷️ 웹 크롤링 시작: ${toolName}`);
+
       const searchResult = await webSearchService.searchToolGuides(
         toolName,
         taskContext,
         language
       );
 
-      logger.info("Web search completed for guide generation", {
-        toolName,
-        resultCount: searchResult.results.length,
-        searchTime: searchResult.searchTime,
-      });
+      // logger.info("Web search completed for guide generation", {
+      //   toolName,
+      //   resultCount: searchResult.results.length,
+      //   searchTime: searchResult.searchTime,
+      // });
 
       // Step 2: Extract content from top search results
       const extractedContent = await this.extractContentFromResults(
@@ -115,14 +117,14 @@ export class GuideGenerationService {
 
       const generationTime = Date.now() - startTime;
 
-      logger.info("Tool guide generation completed", {
-        toolName,
-        taskContext,
-        sectionsCount: guide.sections.length,
-        confidenceScore: guide.confidenceScore,
-        generationTime,
-        ...userContext,
-      });
+      // logger.info("Tool guide generation completed", {
+      //   toolName,
+      //   taskContext,
+      //   sectionsCount: guide.sections.length,
+      //   confidenceScore: guide.confidenceScore,
+      //   generationTime,
+      //   ...userContext,
+      // });
 
       return guide;
     } catch (error) {

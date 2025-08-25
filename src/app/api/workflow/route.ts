@@ -49,7 +49,6 @@ export async function POST(request: NextRequest) {
   };
   const workflowId = crypto.randomUUID();
 
-
   try {
     // Parse and validate request body
     const body: WorkflowRequest = await request.json();
@@ -57,7 +56,6 @@ export async function POST(request: NextRequest) {
 
     // Update userContext with validated language
     userContext.language = validatedData.language;
-
 
     // Check cache for similar workflow requests
     const cacheKey = CacheUtils.generateKey({
@@ -77,7 +75,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-
     // Stateless: no DB workflow record created
 
     // Step 1: Decompose goal into tasks using LangChain
@@ -93,7 +90,6 @@ export async function POST(request: NextRequest) {
       );
       throw error;
     }
-
 
     // Build tasks in-memory without tool matching
     const tasks = taskResult.tasks.map((taskName: string, index: number) => ({
@@ -124,7 +120,6 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime;
 
     if (error instanceof z.ZodError) {
-
       return NextResponse.json(
         {
           error: "Input data is invalid.",
@@ -133,7 +128,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
 
     // Return user-friendly error message
     const userMessage =
