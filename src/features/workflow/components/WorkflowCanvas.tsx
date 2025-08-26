@@ -518,42 +518,7 @@ export function WorkflowCanvas() {
                     </div>
                   </motion.div>
 
-                  {/* Enhanced Connection with Flow Animation */}
-                  <motion.div
-                    className={`${
-                      layoutMode === "vertical"
-                        ? "flex items-center justify-center py-6"
-                        : "hidden lg:flex items-center justify-center py-6"
-                    }`}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
-                  >
-                    <div className="relative flex items-center justify-center">
-                      {/* Single clean arrow */}
-                      <motion.div
-                        animate={{
-                          y: layoutMode === "vertical" ? [0, -4, 0] : 0,
-                          x: layoutMode === "vertical" ? 0 : [0, 4, 0],
-                          scale: [1, 1.1, 1],
-                        }}
-                        transition={{
-                          duration: 2,
-                          repeat: Infinity,
-                          repeatType: "reverse",
-                        }}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.5 }}
-                      >
-                        <ArrowDown
-                          className={`w-8 h-8 text-indigo-400 transition-transform duration-300 drop-shadow-lg ${
-                            layoutMode === "vertical" ? "" : "-rotate-90"
-                          }`}
-                        />
-                      </motion.div>
-                    </div>
-                  </motion.div>
+                  {/* Connection Arrow - Removed as requested */}
 
                   {/* Subtasks Container - Compact Loading state */}
                   <motion.div
@@ -757,34 +722,7 @@ export function WorkflowCanvas() {
                     </div>
                   </motion.div>
 
-                  {/* Connection Arrow - Always show when workflow exists */}
-                  {workflowResult && (
-                    <motion.div
-                      className="flex items-center justify-center py-6"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.5, delay: 0.3 }}
-                    >
-                      <div className="relative flex items-center justify-center">
-                        {/* Single clean arrow */}
-                        <motion.div
-                          animate={{
-                            y: [0, -4, 0],
-                            scale: [1, 1.1, 1],
-                          }}
-                          transition={{
-                            duration: 2,
-                            repeat: Infinity,
-                            repeatType: "reverse",
-                          }}
-                        >
-                          <ArrowDown className={`w-8 h-8 text-indigo-400 transition-transform duration-300 drop-shadow-lg ${
-                            layoutMode === "vertical" ? "" : "-rotate-90"
-                          }`} />
-                        </motion.div>
-                      </div>
-                    </motion.div>
-                  )}
+                  {/* Connection Arrow - Removed as requested */}
 
                   {/* Subtasks and Guide View Container - Vertical Layout Only */}
                   {layoutMode === "vertical" ? (
@@ -1106,70 +1044,11 @@ export function WorkflowCanvas() {
                                     </div>
                                   </div>
 
-                                  {/* Enhanced Connection Lines between subtasks */}
+                                  {/* Connection between subtasks - Arrow only without animation */}
                                   {index < workflowResult.tasks.length - 1 && (
-                                    <motion.div
-                                      className="flex items-center justify-center py-6 relative"
-                                      initial={{ opacity: 0, scale: 0 }}
-                                      animate={{ opacity: 1, scale: 1 }}
-                                      transition={{
-                                        duration: 0.4,
-                                        delay: 0.4 + index * 0.2,
-                                        type: "spring",
-                                        stiffness: 200,
-                                      }}
-                                    >
-                                      {/* Connection line */}
-                                      <motion.div
-                                        className="absolute w-0.5 h-8 bg-gradient-to-b from-indigo-300 to-purple-400 rounded-full"
-                                        initial={{ scaleY: 0 }}
-                                        animate={{ scaleY: 1 }}
-                                        transition={{
-                                          duration: 0.6,
-                                          delay: 0.6 + index * 0.2
-                                        }}
-                                      />
-                                      
-                                      {/* Flowing particles on connection */}
-                                      <motion.div
-                                        className="absolute"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 1 + index * 0.2 }}
-                                      >
-                                        {[...Array(2)].map((_, i) => (
-                                          <motion.div
-                                            key={i}
-                                            className="absolute w-1 h-1 bg-indigo-400 rounded-full"
-                                            animate={{
-                                              y: [0, 32, 0],
-                                              opacity: [0, 1, 0],
-                                            }}
-                                            transition={{
-                                              duration: 2,
-                                              repeat: Infinity,
-                                              delay: i * 0.8,
-                                              ease: "easeInOut",
-                                            }}
-                                          />
-                                        ))}
-                                      </motion.div>
-                                      
-                                      <motion.div
-                                        animate={{
-                                          y: [0, -4, 0],
-                                          scale: [1, 1.1, 1],
-                                        }}
-                                        transition={{
-                                          duration: 2,
-                                          repeat: Infinity,
-                                          repeatType: "reverse",
-                                          delay: index * 0.5,
-                                        }}
-                                      >
-                                        <ArrowDown className="w-8 h-8 text-indigo-400 drop-shadow-lg" />
-                                      </motion.div>
-                                    </motion.div>
+                                    <div className="flex items-center justify-center py-6">
+                                      <ArrowDown className="w-8 h-8 text-indigo-400 drop-shadow-lg" />
+                                    </div>
                                   )}
                                 </motion.div>
                               ))}
