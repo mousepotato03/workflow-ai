@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
+import { getEnvVar } from "@/lib/config/env-validation";
 import { extractUserContext } from "@/lib/logger/structured-logger";
 import {
   processTasksInParallel,
@@ -11,6 +13,12 @@ import {
   workflowRateLimiter,
   createRateLimitResponse,
 } from "@/lib/middleware/rate-limiter";
+
+// Initialize Supabase client
+const supabase = createClient(
+  getEnvVar("NEXT_PUBLIC_SUPABASE_URL"),
+  getEnvVar("SUPABASE_SERVICE_ROLE_KEY")
+);
 
 // Request validation schema
 const rematchRequestSchema = z.object({
@@ -81,15 +89,27 @@ export async function POST(request: NextRequest) {
 
     const recommendation = taskRecommendations[0];
 
+    // Get tool details from database
+    let toolDetails = null;
+    if (recommendation.toolId) {
+      const { data: tool } = await supabase
+        .from('tools')
+        .select('id, name, logo_url, url')
+        .eq('id', recommendation.toolId)
+        .single();
+      
+      toolDetails = tool;
+    }
+
     // Format response
     const result = {
       taskId: recommendation.taskId,
       recommendedTool: recommendation.toolId
         ? {
             id: recommendation.toolId,
-            name: recommendation.toolName,
-            logoUrl: "",
-            url: "",
+            name: toolDetails?.name || recommendation.toolName || '',
+            logoUrl: toolDetails?.logo_url || "",
+            url: toolDetails?.url || "",
           }
         : null,
       recommendationReason: recommendation.reason,

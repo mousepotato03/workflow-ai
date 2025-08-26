@@ -38,7 +38,10 @@ export function TaskCard({
 }: TaskCardProps) {
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
-  const handleToolClick = () => {
+  const handleToolClick = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
     if (task.recommendedTool?.url) {
       window.open(task.recommendedTool.url, "_blank", "noopener,noreferrer");
     }
@@ -324,7 +327,7 @@ export function TaskCard({
                     whileTap={{ scale: 0.95 }}
                   >
                     <Button
-                      onClick={handleToolClick}
+                      onClick={(e) => handleToolClick(e)}
                       size="lg"
                       className="bg-primary hover:bg-primary/90 text-primary-foreground px-6"
                     >

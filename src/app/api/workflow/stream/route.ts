@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
 import { createTaskDecomposerChain } from "@/lib/langchain/chains";
 import { WorkflowRequest } from "@/types/workflow";
 import { extractUserContext } from "@/lib/logger/structured-logger";
@@ -21,6 +22,12 @@ import {
   workflowRateLimiter,
   createRateLimitResponse,
 } from "@/lib/middleware/rate-limiter";
+
+// Initialize Supabase client
+const supabase = createClient(
+  getEnvVar("NEXT_PUBLIC_SUPABASE_URL"),
+  getEnvVar("SUPABASE_SERVICE_ROLE_KEY")
+);
 
 // Request validation schema
 const workflowRequestSchema = z.object({
@@ -185,6 +192,23 @@ async function processWorkflow(
 
     // Stateless: no DB workflow status update
 
+    // Get tool details from database for each result
+    const toolDetailsMap = new Map();
+    const uniqueToolIds = [...new Set(taskResults.map(r => r.toolId).filter(Boolean))];
+    
+    if (uniqueToolIds.length > 0) {
+      const { data: tools } = await supabase
+        .from('tools')
+        .select('id, name, logo_url, url')
+        .in('id', uniqueToolIds);
+      
+      if (tools) {
+        tools.forEach(tool => {
+          toolDetailsMap.set(tool.id, tool);
+        });
+      }
+    }
+
     // Format final response
     const recommendations = taskResults.map((result) => ({
       id: result.taskId,
@@ -193,9 +217,9 @@ async function processWorkflow(
       recommendedTool: result.toolId
         ? {
             id: result.toolId,
-            name: result.toolName,
-            logoUrl: "",
-            url: "",
+            name: toolDetailsMap.get(result.toolId)?.name || result.toolName,
+            logoUrl: toolDetailsMap.get(result.toolId)?.logo_url || "",
+            url: toolDetailsMap.get(result.toolId)?.url || "",
           }
         : null,
       recommendationReason: result.reason,
