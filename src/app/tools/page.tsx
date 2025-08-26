@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Search,
   Star,
@@ -200,6 +201,8 @@ function UnifiedModal({
         setUserRating(rating);
         onReviewSubmitted();
         fetchReviews(); // Refresh to update overall rating
+      } else if (response.status === 401) {
+        alert("Please log in to submit a rating.");
       } else {
         const error = await response.json();
         alert(error.error || "An error occurred while submitting the rating.");
@@ -232,6 +235,8 @@ function UnifiedModal({
       if (response.ok) {
         setComment("");
         fetchReviews(); // Refresh reviews to show new comment
+      } else if (response.status === 401) {
+        alert("Please log in to submit a comment.");
       } else {
         const error = await response.json();
         alert(error.error || "An error occurred while submitting the comment.");
@@ -654,6 +659,7 @@ function SkeletonGrid({ count = 12 }: { count?: number }) {
 }
 
 export default function ToolsPage() {
+  const { user, signInWithGoogle } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSort, setSelectedSort] = useState("Popular");
   const [selectedPricing, setSelectedPricing] = useState("All");
@@ -789,6 +795,17 @@ export default function ToolsPage() {
   const toggleBookmark = async (toolId: string, event?: React.MouseEvent) => {
     if (event) {
       event.stopPropagation(); // Prevent card click event
+    }
+
+    // 로그인 확인
+    if (!user) {
+      try {
+        await signInWithGoogle();
+        return;
+      } catch (error) {
+        console.error("Login failed:", error);
+        return;
+      }
     }
 
     try {

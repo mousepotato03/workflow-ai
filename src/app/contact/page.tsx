@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Navigation } from "@/components/Navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import { Mail, Phone, MapPin, Clock, Send, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,7 @@ const departments = [
 
 export default function ContactPage() {
   const { toast } = useToast();
+  const { user, signInWithGoogle } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -71,26 +73,54 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 로그인 상태 확인
+    if (!user) {
+      try {
+        // 폼 데이터를 sessionStorage에 저장
+        sessionStorage.setItem('pendingContactData', JSON.stringify(formData));
+        await signInWithGoogle();
+        return;
+      } catch (error) {
+        toast({
+          title: "Login Failed",
+          description: "Google login failed. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
-    // Simulate form submission
+    // Submit to API
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      toast({
-        title: "Message Sent Successfully!",
-        description: "We'll get back to you within 24 hours.",
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
       });
 
-      // Reset form
-      setFormData({
-        name: "",
-        email: "",
-        company: "",
-        department: "general",
-        subject: "",
-        message: "",
-      });
+      if (response.ok) {
+        toast({
+          title: "Message Sent Successfully!",
+          description: "We'll get back to you within 24 hours.",
+        });
+
+        // Reset form
+        setFormData({
+          name: "",
+          email: "",
+          company: "",
+          department: "general",
+          subject: "",
+          message: "",
+        });
+      } else {
+        throw new Error("Failed to send message");
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -101,6 +131,31 @@ export default function ContactPage() {
       setIsSubmitting(false);
     }
   };
+
+  // 로그인 후 저장된 데이터 복원
+  React.useEffect(() => {
+    if (user) {
+      const pendingData = sessionStorage.getItem('pendingContactData');
+      if (pendingData) {
+        try {
+          const data = JSON.parse(pendingData);
+          setFormData(data);
+          sessionStorage.removeItem('pendingContactData');
+          
+          // 자동으로 폼 제출 실행
+          setTimeout(() => {
+            const form = document.querySelector('form');
+            if (form) {
+              form.requestSubmit();
+            }
+          }, 100);
+        } catch (error) {
+          console.error('Error restoring pending contact data:', error);
+          sessionStorage.removeItem('pendingContactData');
+        }
+      }
+    }
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
