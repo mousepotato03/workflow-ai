@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Sparkles, DollarSign } from "lucide-react";
 import { WorkflowRequest, WorkflowResponse } from "@/types/workflow";
 import { useWorkflowStore } from "../hooks/useWorkflowStore";
+import { useAuth } from "@/contexts/AuthContext";
 
 const formSchema = z.object({
   goal: z
@@ -51,6 +52,7 @@ interface WorkflowInputFormProps {
 
 export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
   const { toast } = useToast();
+  const { user, signInWithGoogle } = useAuth();
   const { setWorkflowResult, setIsLoading, setUserGoal, resetVersion } =
     useWorkflowStore();
 
@@ -79,6 +81,31 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
     setUserGoal(null);
   }, [resetVersion]);
 
+  // 로그인 후 저장된 데이터 복원
+  useEffect(() => {
+    if (user) {
+      const pendingData = sessionStorage.getItem('pendingWorkflowData');
+      if (pendingData) {
+        try {
+          const data = JSON.parse(pendingData);
+          reset(data);
+          sessionStorage.removeItem('pendingWorkflowData');
+          
+          // 자동으로 워크플로우 생성 실행
+          setTimeout(() => {
+            const form = document.querySelector('form');
+            if (form) {
+              form.requestSubmit();
+            }
+          }, 100);
+        } catch (error) {
+          console.error('Error restoring pending data:', error);
+          sessionStorage.removeItem('pendingWorkflowData');
+        }
+      }
+    }
+  }, [user, reset]);
+
   const mutation = useMutation({
     mutationFn: createWorkflowMutation,
     onMutate: () => {
@@ -103,7 +130,27 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
     },
   });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
+    // 로그인 상태 확인
+    if (!user) {
+      try {
+        // 사용자 입력값을 sessionStorage에 저장
+        sessionStorage.setItem('pendingWorkflowData', JSON.stringify({
+          goal: data.goal,
+          freeToolsOnly: data.freeToolsOnly
+        }));
+        await signInWithGoogle();
+        return;
+      } catch (error) {
+        toast({
+          title: "Login Failed",
+          description: "Google login failed. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     // 버튼 클릭 시 콜백 호출
     onButtonClick?.();
 
