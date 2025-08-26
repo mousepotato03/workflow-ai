@@ -125,11 +125,6 @@ export function WorkflowCanvas() {
 
     // Start guide generation immediately
     await generateGuides();
-
-    // Scroll to guide section after everything is settled
-    setTimeout(() => {
-      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
-    }, 100);
   };
 
   const getWorkflowStatus = () => {
@@ -490,7 +485,14 @@ export function WorkflowCanvas() {
                       layoutMode === "vertical" ? "max-w-none" : "max-w-sm"
                     }`}
                     layout
-                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    initial={{ width: "auto" }}
+                    animate={{ 
+                      width: layoutMode === "vertical" ? "100%" : "auto"
+                    }}
+                    transition={{ 
+                      duration: 0.5, 
+                      ease: "easeInOut" 
+                    }}
                   >
                     <div className="flex items-center space-x-3 mb-3">
                       <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
@@ -691,6 +693,14 @@ export function WorkflowCanvas() {
                     className={`bg-gradient-to-br from-primary to-primary/80 rounded-2xl p-4 sm:p-6 shadow-2xl border border-primary/20 w-full ${
                       layoutMode === "vertical" ? "max-w-none" : "max-w-sm"
                     }`}
+                    initial={{ width: "auto" }}
+                    animate={{ 
+                      width: layoutMode === "vertical" ? "100%" : "auto"
+                    }}
+                    transition={{ 
+                      duration: 0.5, 
+                      ease: "easeInOut" 
+                    }}
                     whileHover={{
                       scale: 1.02,
                       transition: { duration: 0.2 },
