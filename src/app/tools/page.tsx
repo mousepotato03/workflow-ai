@@ -1107,14 +1107,14 @@ export default function ToolsPage() {
 
                           {/* Categories Section - Auto height to avoid overlap with description */}
                           <div className="flex items-start flex-shrink-0">
-                            <div className="flex flex-wrap gap-1.5">
+                            <div className="flex flex-col gap-1.5 w-full items-start">
                               {tool.categories
                                 .slice(0, 4)
                                 .map((category, index) => (
                                   <Badge
                                     key={index}
                                     variant="outline"
-                                    className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30 transition-colors text-xs px-2.5 py-1 font-medium"
+                                    className="w-fit bg-gradient-to-r from-blue-500/20 to-purple-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30 transition-colors text-xs px-2 py-0.5 leading-tight font-medium"
                                   >
                                     {category}
                                   </Badge>
@@ -1122,7 +1122,7 @@ export default function ToolsPage() {
                               {tool.categories.length > 4 && (
                                 <Badge
                                   variant="outline"
-                                  className="bg-slate-700/50 border-slate-500 text-slate-400 text-xs px-2.5 py-1"
+                                  className="w-fit bg-slate-700/50 border-slate-500 text-slate-400 text-xs px-2 py-0.5 leading-tight"
                                 >
                                   +{tool.categories.length - 4}
                                 </Badge>
