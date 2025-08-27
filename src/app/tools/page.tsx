@@ -642,8 +642,7 @@ function ToolCardSkeleton() {
 function ResultsHeaderSkeleton() {
   return (
     <div className="mb-8 animate-pulse">
-      <div className="h-8 bg-slate-700 rounded w-64 mb-2"></div>
-      <div className="h-5 bg-slate-700 rounded w-48"></div>
+      <div className="h-8 bg-slate-700 rounded w-64"></div>
     </div>
   );
 }
@@ -870,22 +869,51 @@ export default function ToolsPage() {
             <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
               Search Tools
             </h3>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-slate-400 hover:text-blue-400 hover:bg-slate-800 transition-all duration-200"
-                    onClick={handleResetFilters}
-                    aria-label="Reset filters"
-                  >
-                    <RotateCcw className="w-5 h-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Reset filters</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex items-center space-x-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`text-slate-400 hover:text-yellow-400 hover:bg-slate-800 transition-all duration-200 ${
+                        showBookmarkedOnly ? "text-yellow-400 bg-slate-800" : ""
+                      }`}
+                      onClick={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
+                      aria-label="Toggle bookmarked tools"
+                    >
+                      <Bookmark
+                        className={`w-5 h-5 ${
+                          showBookmarkedOnly ? "fill-current" : ""
+                        }`}
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {showBookmarkedOnly
+                      ? "Show all tools"
+                      : "Show bookmarked only"}
+                    {bookmarks.size > 0 && ` (${bookmarks.size})`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-slate-400 hover:text-blue-400 hover:bg-slate-800 transition-all duration-200"
+                      onClick={handleResetFilters}
+                      aria-label="Reset filters"
+                    >
+                      <RotateCcw className="w-5 h-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Reset filters</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
           <div className="relative group">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4 group-focus-within:text-blue-400 transition-colors" />
@@ -942,40 +970,6 @@ export default function ToolsPage() {
               </Button>
             ))}
           </div>
-        </div>
-
-        {/* Bookmarks Toggle */}
-        <div>
-          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
-            Bookmarks
-          </h3>
-          <Button
-            onClick={() => {
-              if (bookmarks.size === 0) {
-                return;
-              }
-              setShowBookmarkedOnly(!showBookmarkedOnly);
-            }}
-            variant={showBookmarkedOnly ? "default" : "secondary"}
-            className={`w-full justify-start transition-all duration-200 ${
-              showBookmarkedOnly
-                ? "bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white shadow-lg"
-                : "bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
-            }`}
-            disabled={bookmarks.size === 0}
-          >
-            <Bookmark
-              className={`w-4 h-4 mr-2 ${
-                showBookmarkedOnly ? "fill-current" : ""
-              }`}
-            />
-            {showBookmarkedOnly ? "Show All Tools" : "Show Bookmarked Only"}
-            {bookmarks.size > 0 && (
-              <span className="ml-auto text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full">
-                {bookmarks.size}
-              </span>
-            )}
-          </Button>
         </div>
       </div>
     );
@@ -1055,16 +1049,16 @@ export default function ToolsPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 auto-rows-[350px]">
                 {tools.map((tool) => (
                   <Card
                     key={tool.id}
-                    className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 hover:border-slate-600 hover:from-slate-700 hover:to-slate-800 transition-all duration-300 cursor-pointer group backdrop-blur-sm hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1"
+                    className="bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 hover:border-slate-600 hover:from-slate-700 hover:to-slate-800 transition-all duration-300 cursor-pointer group backdrop-blur-sm hover:shadow-xl hover:shadow-blue-500/10 hover:-translate-y-1 h-full"
                     onClick={() => handleToolClick(tool)}
                   >
-                    <CardContent className="p-6">
-                      {/* Header with logo, name, and bookmark */}
-                      <div className="flex items-start space-x-4 mb-4">
+                    <CardContent className="p-6 h-full flex flex-col">
+                      {/* Header with logo, name, and bookmark - Fixed height */}
+                      <div className="flex items-start space-x-4 mb-4 flex-shrink-0">
                         <div className="flex-shrink-0">
                           <OptimizedImage
                             src={tool.logo_url}
@@ -1075,10 +1069,10 @@ export default function ToolsPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-3">
-                            <h3 className="font-bold text-white text-lg group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-purple-400 group-hover:bg-clip-text group-hover:text-transparent transition-all duration-300">
+                            <h3 className="font-bold text-white text-lg group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-purple-400 group-hover:bg-clip-text group-hover:text-transparent transition-all duration-300 line-clamp-2 min-h-[56px]">
                               {tool.name}
                             </h3>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 flex-shrink-0">
                               <Badge
                                 variant="secondary"
                                 className={`text-xs px-2 py-1 font-medium ${
@@ -1111,8 +1105,8 @@ export default function ToolsPage() {
                             </div>
                           </div>
 
-                          {/* Prominent Categories Section */}
-                          <div className="mb-3">
+                          {/* Categories Section - Auto height to avoid overlap with description */}
+                          <div className="flex items-start flex-shrink-0">
                             <div className="flex flex-wrap gap-1.5">
                               {tool.categories
                                 .slice(0, 4)
@@ -1135,15 +1129,18 @@ export default function ToolsPage() {
                               )}
                             </div>
                           </div>
-
-                          <p className="text-slate-400 text-sm leading-relaxed line-clamp-2">
-                            {tool.description}
-                          </p>
                         </div>
                       </div>
 
-                      {/* Bottom metrics section */}
-                      <div className="flex items-center justify-between pt-4 border-t border-slate-700/50">
+                      {/* Description Section - Flexible height that fills available space */}
+                      <div className="flex-1 mb-4 min-h-0">
+                        <p className="text-slate-400 text-sm leading-relaxed overflow-hidden line-clamp-3">
+                          {tool.description}
+                        </p>
+                      </div>
+
+                      {/* Bottom metrics section - Fixed height at bottom */}
+                      <div className="flex items-center justify-between pt-4 border-t border-slate-700/50 flex-shrink-0">
                         <div className="flex items-center space-x-4 text-slate-400 text-sm">
                           <div className="flex items-center space-x-1">
                             <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
@@ -1207,9 +1204,35 @@ export default function ToolsPage() {
 
               {tools.length === 0 && !loading && (
                 <div className="text-center py-16">
-                  <div className="text-center py-8">
-                    <Search className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                  </div>
+                  {showBookmarkedOnly ? (
+                    <div className="text-center py-8">
+                      <Bookmark className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-slate-400 mb-2">
+                        No bookmarked tools
+                      </h3>
+                      <p className="text-slate-500 mb-4">
+                        You haven't bookmarked any tools yet. Start exploring
+                        and bookmark your favorites!
+                      </p>
+                      <Button
+                        onClick={() => setShowBookmarkedOnly(false)}
+                        variant="outline"
+                        className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200"
+                      >
+                        Browse All Tools
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Search className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-slate-400 mb-2">
+                        No tools found
+                      </h3>
+                      <p className="text-slate-500">
+                        Try adjusting your search or filters.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </>

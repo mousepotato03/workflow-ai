@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
             description,
             url,
             logo_url,
-            categories,
+            categories
           )
         `
         )
