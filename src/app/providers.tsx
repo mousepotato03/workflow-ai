@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { Toaster } from "@/components/ui/toaster";
 // import { useEffect } from "react";
 
 function makeQueryClient() {
@@ -73,7 +74,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       storageKey="workflow-ai-theme"
     >
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );
