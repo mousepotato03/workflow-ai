@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Navigation } from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -822,6 +822,10 @@ export default function ToolsPage() {
   const [totalTools, setTotalTools] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [pageInput, setPageInput] = useState("");
+  
+  // Refs to prevent duplicate API calls in Strict Mode
+  const isInitializing = useRef(false);
+  const lastFetchParams = useRef<string>("");
 
   const TOOLS_PER_PAGE = 20;
 
@@ -881,9 +885,17 @@ export default function ToolsPage() {
   // Initial load - fetch both bookmarks and tools once
   useEffect(() => {
     const initializePage = async () => {
-      await fetchBookmarks();
-      await fetchTools();
-      setIsInitialized(true);
+      // Prevent duplicate initialization calls in React Strict Mode
+      if (isInitializing.current) return;
+      isInitializing.current = true;
+
+      try {
+        await fetchBookmarks();
+        await fetchTools();
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('Initialization error:', error);
+      }
     };
 
     initializePage();
@@ -893,8 +905,22 @@ export default function ToolsPage() {
   useEffect(() => {
     if (!isInitialized) return;
 
+    // Create a unique key for current search parameters to prevent duplicate calls
+    const currentParams = `${searchQuery}-${selectedPricing}-${selectedSort}-${showBookmarkedOnly}`;
+    
+    // Skip if same parameters were just called
+    if (lastFetchParams.current === currentParams) return;
+    
+    // Skip if this is the default params on first run after initialization (prevents duplicate)
+    const isDefaultParams = searchQuery === "" && selectedPricing === "All" && selectedSort === "Popular" && showBookmarkedOnly === false;
+    if (isDefaultParams && lastFetchParams.current === "") {
+      lastFetchParams.current = currentParams; // Mark as processed to allow future changes
+      return;
+    }
+    
     const timeoutId = setTimeout(
       () => {
+        lastFetchParams.current = currentParams;
         setCurrentPage(1); // Reset to first page
         fetchTools(1);
       },
