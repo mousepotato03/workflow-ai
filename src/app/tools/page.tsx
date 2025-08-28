@@ -57,6 +57,148 @@ interface ApiResponse {
 const sortOptions = ["Popular", "Latest", "Top Rated", "Most Reviewed"];
 const pricingOptions = ["All", "Free", "Paid"];
 
+// SidebarContent component moved outside to prevent re-rendering
+function SidebarContent({
+  searchQuery,
+  setSearchQuery,
+  handleSearchKeyDown,
+  showBookmarkedOnly,
+  setShowBookmarkedOnly,
+  bookmarks,
+  handleResetFilters,
+  selectedSort,
+  setSelectedSort,
+  selectedPricing,
+  setSelectedPricing,
+}: {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  handleSearchKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  showBookmarkedOnly: boolean;
+  setShowBookmarkedOnly: (show: boolean) => void;
+  bookmarks: Set<string>;
+  handleResetFilters: () => void;
+  selectedSort: string;
+  setSelectedSort: (sort: string) => void;
+  selectedPricing: string;
+  setSelectedPricing: (pricing: string) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Search Section */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            Search Tools
+          </h3>
+          <div className="flex items-center space-x-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`text-slate-400 hover:text-yellow-400 hover:bg-slate-800 transition-all duration-200 ${
+                      showBookmarkedOnly ? "text-yellow-400 bg-slate-800" : ""
+                    }`}
+                    onClick={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
+                    aria-label="Toggle bookmarked tools"
+                  >
+                    <Bookmark
+                      className={`w-5 h-5 ${
+                        showBookmarkedOnly ? "fill-current" : ""
+                      }`}
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {showBookmarkedOnly
+                    ? "Show all tools"
+                    : "Show bookmarked only"}
+                  {bookmarks.size > 0 && ` (${bookmarks.size})`}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-slate-400 hover:text-blue-400 hover:bg-slate-800 transition-all duration-200"
+                    onClick={handleResetFilters}
+                    aria-label="Reset filters"
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Reset filters</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+        <div className="relative group">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4 group-focus-within:text-blue-400 transition-colors" />
+          <input
+            type="text"
+            placeholder="Search for tools.."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            className="w-full pl-10 pr-4 py-3 bg-slate-800 border border-slate-700 text-white placeholder:text-slate-400 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-slate-750 outline-none"
+          />
+        </div>
+      </div>
+
+      {/* Sort Options */}
+      <div>
+        <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
+          Sort By
+        </h3>
+        <div className="space-y-2">
+          {sortOptions.map((option) => (
+            <Button
+              key={option}
+              onClick={() => setSelectedSort(option)}
+              variant={selectedSort === option ? "default" : "secondary"}
+              className={`w-full justify-start transition-all duration-200 ${
+                selectedSort === option
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
+              }`}
+            >
+              {option}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Pricing Options */}
+      <div>
+        <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
+          Pricing
+        </h3>
+        <div className="space-y-2">
+          {pricingOptions.map((option) => (
+            <Button
+              key={option}
+              onClick={() => setSelectedPricing(option)}
+              variant={selectedPricing === option ? "default" : "secondary"}
+              className={`w-full justify-start transition-all duration-200 ${
+                selectedPricing === option
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
+                  : "bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
+              }`}
+            >
+              {option}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface UnifiedModalProps {
   tool: Tool | null;
   isOpen: boolean;
@@ -751,17 +893,26 @@ export default function ToolsPage() {
     fetchBookmarks();
   }, []);
 
-  // useEffect for search debouncing
+  // Debounced search effect
   useEffect(() => {
-    const timeoutId = setTimeout(
-      () => {
-        fetchTools();
-      },
-      searchQuery ? 500 : 0
-    ); // Apply debounce only when search query exists
+    const timeoutId = setTimeout(() => {
+      fetchTools();
+    }, searchQuery ? 500 : 0);
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
+
+  // Only trigger search on filter/sort changes, not on search query change
+  useEffect(() => {
+    fetchTools();
+  }, [selectedPricing, selectedSort, showBookmarkedOnly]);
+
+  // Handle search on Enter key (immediate search)
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      fetchTools();
+    }
+  };
 
   // Infinite scroll function
   const loadMoreTools = () => {
@@ -785,10 +936,6 @@ export default function ToolsPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [loadingMore, hasMoreData, offset]);
 
-  // Reload immediately when price, sort, or filter changes
-  useEffect(() => {
-    fetchTools();
-  }, [selectedPricing, selectedSort, showBookmarkedOnly]);
 
   // Bookmark toggle function
   const toggleBookmark = async (toolId: string, event?: React.MouseEvent) => {
@@ -860,121 +1007,6 @@ export default function ToolsPage() {
     setShowBookmarkedOnly(false);
   };
 
-  const SidebarContent = () => {
-    return (
-      <div className="space-y-6">
-        {/* Search Section */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Search Tools
-            </h3>
-            <div className="flex items-center space-x-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={`text-slate-400 hover:text-yellow-400 hover:bg-slate-800 transition-all duration-200 ${
-                        showBookmarkedOnly ? "text-yellow-400 bg-slate-800" : ""
-                      }`}
-                      onClick={() => setShowBookmarkedOnly(!showBookmarkedOnly)}
-                      aria-label="Toggle bookmarked tools"
-                    >
-                      <Bookmark
-                        className={`w-5 h-5 ${
-                          showBookmarkedOnly ? "fill-current" : ""
-                        }`}
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {showBookmarkedOnly
-                      ? "Show all tools"
-                      : "Show bookmarked only"}
-                    {bookmarks.size > 0 && ` (${bookmarks.size})`}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-slate-400 hover:text-blue-400 hover:bg-slate-800 transition-all duration-200"
-                      onClick={handleResetFilters}
-                      aria-label="Reset filters"
-                    >
-                      <RotateCcw className="w-5 h-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Reset filters</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </div>
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4 group-focus-within:text-blue-400 transition-colors" />
-            <Input
-              placeholder="Search for tools..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-3 bg-slate-800 border-slate-700 text-white placeholder:text-slate-400 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-slate-750"
-            />
-          </div>
-        </div>
-
-        {/* Sort Options */}
-        <div>
-          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
-            Sort By
-          </h3>
-          <div className="space-y-2">
-            {sortOptions.map((option) => (
-              <Button
-                key={option}
-                onClick={() => setSelectedSort(option)}
-                variant={selectedSort === option ? "default" : "secondary"}
-                className={`w-full justify-start transition-all duration-200 ${
-                  selectedSort === option
-                    ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
-                    : "bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
-                }`}
-              >
-                {option}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Pricing Options */}
-        <div>
-          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
-            Pricing
-          </h3>
-          <div className="space-y-2">
-            {pricingOptions.map((option) => (
-              <Button
-                key={option}
-                onClick={() => setSelectedPricing(option)}
-                variant={selectedPricing === option ? "default" : "secondary"}
-                className={`w-full justify-start transition-all duration-200 ${
-                  selectedPricing === option
-                    ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg"
-                    : "bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white"
-                }`}
-              >
-                {option}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900 text-white">
       <Navigation />
@@ -982,7 +1014,19 @@ export default function ToolsPage() {
       <div className="flex">
         {/* Desktop Sidebar */}
         <div className="hidden lg:block w-80 min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 border-r border-slate-700 p-6 backdrop-blur-sm">
-          <SidebarContent />
+          <SidebarContent
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            handleSearchKeyDown={handleSearchKeyDown}
+            showBookmarkedOnly={showBookmarkedOnly}
+            setShowBookmarkedOnly={setShowBookmarkedOnly}
+            bookmarks={bookmarks}
+            handleResetFilters={handleResetFilters}
+            selectedSort={selectedSort}
+            setSelectedSort={setSelectedSort}
+            selectedPricing={selectedPricing}
+            setSelectedPricing={setSelectedPricing}
+          />
         </div>
 
         {/* Mobile Sidebar */}
@@ -1001,7 +1045,19 @@ export default function ToolsPage() {
               side="left"
               className="w-80 bg-gradient-to-b from-slate-900 to-slate-800 border-r border-slate-700"
             >
-              <SidebarContent />
+              <SidebarContent
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                handleSearchKeyDown={handleSearchKeyDown}
+                showBookmarkedOnly={showBookmarkedOnly}
+                setShowBookmarkedOnly={setShowBookmarkedOnly}
+                bookmarks={bookmarks}
+                handleResetFilters={handleResetFilters}
+                selectedSort={selectedSort}
+                setSelectedSort={setSelectedSort}
+                selectedPricing={selectedPricing}
+                setSelectedPricing={setSelectedPricing}
+              />
             </SheetContent>
           </Sheet>
         </div>
@@ -1012,11 +1068,13 @@ export default function ToolsPage() {
           <div className="lg:hidden mb-6">
             <div className="relative group">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5 group-focus-within:text-blue-400 transition-colors" />
-              <Input
-                placeholder="Search for tools..."
+              <input
+                type="text"
+                placeholder="Search for tools... (Press Enter to search)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 pr-4 py-4 bg-slate-800 border-slate-700 text-white placeholder:text-slate-400 rounded-2xl text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-slate-750"
+                onKeyDown={handleSearchKeyDown}
+                className="w-full pl-12 pr-4 py-4 bg-slate-800 border border-slate-700 text-white placeholder:text-slate-400 rounded-2xl text-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:bg-slate-750 outline-none"
               />
             </div>
           </div>
