@@ -93,7 +93,34 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Apply pagination
+    // Build count query with same filters (but without pagination)
+    let countQuery = supabase
+      .from("tools")
+      .select("*", { count: 'exact', head: true })
+      .eq("is_active", true);
+
+    // Apply same filters to count query
+    if (filter === "Bookmarked Only" && userBookmarks.length > 0) {
+      countQuery = countQuery.in("id", userBookmarks);
+    }
+
+    if (search) {
+      countQuery = countQuery.or(
+        `name.ilike.%${search}%,description.ilike.%${search}%,domains.cs.{${search}}`
+      );
+    }
+
+    if (category && category !== "All") {
+      countQuery = countQuery.contains("categories", [category]);
+    }
+
+    const { count: totalCount, error: countError } = await countQuery;
+
+    if (countError) {
+      console.error("Count fetch error:", countError);
+    }
+
+    // Apply pagination to the main query
     query = query.range(offset, offset + limit - 1);
 
     const { data: tools, error } = await query;
@@ -184,8 +211,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       tools: toolsWithPricing,
       categories,
-      total: tools?.length || 0,
-      hasMore: tools?.length === limit,
+      total: totalCount || 0,
+      hasMore: (offset + (tools?.length || 0)) < (totalCount || 0),
     });
   } catch (error) {
     console.error("API Error:", error);

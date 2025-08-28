@@ -15,6 +15,10 @@ import {
   Bookmark,
   MessageCircle,
   ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -259,7 +263,7 @@ function OptimizedImage({
         className={`${className} bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center`}
         style={{ width: size, height: size }}
       >
-        <span className="text-white font-bold text-lg">
+        <span className="text-white font-bold text-[10px]">
           {alt.charAt(0).toUpperCase()}
         </span>
       </div>
@@ -408,7 +412,7 @@ function UnifiedModal({
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center space-x-4">
               <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-lg">
+                <span className="text-white font-bold text-[10px]">
                   {tool.name[0]}
                 </span>
               </div>
@@ -672,7 +676,7 @@ function UnifiedModal({
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center space-x-3">
                             <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
-                              <span className="text-white text-sm font-bold">
+                              <span className="text-white text-[8px] font-bold">
                                 {review.users.full_name?.[0] || "U"}
                               </span>
                             </div>
@@ -811,11 +815,15 @@ export default function ToolsPage() {
   // API related state
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
-  const [hasMoreData, setHasMoreData] = useState(true);
-  const [offset, setOffset] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalTools, setTotalTools] = useState(0);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [pageInput, setPageInput] = useState("");
+
+  const TOOLS_PER_PAGE = 20;
 
   // Bookmark data fetching function
   const fetchBookmarks = async () => {
@@ -835,24 +843,19 @@ export default function ToolsPage() {
   };
 
   // Data fetching function
-  const fetchTools = async (loadMore = false) => {
+  const fetchTools = async (page = currentPage) => {
     try {
-      if (loadMore) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-        setOffset(0);
-      }
+      setLoading(true);
       setError(null);
 
-      const currentOffset = loadMore ? offset : 0;
+      const offset = (page - 1) * TOOLS_PER_PAGE;
       const params = new URLSearchParams({
         search: searchQuery,
         pricing: selectedPricing,
         sort: selectedSort,
         filter: showBookmarkedOnly ? "Bookmarked Only" : "All Tools",
-        limit: "20",
-        offset: currentOffset.toString(),
+        limit: TOOLS_PER_PAGE.toString(),
+        offset: offset.toString(),
       });
 
       const response = await fetch(`/api/tools?${params}`);
@@ -862,80 +865,105 @@ export default function ToolsPage() {
 
       const data: ApiResponse = await response.json();
 
-      if (loadMore) {
-        setTools((prev) => {
-          // Remove duplicates: merge existing tool IDs with new tools to avoid duplicates
-          const existingIds = new Set(prev.map((tool) => tool.id));
-          const newTools = data.tools.filter(
-            (tool) => !existingIds.has(tool.id)
-          );
-          return [...prev, ...newTools];
-        });
-      } else {
-        setTools(data.tools);
-      }
-
-      setHasMoreData(data.hasMore);
-      setOffset(currentOffset + data.tools.length);
+      setTools(data.tools);
+      setTotalTools(data.total);
+      setTotalPages(Math.ceil(data.total / TOOLS_PER_PAGE));
+      setCurrentPage(page);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred."
       );
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   };
 
-  // Fetch both bookmarks and tools on initial load
+  // Initial load - fetch both bookmarks and tools once
   useEffect(() => {
-    fetchTools();
-    fetchBookmarks();
+    const initializePage = async () => {
+      await fetchBookmarks();
+      await fetchTools();
+      setIsInitialized(true);
+    };
+
+    initializePage();
   }, []);
 
-  // Debounced search effect
+  // Combined effect for search/filter changes with debouncing (only after initialization)
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchTools();
-    }, searchQuery ? 500 : 0);
+    if (!isInitialized) return;
+
+    const timeoutId = setTimeout(
+      () => {
+        setCurrentPage(1); // Reset to first page
+        fetchTools(1);
+      },
+      searchQuery ? 500 : 0
+    );
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
-
-  // Only trigger search on filter/sort changes, not on search query change
-  useEffect(() => {
-    fetchTools();
-  }, [selectedPricing, selectedSort, showBookmarkedOnly]);
+  }, [
+    searchQuery,
+    selectedPricing,
+    selectedSort,
+    showBookmarkedOnly,
+    isInitialized,
+  ]);
 
   // Handle search on Enter key (immediate search)
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      fetchTools();
+    if (e.key === "Enter") {
+      setCurrentPage(1);
+      fetchTools(1);
     }
   };
 
-  // Infinite scroll function
-  const loadMoreTools = () => {
-    if (!loadingMore && hasMoreData) {
-      fetchTools(true);
+  // Page navigation functions
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages && page !== currentPage) {
+      fetchTools(page);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
-  // Scroll event listener
-  useEffect(() => {
-    const handleScroll = () => {
-      if (
-        window.innerHeight + document.documentElement.scrollTop >=
-        document.documentElement.offsetHeight - 1000
-      ) {
-        loadMoreTools();
-      }
-    };
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      goToPage(currentPage - 1);
+    }
+  };
 
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [loadingMore, hasMoreData, offset]);
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      goToPage(currentPage + 1);
+    }
+  };
 
+  const goToFirstPage = () => {
+    if (currentPage > 1) {
+      goToPage(1);
+    }
+  };
+
+  const goToLastPage = () => {
+    if (currentPage < totalPages) {
+      goToPage(totalPages);
+    }
+  };
+
+  const handlePageInputSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const pageNum = parseInt(pageInput);
+    if (pageNum >= 1 && pageNum <= totalPages) {
+      goToPage(pageNum);
+      setPageInput("");
+    }
+  };
+
+  const handlePageInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handlePageInputSubmit(e);
+    }
+  };
 
   // Bookmark toggle function
   const toggleBookmark = async (toolId: string, event?: React.MouseEvent) => {
@@ -1223,40 +1251,157 @@ export default function ToolsPage() {
                     </CardContent>
                   </Card>
                 ))}
-
-                {/* Show skeleton cards while loading more */}
-                {loadingMore && (
-                  <>
-                    {Array.from({ length: 8 }, (_, i) => (
-                      <ToolCardSkeleton key={`skeleton-${i}`} />
-                    ))}
-                  </>
-                )}
               </div>
 
-              {/* Load more button or loading indicator */}
-              {!loading && tools.length > 0 && (
-                <div className="flex justify-center py-8">
-                  {loadingMore ? (
-                    <div className="flex items-center space-x-2 text-slate-400">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Loading more tools...</span>
-                    </div>
-                  ) : hasMoreData ? (
+              {/* Pagination */}
+              {!loading && tools.length > 0 && totalPages > 1 && (
+                <div className="flex flex-col items-center py-8 space-y-4">
+                  {/* Pagination controls */}
+                  <div className="flex items-center space-x-2">
+                    {/* First page button */}
                     <Button
-                      onClick={loadMoreTools}
+                      onClick={goToFirstPage}
+                      disabled={currentPage === 1}
                       variant="outline"
-                      className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200 px-8 py-3 rounded-xl"
+                      className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ width: "40px", height: "40px" }}
+                      title="First page"
                     >
-                      Load More
+                      <span className="text-xs font-bold">⟪</span>
                     </Button>
-                  ) : (
-                    tools.length > 0 && (
-                      <p className="text-slate-400 text-sm">
-                        All tools have been loaded.
-                      </p>
-                    )
-                  )}
+
+                    {/* Previous button */}
+                    <Button
+                      onClick={goToPreviousPage}
+                      disabled={currentPage === 1}
+                      variant="outline"
+                      className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ width: "40px", height: "40px" }}
+                      title="Previous page"
+                    >
+                      <span className="text-xs font-bold">⟨</span>
+                    </Button>
+
+                    {/* Page numbers */}
+                    <div className="flex items-center space-x-1">
+                      {/* Show first page if not visible */}
+                      {currentPage > 3 && (
+                        <>
+                          <Button
+                            onClick={() => goToPage(1)}
+                            variant="outline"
+                            className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+                            style={{ width: "40px", height: "40px" }}
+                          >
+                            1
+                          </Button>
+                          {currentPage > 4 && (
+                            <span className="text-slate-400 px-2">...</span>
+                          )}
+                        </>
+                      )}
+
+                      {/* Show pages around current page */}
+                      {Array.from(
+                        { length: Math.min(5, totalPages) },
+                        (_, i) => {
+                          const start = Math.max(
+                            1,
+                            Math.min(currentPage - 2, totalPages - 4)
+                          );
+                          const pageNum = start + i;
+
+                          if (pageNum > totalPages) return null;
+
+                          return (
+                            <Button
+                              key={pageNum}
+                              onClick={() => goToPage(pageNum)}
+                              variant={
+                                currentPage === pageNum ? "default" : "outline"
+                              }
+                              className={
+                                currentPage === pageNum
+                                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                                  : "bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+                              }
+                              style={{ width: "40px", height: "40px" }}
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        }
+                      )}
+
+                      {/* Show last page if not visible */}
+                      {currentPage < totalPages - 2 && (
+                        <>
+                          {currentPage < totalPages - 3 && (
+                            <span className="text-slate-400 px-2">...</span>
+                          )}
+                          <Button
+                            onClick={() => goToPage(totalPages)}
+                            variant="outline"
+                            className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+                            style={{ width: "40px", height: "40px" }}
+                          >
+                            {totalPages}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Next button */}
+                    <Button
+                      onClick={goToNextPage}
+                      disabled={currentPage === totalPages}
+                      variant="outline"
+                      className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed w-10 h-10"
+                      title="Next page"
+                    >
+                      <span className="text-xs font-bold">⟩</span>
+                    </Button>
+
+                    {/* Last page button */}
+                    <Button
+                      onClick={goToLastPage}
+                      disabled={currentPage === totalPages}
+                      variant="outline"
+                      className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed w-10 h-10"
+                      title="Last page"
+                    >
+                      <span className="text-xs font-bold">⟫</span>
+                    </Button>
+                  </div>
+
+                  {/* Page input */}
+                  <div className="flex items-center space-x-2 text-sm">
+                    <span className="text-slate-400">Go to page:</span>
+                    <form
+                      onSubmit={handlePageInputSubmit}
+                      className="flex items-center space-x-2"
+                    >
+                      <input
+                        type="number"
+                        min={1}
+                        max={totalPages}
+                        value={pageInput}
+                        onChange={(e) => setPageInput(e.target.value)}
+                        onKeyDown={handlePageInputKeyDown}
+                        placeholder={currentPage.toString()}
+                        className="w-16 px-2 py-1 bg-slate-800 border border-slate-600 text-white text-center rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant="outline"
+                        className="bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white text-xs px-3 py-1"
+                      >
+                        Go
+                      </Button>
+                    </form>
+                    <span className="text-slate-500">of {totalPages}</span>
+                  </div>
                 </div>
               )}
 
