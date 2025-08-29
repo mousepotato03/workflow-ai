@@ -115,10 +115,7 @@ export function WorkflowInputForm({ onButtonClick }: WorkflowInputFormProps) {
     onSuccess: (data) => {
       setWorkflowResult(data);
       setIsLoading(false);
-      toast({
-        title: "Workflow Created!",
-        description: `Generated ${data.tasks.length} tasks with tool recommendations.`,
-      });
+      // Toast notification removed
     },
     onError: (error) => {
       setIsLoading(false);

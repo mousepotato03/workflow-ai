@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { useWorkflowStore } from "../hooks/useWorkflowStore";
 
-export function WorkflowCanvas() {
+export function QuickWorkflowBuilder() {
   const {
     workflowResult,
     isLoading,
@@ -103,7 +103,7 @@ export function WorkflowCanvas() {
         const canvasHeader = document.querySelector('[data-workflow-canvas-header]');
         if (canvasHeader) {
           const headerRect = canvasHeader.getBoundingClientRect();
-          const scrollTop = window.pageYOffset + headerRect.top - 80; // 80px 여유 공간
+          const scrollTop = window.pageYOffset + headerRect.top - 80; // 80px margin
           window.scrollTo({ 
             top: scrollTop, 
             behavior: 'smooth' 
@@ -351,8 +351,7 @@ export function WorkflowCanvas() {
         window.open(validUrl, "_blank", "noopener,noreferrer");
       } catch (error) {
         console.error("Invalid URL:", url, error);
-        // 사용자에게 오류 알림 (선택사항)
-        alert("유효하지 않은 URL입니다: " + url);
+        // Invalid URL - silently fail
       }
     } else {
       console.warn("No URL provided to handleToolClick");
@@ -379,7 +378,7 @@ export function WorkflowCanvas() {
                     <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                   </div>
                   <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">
-                    WorkFlow Canvas
+                    Quick Workflow Builder
                   </h1>
                 </div>
 

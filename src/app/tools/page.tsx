@@ -59,7 +59,7 @@ interface ApiResponse {
 }
 
 const sortOptions = ["Popular", "Latest", "Top Rated", "Most Reviewed"];
-const pricingOptions = ["All", "Free", "Paid"];
+const pricingOptions = ["All", "Free", "Freemium", "Paid"];
 
 // SidebarContent component moved outside to prevent re-rendering
 function SidebarContent({
@@ -1190,6 +1190,8 @@ export default function ToolsPage() {
                                 className={`text-xs px-2 py-1 font-medium ${
                                   tool.pricing === "Free"
                                     ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg"
+                                    : tool.pricing === "Freemium"
+                                    ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg"
                                     : "bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg"
                                 }`}
                               >

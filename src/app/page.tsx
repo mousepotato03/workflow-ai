@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { WorkflowInputForm } from "@/features/workflow/components/WorkflowInputForm";
-import { WorkflowCanvas } from "@/features/workflow/components/WorkflowCanvas";
+import { QuickWorkflowBuilder } from "@/features/workflow/components/QuickWorkflowBuilder";
 import { Navigation } from "@/components/Navigation";
 import { LoginRequiredModal } from "@/components/LoginRequiredModal";
 import { useWorkflowStore } from "@/features/workflow/hooks/useWorkflowStore";
@@ -130,7 +130,7 @@ export default function Home() {
       </main>
 
       {/* Full Width Canvas Section */}
-      {(isLoading || workflowResult) && <WorkflowCanvas />}
+      {(isLoading || workflowResult) && <QuickWorkflowBuilder />}
 
       {/* Error Modal */}
       <LoginRequiredModal />

@@ -83,15 +83,20 @@ export async function GET(request: NextRequest) {
       query = query.contains("categories", [category]);
     }
 
-    // Apply sorting
-    if (sort === "Latest") {
-      query = query.order("created_at", { ascending: false });
-    } else {
-      // Popular: sort by created date as fallback (no scoring system)
-      query = query.order("created_at", {
-        ascending: false
-      });
+    // Apply pricing filter
+    if (pricing && pricing !== "All") {
+      if (pricing === "Free") {
+        query = query.or("scores->>pricing_model.eq.free,scores->>pricing_model.is.null");
+      } else if (pricing === "Freemium") {
+        query = query.eq("scores->>pricing_model", "freemium");
+      } else if (pricing === "Paid") {
+        query = query.eq("scores->>pricing_model", "paid");
+      }
     }
+
+    // Note: We'll handle sorting after getting ratings data for Top Rated and Most Reviewed
+    // For now, just order by created_at as base
+    query = query.order("created_at", { ascending: false });
 
     // Build count query with same filters (but without pagination)
     let countQuery = supabase
@@ -112,6 +117,16 @@ export async function GET(request: NextRequest) {
 
     if (category && category !== "All") {
       countQuery = countQuery.contains("categories", [category]);
+    }
+
+    if (pricing && pricing !== "All") {
+      if (pricing === "Free") {
+        countQuery = countQuery.or("scores->>pricing_model.eq.free,scores->>pricing_model.is.null");
+      } else if (pricing === "Freemium") {
+        countQuery = countQuery.eq("scores->>pricing_model", "freemium");
+      } else if (pricing === "Paid") {
+        countQuery = countQuery.eq("scores->>pricing_model", "paid");
+      }
     }
 
     const { count: totalCount, error: countError } = await countQuery;
@@ -188,7 +203,7 @@ export async function GET(request: NextRequest) {
     const categories = ["All", ...Array.from(allCategories).sort()];
 
     // Map pricing info based on scores.pricing_model and use actual review data
-    const toolsWithPricing = tools?.map((tool) => {
+    let toolsWithPricing = tools?.map((tool) => {
       const pricingModel = (tool as any)?.scores?.pricing_model as
         | "free"
         | "paid"
@@ -197,16 +212,50 @@ export async function GET(request: NextRequest) {
       const ratingInfo = ratingsData.find((r) => r.tool_id === tool.id);
       return {
         ...tool,
-        pricing: pricingModel
-          ? pricingModel === "paid"
-            ? "Paid"
-            : "Free"
+        pricing: pricingModel === "paid" 
+          ? "Paid" 
+          : pricingModel === "freemium"
+          ? "Freemium"
           : "Free",
         rating: ratingInfo?.average_rating || 0, // Use actual average rating
         reviewCount: ratingInfo?.review_count || 0, // Use actual review count
         likes: Math.floor(Math.random() * 1000) + 100, // Temporary like count (to be implemented later)
       };
     });
+
+    // Apply sorting based on sort parameter
+    if (toolsWithPricing && sort) {
+      switch (sort) {
+        case "Popular":
+          // Sort by created_at (already sorted by query)
+          break;
+        case "Latest":
+          // Sort by created_at descending
+          toolsWithPricing.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          break;
+        case "Top Rated":
+          // Sort by rating descending, then by review count
+          toolsWithPricing.sort((a, b) => {
+            if (b.rating !== a.rating) {
+              return b.rating - a.rating;
+            }
+            return b.reviewCount - a.reviewCount;
+          });
+          break;
+        case "Most Reviewed":
+          // Sort by review count descending, then by rating
+          toolsWithPricing.sort((a, b) => {
+            if (b.reviewCount !== a.reviewCount) {
+              return b.reviewCount - a.reviewCount;
+            }
+            return b.rating - a.rating;
+          });
+          break;
+        default:
+          // Default to Popular (created_at descending)
+          break;
+      }
+    }
 
     return NextResponse.json({
       tools: toolsWithPricing,
