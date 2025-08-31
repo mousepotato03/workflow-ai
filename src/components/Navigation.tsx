@@ -11,6 +11,7 @@ import { useWorkflowStore } from "@/features/workflow/hooks/useWorkflowStore";
 
 const navigationItems = [
   { name: "Home", href: "/" },
+  { name: "Canvas", href: "/canvas" },
   { name: "Tools", href: "/tools" },
   { name: "Pricing", href: "/pricing" },
   { name: "Contact", href: "/contact" },
@@ -60,9 +61,6 @@ export function Navigation() {
 
           {/* Right Side Actions */}
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Bell className="w-4 h-4" />
-            </Button>
             <ThemeToggle />
             <LoginButton />
           </div>

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { WorkflowResponse } from "@/types/workflow";
 import { StreamState } from "@/hooks/useWorkflowStream";
 
-interface Task {
+export interface Task {
   id: string;
   name: string;
   order: number;

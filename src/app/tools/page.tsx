@@ -41,7 +41,7 @@ interface Tool {
   logo_url?: string;
   categories: string[];
   domains: string[];
-  pricing: "Free" | "Paid";
+  pricing: "Free" | "Freemium" | "Paid";
   rating: number;
   reviewCount: number;
   is_active: boolean;
@@ -1192,7 +1192,9 @@ export default function ToolsPage() {
                                     ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg"
                                     : tool.pricing === "Freemium"
                                     ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg"
-                                    : "bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg"
+                                    : tool.pricing === "Paid"
+                                    ? "bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg"
+                                    : "bg-gradient-to-r from-gray-600 to-slate-600 text-white shadow-lg"
                                 }`}
                               >
                                 {tool.pricing}

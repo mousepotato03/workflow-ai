@@ -116,3 +116,85 @@
     100% { transform: translateX(0%) rotate(0deg); }
   }
 }
+
+/* ReactFlow component custom styling for teal-cyan theme */
+@layer components {
+  /* Controls panel styling */
+  .react-flow__controls {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(20, 184, 166, 0.3) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+    backdrop-filter: blur(8px) !important;
+  }
+  
+  .dark .react-flow__controls {
+    background: rgba(30, 41, 59, 0.9) !important;
+    border: 1px solid rgba(20, 184, 166, 0.5) !important;
+  }
+  
+  .react-flow__controls-button {
+    background: transparent !important;
+    border: none !important;
+    color: #14b8a6 !important; /* teal-500 */
+    border-radius: 6px !important;
+    transition: all 0.2s ease !important;
+    width: 24px !important;
+    height: 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  
+  .react-flow__controls-button:hover {
+    background: rgba(20, 184, 166, 0.1) !important; /* teal-500 with opacity */
+    color: #0f766e !important; /* teal-700 */
+    transform: scale(1.05) !important;
+  }
+  
+  .dark .react-flow__controls-button {
+    color: #5eead4 !important; /* teal-300 */
+  }
+  
+  .dark .react-flow__controls-button:hover {
+    background: rgba(94, 234, 212, 0.2) !important; /* teal-300 with opacity */
+    color: #7dd3fc !important; /* sky-300 */
+  }
+  
+  .react-flow__controls-button svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+  
+  /* MiniMap styling */
+  .react-flow__minimap {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(20, 184, 166, 0.3) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+    backdrop-filter: blur(8px) !important;
+  }
+  
+  .dark .react-flow__minimap {
+    background: rgba(30, 41, 59, 0.9) !important;
+    border: 1px solid rgba(20, 184, 166, 0.5) !important;
+  }
+  
+  .react-flow__minimap-mask {
+    fill: rgba(20, 184, 166, 0.1) !important; /* teal-500 with opacity */
+  }
+  
+  .dark .react-flow__minimap-mask {
+    fill: rgba(94, 234, 212, 0.15) !important; /* teal-300 with opacity */
+  }
+  
+  /* MiniMap node descriptions/viewport */
+  .react-flow__minimap-node {
+    stroke: #14b8a6 !important; /* teal-500 */
+    stroke-width: 1.5px !important;
+  }
+  
+  .dark .react-flow__minimap-node {
+    stroke: #5eead4 !important; /* teal-300 */
+  }
+}
