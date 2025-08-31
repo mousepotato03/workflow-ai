@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useEffect } from "react";
+import React, { useCallback, useMemo, useEffect, useState } from "react";
 import ReactFlow, {
   ReactFlowProvider,
   Background,
@@ -19,6 +19,7 @@ import "reactflow/dist/style.css";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 import {
   Plus,
@@ -35,6 +36,7 @@ import {
   RefreshCw,
   Undo,
   Redo,
+  Eraser,
 } from "lucide-react";
 
 import {
@@ -137,6 +139,8 @@ interface CanvasToolbarProps {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  isEraserMode: boolean;
+  onToggleEraserMode: () => void;
 }
 
 const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
@@ -151,6 +155,8 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   canRedo,
   onUndo,
   onRedo,
+  isEraserMode,
+  onToggleEraserMode,
 }) => {
   return (
     <div className="w-full bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-slate-800 dark:to-slate-700 border-b border-teal-200/50 dark:border-slate-600 shadow-sm p-3 relative z-10">
@@ -233,6 +239,23 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
 
           <Button
             size="sm"
+            variant={isEraserMode ? "default" : "outline"}
+            onClick={onToggleEraserMode}
+            className={cn(
+              "text-xs px-3 py-1 h-8",
+              isEraserMode
+                ? "bg-red-500 hover:bg-red-600 text-white border-red-500"
+                : "hover:bg-red-100 hover:border-red-300"
+            )}
+          >
+            <Eraser className="w-3 h-3 mr-1" />
+            Eraser
+          </Button>
+
+          <Separator orientation="vertical" className="h-6" />
+
+          <Button
+            size="sm"
             variant="outline"
             onClick={onSyncWorkflow}
             className="text-xs px-3 py-1 h-8 hover:bg-teal-100 hover:border-teal-300 dark:hover:bg-teal-900/30"
@@ -289,7 +312,15 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   );
 };
 
-const WorkflowCanvasContent: React.FC = () => {
+interface WorkflowCanvasContentProps {
+  isEraserMode: boolean;
+  onToggleEraserMode: () => void;
+}
+
+const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
+  isEraserMode,
+  onToggleEraserMode,
+}) => {
   const { fitView } = useReactFlow();
 
   // Canvas store
@@ -449,6 +480,18 @@ const WorkflowCanvasContent: React.FC = () => {
     [generateImplementationGuide]
   );
 
+  // Eraser mode handlers
+
+  const handleNodeClick = useCallback(
+    (event: React.MouseEvent, node: any) => {
+      if (isEraserMode && node.type !== CanvasNodeType.MAIN_TASK) {
+        event.stopPropagation();
+        deleteNode(node.id);
+      }
+    },
+    [isEraserMode, deleteNode]
+  );
+
   // Create node wrapper components with store integration
   const MainTaskNodeWrapper = useCallback(
     (props: any) => (
@@ -532,11 +575,13 @@ const WorkflowCanvasContent: React.FC = () => {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        onNodeClick={handleNodeClick}
         onNodeDoubleClick={(event, node) => {
-          // Handle node double-click for editing
+          // Handle node double-click for editing (only if not in eraser mode)
           if (
-            node.type === CanvasNodeType.MAIN_TASK ||
-            node.type === CanvasNodeType.SUBTASK
+            !isEraserMode &&
+            (node.type === CanvasNodeType.MAIN_TASK ||
+              node.type === CanvasNodeType.SUBTASK)
           ) {
             updateNode(node.id, { isEditing: true });
           }
@@ -552,6 +597,12 @@ const WorkflowCanvasContent: React.FC = () => {
         }}
         minZoom={config.minZoom}
         maxZoom={config.maxZoom}
+        className={isEraserMode ? "eraser-mode" : ""}
+        style={{
+          cursor: isEraserMode
+            ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 21-4.3-4.3c-1-1-1-2.5 0-3.5l9.6-9.6c1-1 2.5-1 3.5 0l5.7 5.7c1 1 1 2.5 0 3.5L13 21'/%3E%3Cpath d='M22 21H7'/%3E%3Cpath d='m5 11 9 9'/%3E%3C/svg%3E") 12 12, auto !important`
+            : "default",
+        }}
       >
         {/* Grid Background */}
         <Background
@@ -611,6 +662,7 @@ export const WorkflowCanvas: React.FC = () => {
 
 const WorkflowCanvasWithToolbar: React.FC = () => {
   const [nodes, edges] = useCanvasStore((state) => [state.nodes, state.edges]);
+  const [isEraserMode, setIsEraserMode] = useState(false);
   const {
     undo,
     redo,
@@ -721,6 +773,10 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
     // Auto layout logic here
   }, []);
 
+  const handleToggleEraserMode = useCallback(() => {
+    setIsEraserMode(!isEraserMode);
+  }, [isEraserMode]);
+
   return (
     <>
       <CanvasToolbar
@@ -735,9 +791,14 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
         canRedo={historyCanRedo}
         onUndo={undo}
         onRedo={redo}
+        isEraserMode={isEraserMode}
+        onToggleEraserMode={handleToggleEraserMode}
       />
       <div className="flex-1 overflow-hidden">
-        <WorkflowCanvasContent />
+        <WorkflowCanvasContent
+          isEraserMode={isEraserMode}
+          onToggleEraserMode={handleToggleEraserMode}
+        />
       </div>
     </>
   );

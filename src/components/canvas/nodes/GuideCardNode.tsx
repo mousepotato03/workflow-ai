@@ -452,15 +452,6 @@ export const GuideCardNode: React.FC<GuideCardNodeProps> = ({
           </div>
         </div>
       )}
-
-      {/* Node Info */}
-      {selected && !isExpanded && (
-        <div className="absolute -bottom-8 left-0 right-0 text-center">
-          <div className="bg-card border rounded-md px-2 py-1 shadow-lg text-xs text-muted-foreground inline-block">
-            Guide Card • ID: {id}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

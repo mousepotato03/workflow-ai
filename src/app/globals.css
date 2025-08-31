@@ -5,64 +5,64 @@
 @layer base {
   :root {
     /* Light Theme - Soft, Eye-Friendly, Warm */
-    --background: 30 20% 96%;         /* Warm off-white (#F8F7F5) */
-    --foreground: 0 0% 12%;           /* Soft dark gray for text */
-    --card: 30 15% 98%;               /* Soft cream white (#FDFCFB) */
-    --card-foreground: 0 0% 12%;      /* Soft dark text on cards */
-    --popover: 30 15% 98%;            /* Soft cream popovers */
-    --popover-foreground: 0 0% 12%;   /* Soft dark text in popovers */
-    --primary: 221 83% 53%;           /* Modern blue (#2563EB) */
-    --primary-foreground: 0 0% 98%;   /* Light text on primary */
-    --secondary: 30 12% 94%;          /* Soft beige secondary (#F2F1EE) */
+    --background: 30 20% 96%; /* Warm off-white (#F8F7F5) */
+    --foreground: 0 0% 12%; /* Soft dark gray for text */
+    --card: 30 15% 98%; /* Soft cream white (#FDFCFB) */
+    --card-foreground: 0 0% 12%; /* Soft dark text on cards */
+    --popover: 30 15% 98%; /* Soft cream popovers */
+    --popover-foreground: 0 0% 12%; /* Soft dark text in popovers */
+    --primary: 221 83% 53%; /* Modern blue (#2563EB) */
+    --primary-foreground: 0 0% 98%; /* Light text on primary */
+    --secondary: 30 12% 94%; /* Soft beige secondary (#F2F1EE) */
     --secondary-foreground: 0 0% 12%; /* Soft dark text on secondary */
-    --muted: 30 12% 94%;              /* Soft beige for muted areas */
-    --muted-foreground: 0 0% 42%;     /* Medium gray for muted text */
-    --accent: 221 83% 53%;            /* Same as primary for consistency */
-    --accent-foreground: 0 0% 98%;    /* Light text on accent */
-    --destructive: 0 84% 60%;         /* Red for destructive actions */
+    --muted: 30 12% 94%; /* Soft beige for muted areas */
+    --muted-foreground: 0 0% 42%; /* Medium gray for muted text */
+    --accent: 221 83% 53%; /* Same as primary for consistency */
+    --accent-foreground: 0 0% 98%; /* Light text on accent */
+    --destructive: 0 84% 60%; /* Red for destructive actions */
     --destructive-foreground: 0 0% 98%; /* Light text on destructive */
-    --border: 30 8% 88%;              /* Soft beige border (#E6E4E0) */
-    --input: 30 15% 98%;              /* Soft cream input backgrounds */
-    --ring: 221 83% 53%;              /* Focus ring color */
-    --radius: 0.75rem;                /* Slightly more rounded for modern feel */
-    
+    --border: 30 8% 88%; /* Soft beige border (#E6E4E0) */
+    --input: 30 15% 98%; /* Soft cream input backgrounds */
+    --ring: 221 83% 53%; /* Focus ring color */
+    --radius: 0.75rem; /* Slightly more rounded for modern feel */
+
     /* Chart colors for light theme */
-    --chart-1: 221 83% 53%;           /* Primary blue */
-    --chart-2: 142 76% 36%;           /* Green */
-    --chart-3: 262 83% 58%;           /* Purple */
-    --chart-4: 25 95% 53%;            /* Orange */
-    --chart-5: 336 75% 40%;           /* Pink */
+    --chart-1: 221 83% 53%; /* Primary blue */
+    --chart-2: 142 76% 36%; /* Green */
+    --chart-3: 262 83% 58%; /* Purple */
+    --chart-4: 25 95% 53%; /* Orange */
+    --chart-5: 336 75% 40%; /* Pink */
   }
 
   .dark {
     /* Dark Theme - Refined with better contrast */
-    --background: 222 84% 4.9%;       /* Very dark blue-gray (#0A0A0F) */
-    --foreground: 210 40% 98%;        /* Near white with slight blue tint */
-    --card: 222 47% 7%;               /* Dark blue-gray cards (#111118) */
-    --card-foreground: 210 40% 98%;   /* Light text on cards */
-    --popover: 222 47% 7%;            /* Dark popover background */
+    --background: 222 84% 4.9%; /* Very dark blue-gray (#0A0A0F) */
+    --foreground: 210 40% 98%; /* Near white with slight blue tint */
+    --card: 222 47% 7%; /* Dark blue-gray cards (#111118) */
+    --card-foreground: 210 40% 98%; /* Light text on cards */
+    --popover: 222 47% 7%; /* Dark popover background */
     --popover-foreground: 210 40% 98%; /* Light text in popovers */
-    --primary: 221 83% 53%;           /* Vibrant blue (#2563EB) */
+    --primary: 221 83% 53%; /* Vibrant blue (#2563EB) */
     --primary-foreground: 210 40% 98%; /* Light text on primary */
-    --secondary: 217 33% 15%;         /* Dark gray secondary */
+    --secondary: 217 33% 15%; /* Dark gray secondary */
     --secondary-foreground: 210 40% 98%; /* Light text on secondary */
-    --muted: 217 33% 15%;             /* Dark muted background */
-    --muted-foreground: 215 20% 65%;  /* Medium-light gray text */
-    --accent: 262 83% 58%;            /* Purple accent (#8B5CF6) */
+    --muted: 217 33% 15%; /* Dark muted background */
+    --muted-foreground: 215 20% 65%; /* Medium-light gray text */
+    --accent: 262 83% 58%; /* Purple accent (#8B5CF6) */
     --accent-foreground: 210 40% 98%; /* Light text on accent */
-    --destructive: 0 63% 31%;         /* Darker red for better contrast */
+    --destructive: 0 63% 31%; /* Darker red for better contrast */
     --destructive-foreground: 210 40% 98%; /* Light text on destructive */
-    --border: 217 33% 15%;            /* Dark border color */
-    --input: 217 33% 15%;             /* Dark input backgrounds */
-    --ring: 221 83% 53%;              /* Blue focus ring */
+    --border: 217 33% 15%; /* Dark border color */
+    --input: 217 33% 15%; /* Dark input backgrounds */
+    --ring: 221 83% 53%; /* Blue focus ring */
     --radius: 0.75rem;
-    
+
     /* Chart colors for dark theme */
-    --chart-1: 221 83% 53%;           /* Primary blue */
-    --chart-2: 142 71% 45%;           /* Emerald */
-    --chart-3: 262 83% 58%;           /* Purple */
-    --chart-4: 25 95% 53%;            /* Orange */
-    --chart-5: 336 75% 40%;           /* Pink */
+    --chart-1: 221 83% 53%; /* Primary blue */
+    --chart-2: 142 71% 45%; /* Emerald */
+    --chart-3: 262 83% 58%; /* Purple */
+    --chart-4: 25 95% 53%; /* Orange */
+    --chart-5: 336 75% 40%; /* Pink */
   }
 }
 
@@ -73,7 +73,7 @@
   body {
     @apply bg-background text-foreground;
   }
-  
+
   /* Remove all focus outlines */
   *:focus,
   *:focus-visible,
@@ -82,13 +82,13 @@
     box-shadow: none !important;
     border-color: transparent !important;
   }
-  
+
   /* Remove webkit tap highlight */
   * {
     -webkit-tap-highlight-color: transparent !important;
     -webkit-focus-ring-color: transparent !important;
   }
-  
+
   /* Specifically target form elements */
   input:focus,
   textarea:focus,
@@ -98,22 +98,50 @@
     box-shadow: none !important;
     border-color: transparent !important;
   }
-  
+
   /* Troll animations for light theme button */
   @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
-    20%, 40%, 60%, 80% { transform: translateX(10px); }
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+      transform: translateX(-10px);
+    }
+    20%,
+    40%,
+    60%,
+    80% {
+      transform: translateX(10px);
+    }
   }
-  
+
   @keyframes wobble {
-    0% { transform: translateX(0%) rotate(0deg); }
-    15% { transform: translateX(-25px) rotate(-5deg); }
-    30% { transform: translateX(20px) rotate(3deg); }
-    45% { transform: translateX(-15px) rotate(-3deg); }
-    60% { transform: translateX(10px) rotate(2deg); }
-    75% { transform: translateX(-5px) rotate(-1deg); }
-    100% { transform: translateX(0%) rotate(0deg); }
+    0% {
+      transform: translateX(0%) rotate(0deg);
+    }
+    15% {
+      transform: translateX(-25px) rotate(-5deg);
+    }
+    30% {
+      transform: translateX(20px) rotate(3deg);
+    }
+    45% {
+      transform: translateX(-15px) rotate(-3deg);
+    }
+    60% {
+      transform: translateX(10px) rotate(2deg);
+    }
+    75% {
+      transform: translateX(-5px) rotate(-1deg);
+    }
+    100% {
+      transform: translateX(0%) rotate(0deg);
+    }
   }
 }
 
@@ -124,15 +152,16 @@
     background: rgba(255, 255, 255, 0.9) !important;
     border: 1px solid rgba(20, 184, 166, 0.3) !important;
     border-radius: 8px !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
     backdrop-filter: blur(8px) !important;
   }
-  
+
   .dark .react-flow__controls {
     background: rgba(30, 41, 59, 0.9) !important;
     border: 1px solid rgba(20, 184, 166, 0.5) !important;
   }
-  
+
   .react-flow__controls-button {
     background: transparent !important;
     border: none !important;
@@ -145,56 +174,75 @@
     align-items: center !important;
     justify-content: center !important;
   }
-  
+
   .react-flow__controls-button:hover {
     background: rgba(20, 184, 166, 0.1) !important; /* teal-500 with opacity */
     color: #0f766e !important; /* teal-700 */
     transform: scale(1.05) !important;
   }
-  
+
   .dark .react-flow__controls-button {
     color: #5eead4 !important; /* teal-300 */
   }
-  
+
   .dark .react-flow__controls-button:hover {
     background: rgba(94, 234, 212, 0.2) !important; /* teal-300 with opacity */
     color: #7dd3fc !important; /* sky-300 */
   }
-  
+
   .react-flow__controls-button svg {
     width: 12px !important;
     height: 12px !important;
   }
-  
+
   /* MiniMap styling */
   .react-flow__minimap {
     background: rgba(255, 255, 255, 0.9) !important;
     border: 1px solid rgba(20, 184, 166, 0.3) !important;
     border-radius: 8px !important;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
     backdrop-filter: blur(8px) !important;
   }
-  
+
   .dark .react-flow__minimap {
     background: rgba(30, 41, 59, 0.9) !important;
     border: 1px solid rgba(20, 184, 166, 0.5) !important;
   }
-  
+
   .react-flow__minimap-mask {
     fill: rgba(20, 184, 166, 0.1) !important; /* teal-500 with opacity */
   }
-  
+
   .dark .react-flow__minimap-mask {
     fill: rgba(94, 234, 212, 0.15) !important; /* teal-300 with opacity */
   }
-  
+
   /* MiniMap node descriptions/viewport */
   .react-flow__minimap-node {
     stroke: #14b8a6 !important; /* teal-500 */
     stroke-width: 1.5px !important;
   }
-  
+
   .dark .react-flow__minimap-node {
     stroke: #5eead4 !important; /* teal-300 */
+  }
+
+  /* Eraser mode cursor styling */
+  .eraser-mode,
+  .eraser-mode *,
+  .eraser-mode .react-flow__pane,
+  .eraser-mode .react-flow__renderer,
+  .eraser-mode .react-flow__node {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 21-4.3-4.3c-1-1-1-2.5 0-3.5l9.6-9.6c1-1 2.5-1 3.5 0l5.7 5.7c1 1 1 2.5 0 3.5L13 21'/%3E%3Cpath d='M22 21H7'/%3E%3Cpath d='m5 11 9 9'/%3E%3C/svg%3E")
+        12 12,
+      auto !important;
+  }
+
+  /* Override ReactFlow's default cursor behavior in eraser mode */
+  .eraser-mode .react-flow__node {
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ef4444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 21-4.3-4.3c-1-1-1-2.5 0-3.5l9.6-9.6c1-1 2.5-1 3.5 0l5.7 5.7c1 1 1 2.5 0 3.5L13 21'/%3E%3Cpath d='M22 21H7'/%3E%3Cpath d='m5 11 9 9'/%3E%3C/svg%3E")
+        12 12,
+      auto !important;
   }
 }
