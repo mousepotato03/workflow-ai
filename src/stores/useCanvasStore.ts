@@ -118,7 +118,7 @@ const INITIAL_STATE = {
   selectedEdgeIds: [],
   isEditing: false,
   zoomLevel: 1,
-  viewport: { x: 0, y: 0, zoom: 1.25}, // Level 3 (기본값, 5단계 중 중간)
+  viewport: { x: 0, y: 0, zoom: 1.0}, // Level 3 (기본값, 5단계 중 중간)
   isProcessing: false,
   history: [],
   historyIndex: -1,
@@ -837,7 +837,7 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
         selectedEdgeIds: [],
         isEditing: false,
         zoomLevel: 1,
-        viewport: { x: 0, y: 0, zoom: 1.25 },
+        viewport: { x: 0, y: 0, zoom: 1.0 },
         isProcessing: false,
         hasUnsavedChanges: false,
         lastSavedTimestamp: new Date(),
@@ -854,7 +854,8 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
         ...viewport,
       };
 
-      if (viewport.zoom) {
+      // Always clamp zoom if provided
+      if (viewport.zoom !== undefined) {
         newViewport.zoom = Math.max(
           current.config.minZoom,
           Math.min(current.config.maxZoom, viewport.zoom)
@@ -1179,7 +1180,7 @@ if (typeof window !== "undefined") {
     (state) => ({
       nodes: state.nodes,
       edges: state.edges,
-      viewport: state.viewport,
+      // Remove viewport from auto-save subscription to prevent excessive triggers
     }),
     () => {
       const config = useCanvasStore.getState().config;

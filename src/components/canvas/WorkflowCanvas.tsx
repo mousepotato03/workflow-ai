@@ -37,6 +37,8 @@ import {
   Undo,
   Redo,
   Eraser,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 
 import {
@@ -141,6 +143,11 @@ interface CanvasToolbarProps {
   onRedo: () => void;
   isEraserMode: boolean;
   onToggleEraserMode: () => void;
+  currentZoom: number;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  canZoomIn: boolean;
+  canZoomOut: boolean;
 }
 
 const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
@@ -157,6 +164,11 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   onRedo,
   isEraserMode,
   onToggleEraserMode,
+  currentZoom,
+  onZoomIn,
+  onZoomOut,
+  canZoomIn,
+  canZoomOut,
 }) => {
   return (
     <div className="w-full bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-slate-800 dark:to-slate-700 border-b border-teal-200/50 dark:border-slate-600 shadow-sm p-3 relative z-10">
@@ -254,15 +266,29 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
 
           <Separator orientation="vertical" className="h-6" />
 
+          {/* Zoom Controls */}
           <Button
             size="sm"
             variant="outline"
-            onClick={onSyncWorkflow}
-            className="text-xs px-3 py-1 h-8 hover:bg-teal-100 hover:border-teal-300 dark:hover:bg-teal-900/30"
+            onClick={onZoomOut}
+            disabled={!canZoomOut}
+            className="text-xs px-2 py-1 h-8"
           >
-            <RefreshCw className="w-3 h-3 mr-1" />
-            Sync
+            <ZoomOut className="w-3 h-3" />
           </Button>
+          <div className="text-xs px-2 py-1 h-8 flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded min-w-[60px] font-mono">
+            {Math.round(currentZoom * 100)}%
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onZoomIn}
+            disabled={!canZoomIn}
+            className="text-xs px-2 py-1 h-8"
+          >
+            <ZoomIn className="w-3 h-3" />
+          </Button>
+
           <Button
             size="sm"
             variant="outline"
@@ -272,15 +298,9 @@ const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
             <Target className="w-3 h-3 mr-1" />
             Layout
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onSaveCanvas}
-            className="text-xs px-3 py-1 h-8 hover:bg-teal-100 hover:border-teal-300 dark:hover:bg-teal-900/30"
-          >
-            <Save className="w-3 h-3 mr-1" />
-            Save
-          </Button>
+
+          <Separator orientation="vertical" className="h-6" />
+
           <Button
             size="sm"
             variant="outline"
@@ -321,7 +341,7 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
   isEraserMode,
   onToggleEraserMode,
 }) => {
-  const { fitView } = useReactFlow();
+  const { fitView, setViewport: reactFlowSetViewport } = useReactFlow();
 
   // Canvas store
   const {
@@ -392,6 +412,7 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
     }
   }, [workflowStore.workflowResult, syncWithWorkflow]);
 
+
   // Toolbar action handlers
   const handleAddNode = useCallback(
     (nodeType: CanvasNodeType) => {
@@ -404,10 +425,10 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
 
   const handleClearCanvas = useCallback(() => {
     clearCanvas();
-    // Clear 후 초기 상태로 뷰포트 리셋 (줌 레벨 1.25, 중앙 위치)
-    setViewport({ x: 0, y: 0, zoom: 1.25 });
-    fitView();
-  }, [clearCanvas, setViewport, fitView]);
+    // Clear 후 초기 상태로 뷰포트 리셋 (줌 레벨 1.0, 중앙 위치)
+    const initialViewport = { x: 0, y: 0, zoom: 1.0 };
+    setViewport(initialViewport);
+  }, [clearCanvas, setViewport]);
 
   const handleSaveCanvas = useCallback(() => {
     saveCanvas();
@@ -573,9 +594,10 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
     [MainTaskNodeWrapper, SubtaskNodeWrapper, GuideCardNodeWrapper]
   );
 
-  // Viewport change handler
+  // Viewport change handler - keep store in sync with ReactFlow
   const onViewportChange: OnMove = useCallback(
     (event, viewport) => {
+      // Update store to keep in sync with ReactFlow viewport
       setViewport(viewport);
     },
     [setViewport]
@@ -592,6 +614,7 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         onNodeClick={handleNodeClick}
+        zoomOnScroll={false}
         onNodeDoubleClick={(event, node) => {
           // Handle node double-click for editing (only if not in eraser mode)
           if (
@@ -604,8 +627,7 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
         }}
         onMove={onViewportChange}
         connectionMode={ConnectionMode.Loose}
-        defaultViewport={viewport}
-        fitView={!viewport.x && !viewport.y}
+        viewport={viewport}
         fitViewOptions={{
           padding: 0.1,
           minZoom: config.minZoom,
@@ -667,7 +689,7 @@ export const WorkflowCanvas: React.FC = () => {
 };
 
 const WorkflowCanvasWithToolbar: React.FC = () => {
-  const [nodes, edges] = useCanvasStore((state) => [state.nodes, state.edges]);
+  const [nodes, edges, viewport, config] = useCanvasStore((state) => [state.nodes, state.edges, state.viewport, state.config]);
   const [isEraserMode, setIsEraserMode] = useState(false);
   const {
     undo,
@@ -685,7 +707,23 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
     setViewport,
   } = useCanvasStore();
 
-  const { fitView } = useReactFlow();
+  const { fitView, zoomIn, zoomOut, getViewport, setViewport: reactFlowSetViewport } = useReactFlow();
+
+  // Sync ReactFlow viewport with store viewport on mount and when store changes
+  useEffect(() => {
+    const currentReactFlowViewport = getViewport();
+    const storeViewport = viewport;
+    
+    // Only sync if there's a meaningful difference
+    const hasDifference = 
+      Math.abs(currentReactFlowViewport.zoom - storeViewport.zoom) > 0.01 ||
+      Math.abs(currentReactFlowViewport.x - storeViewport.x) > 10 ||
+      Math.abs(currentReactFlowViewport.y - storeViewport.y) > 10;
+    
+    if (hasDifference) {
+      reactFlowSetViewport(storeViewport, { duration: 0 });
+    }
+  }, [viewport, getViewport, reactFlowSetViewport]);
 
   // Toolbar action handlers
   const handleAddNode = useCallback(
@@ -699,10 +737,10 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
 
   const handleClearCanvas = useCallback(() => {
     clearCanvas();
-    // Clear 후 초기 상태로 뷰포트 리셋 (줌 레벨 1.25, 중앙 위치)
-    setViewport({ x: 0, y: 0, zoom: 1.25 });
-    fitView();
-  }, [clearCanvas, setViewport, fitView]);
+    // Clear 후 초기 상태로 뷰포트 리셋 (줌 레벨 1.0, 중앙 위치)
+    const initialViewport = { x: 0, y: 0, zoom: 1.0 };
+    setViewport(initialViewport);
+  }, [clearCanvas, setViewport]);
 
   const handleSaveCanvas = useCallback(() => {
     saveCanvas();
@@ -727,7 +765,7 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
     const success = saveCanvasToStorage(
       nodes,
       edges,
-      { x: 0, y: 0, zoom: 1.25 },
+      { x: 0, y: 0, zoom: 1.0 },
       defaultConfig
     );
   }, [saveCanvas, nodes, edges]);
@@ -751,7 +789,7 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
         borderColor: "#e2e8f0",
       },
     };
-    exportCanvasAsFile(nodes, edges, { x: 0, y: 0, zoom: 1.25 }, defaultConfig);
+    exportCanvasAsFile(nodes, edges, { x: 0, y: 0, zoom: 1.0 }, defaultConfig);
   }, [nodes, edges]);
 
   const handleImportCanvas = useCallback(() => {
@@ -789,6 +827,63 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
     setIsEraserMode(!isEraserMode);
   }, [isEraserMode]);
 
+  // Zoom levels: 0.5, 0.75, 1.0, 1.5, 2.0
+  const zoomLevels = [0.5, 0.75, 1.0, 1.5, 2.0];
+  
+  const getCurrentZoomLevelIndex = useCallback(() => {
+    const currentZoom = viewport.zoom;
+    // Find closest zoom level
+    let closestIndex = 0;
+    let closestDiff = Math.abs(zoomLevels[0] - currentZoom);
+    
+    for (let i = 1; i < zoomLevels.length; i++) {
+      const diff = Math.abs(zoomLevels[i] - currentZoom);
+      if (diff < closestDiff) {
+        closestDiff = diff;
+        closestIndex = i;
+      }
+    }
+    
+    return closestIndex;
+  }, [viewport.zoom]);
+
+  const handleZoomIn = useCallback(() => {
+    const currentIndex = getCurrentZoomLevelIndex();
+    if (currentIndex < zoomLevels.length - 1) {
+      const newZoom = zoomLevels[currentIndex + 1];
+      const currentViewport = getViewport();
+      // Use ReactFlow's native setViewport to avoid conflicts
+      reactFlowSetViewport({ 
+        ...currentViewport, 
+        zoom: newZoom 
+      }, { duration: 200 });
+      // Update store after a brief delay to avoid conflicts
+      setTimeout(() => {
+        setViewport({ ...currentViewport, zoom: newZoom });
+      }, 50);
+    }
+  }, [getCurrentZoomLevelIndex, setViewport, getViewport, reactFlowSetViewport]);
+
+  const handleZoomOut = useCallback(() => {
+    const currentIndex = getCurrentZoomLevelIndex();
+    if (currentIndex > 0) {
+      const newZoom = zoomLevels[currentIndex - 1];
+      const currentViewport = getViewport();
+      // Use ReactFlow's native setViewport to avoid conflicts
+      reactFlowSetViewport({ 
+        ...currentViewport, 
+        zoom: newZoom 
+      }, { duration: 200 });
+      // Update store after a brief delay to avoid conflicts
+      setTimeout(() => {
+        setViewport({ ...currentViewport, zoom: newZoom });
+      }, 50);
+    }
+  }, [getCurrentZoomLevelIndex, setViewport, getViewport, reactFlowSetViewport]);
+
+  const canZoomIn = getCurrentZoomLevelIndex() < zoomLevels.length - 1;
+  const canZoomOut = getCurrentZoomLevelIndex() > 0;
+
   return (
     <>
       <CanvasToolbar
@@ -805,6 +900,11 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
         onRedo={redo}
         isEraserMode={isEraserMode}
         onToggleEraserMode={handleToggleEraserMode}
+        currentZoom={viewport.zoom}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        canZoomIn={canZoomIn}
+        canZoomOut={canZoomOut}
       />
       <div className="flex-1 overflow-hidden">
         <WorkflowCanvasContent
