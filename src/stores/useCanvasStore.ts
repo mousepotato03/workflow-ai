@@ -51,6 +51,10 @@ interface ExtendedCanvasState extends CanvasState, CanvasActions {
   // Canvas configuration
   config: CanvasConfig;
 
+  // Track unsaved changes
+  hasUnsavedChanges: boolean;
+  lastSavedTimestamp: Date | null;
+
   // Internal methods
   saveHistoryPoint: (action: string) => void;
   saveCanvas: () => void;
@@ -59,17 +63,18 @@ interface ExtendedCanvasState extends CanvasState, CanvasActions {
   loadCanvas: (data: { nodes: CanvasNode[]; edges: CanvasEdge[] }) => void;
   getNodeById: (id: string) => CanvasNode | undefined;
   getMainTaskNode: () => CanvasNode<MainTaskNodeData> | undefined;
+  hasMeaningfulChanges: () => boolean;
 }
 
-// Default canvas configuration
+// Default canvas configuration with 5-level zoom
 const DEFAULT_CONFIG: CanvasConfig = {
   showGrid: true,
   showMinimap: true,
   showControls: true,
   nodeSpacing: { x: 200, y: 150 },
-  maxZoom: 2,
-  minZoom: 0.1,
-  autoSave: true,
+  maxZoom: 2.0, // Level 5 (최대 확대)
+  minZoom: 0.5, // Level 1 (최대 축소)
+  autoSave: false,
   autoSaveInterval: 30000, // 30 seconds
   enableAnimations: true,
   theme: {
@@ -112,8 +117,8 @@ const INITIAL_STATE = {
   selectedNodeIds: [],
   selectedEdgeIds: [],
   isEditing: false,
-  zoomLevel: 0.5,
-  viewport: { x: 0, y: 0, zoom: 0.5 },
+  zoomLevel: 1,
+  viewport: { x: 0, y: 0, zoom: 1.25}, // Level 3 (기본값, 5단계 중 중간)
   isProcessing: false,
   history: [],
   historyIndex: -1,
@@ -121,6 +126,8 @@ const INITIAL_STATE = {
   isUndoRedoing: false,
   config: DEFAULT_CONFIG,
   lastWorkflowSync: null,
+  hasUnsavedChanges: false,
+  lastSavedTimestamp: null,
 };
 
 export const useCanvasStore = create<ExtendedCanvasState>()(
@@ -152,6 +159,7 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
       set({
         history: newHistory,
         historyIndex: newHistory.length - 1,
+        hasUnsavedChanges: true,
       });
     },
 
@@ -174,6 +182,22 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
       return get().nodes.find(
         (n) => n.type === CanvasNodeType.MAIN_TASK
       ) as CanvasNode<MainTaskNodeData>;
+    },
+
+    hasMeaningfulChanges: (): boolean => {
+      const current = get();
+      
+      // If there are any edges, there are meaningful changes
+      if (current.edges.length > 0) return true;
+      
+      // If there are more than just the main task node
+      if (current.nodes.length > 1) return true;
+      
+      // Check if main task node has meaningful content
+      const mainTask = current.getMainTaskNode();
+      if (mainTask && mainTask.data.goal?.trim()) return true;
+      
+      return false;
     },
 
     // Node operations
@@ -215,6 +239,7 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
       set({
         nodes: updatedNodes,
         mainTaskNode: updatedMainTaskNode,
+        hasUnsavedChanges: true,
       });
 
       current.saveHistoryPoint(`Add ${nodeType} node`);
@@ -244,6 +269,7 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
       set({
         nodes: updatedNodes,
         mainTaskNode: updatedMainTaskNode,
+        hasUnsavedChanges: true,
       });
 
       current.saveHistoryPoint(`Update ${nodeId}`);
@@ -267,6 +293,7 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
       set({
         nodes: updatedNodes,
         edges: updatedEdges,
+        hasUnsavedChanges: true,
       });
 
       current.saveHistoryPoint(`Delete ${nodeToDelete.type} node`);
@@ -307,7 +334,10 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
       };
 
       const updatedEdges = [...current.edges, newEdge];
-      set({ edges: updatedEdges });
+      set({ 
+        edges: updatedEdges,
+        hasUnsavedChanges: true,
+      });
 
       current.saveHistoryPoint(
         `Add edge from ${connection.source} to ${connection.target}`
@@ -320,7 +350,10 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
         edge.id === edgeId ? { ...edge, ...data } : edge
       );
 
-      set({ edges: updatedEdges });
+      set({ 
+        edges: updatedEdges,
+        hasUnsavedChanges: true,
+      });
       current.saveHistoryPoint(`Update edge ${edgeId}`);
     },
 
@@ -328,7 +361,10 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
       const current = get();
       const updatedEdges = current.edges.filter((edge) => edge.id !== edgeId);
 
-      set({ edges: updatedEdges });
+      set({ 
+        edges: updatedEdges,
+        hasUnsavedChanges: true,
+      });
       current.saveHistoryPoint(`Delete edge ${edgeId}`);
     },
 
@@ -771,6 +807,8 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
           mainTaskNode: mainTaskNode as CanvasNode<MainTaskNodeData>,
           selectedNodeIds: [],
           selectedEdgeIds: [],
+          hasUnsavedChanges: false,
+          lastSavedTimestamp: new Date(),
         });
       } else {
         // 메인 태스크 노드가 없는 경우 새로 생성
@@ -781,37 +819,32 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
           mainTaskNode: newMainTaskNode,
           selectedNodeIds: [],
           selectedEdgeIds: [],
+          hasUnsavedChanges: false,
+          lastSavedTimestamp: new Date(),
         });
       }
       current.saveHistoryPoint("Clear canvas");
     },
 
     resetCanvas: (): void => {
-      const current = get();
-
-      // 기존 메인 태스크 노드가 있다면 업데이트, 없다면 새로 생성
-      const existingMainTask = current.getMainTaskNode();
-
-      if (existingMainTask) {
-        // 기존 메인 태스크 노드의 목표와 설명을 초기화
-        current.updateNode(existingMainTask.id, {
-          goal: "",
-          description: "",
-          isEditing: false,
-        });
-      } else {
-        // 메인 태스크 노드가 없는 경우 새로 생성
-        const newMainTaskNode = createInitialMainTaskNode();
-        set({
-          nodes: [newMainTaskNode],
-          edges: [],
-          mainTaskNode: newMainTaskNode,
-          selectedNodeIds: [],
-          selectedEdgeIds: [],
-        });
-      }
-
-      current.saveHistoryPoint("Reset canvas");
+      // Reset to initial state completely
+      const newMainTaskNode = createInitialMainTaskNode();
+      set({
+        nodes: [newMainTaskNode],
+        edges: [],
+        mainTaskNode: newMainTaskNode,
+        selectedNodeIds: [],
+        selectedEdgeIds: [],
+        isEditing: false,
+        zoomLevel: 1,
+        viewport: { x: 0, y: 0, zoom: 1.25 },
+        isProcessing: false,
+        hasUnsavedChanges: false,
+        lastSavedTimestamp: new Date(),
+        // Clear history as well
+        history: [],
+        historyIndex: -1,
+      });
     },
 
     setViewport: (viewport: { x: number; y: number; zoom?: number }): void => {
@@ -897,6 +930,10 @@ export const useCanvasStore = create<ExtendedCanvasState>()(
 
         try {
           localStorage.setItem("canvas-state", JSON.stringify(canvasData));
+          set({
+            hasUnsavedChanges: false,
+            lastSavedTimestamp: new Date(),
+          });
         } catch (error) {
           console.warn("Failed to save canvas to localStorage:", error);
         }
@@ -1096,6 +1133,25 @@ export const useCanvasHistory = () => {
     saveHistoryPoint,
   };
 };
+
+// Subscribe to meaningful changes to update hasUnsavedChanges
+useCanvasStore.subscribe(
+  (state) => ({
+    nodes: state.nodes,
+    edges: state.edges,
+  }),
+  () => {
+    const canvasStore = useCanvasStore.getState();
+    const hasMeaningfulChanges = canvasStore.hasMeaningfulChanges();
+    
+    // Update hasUnsavedChanges based on meaningful changes
+    if (hasMeaningfulChanges !== canvasStore.hasUnsavedChanges) {
+      useCanvasStore.setState({ 
+        hasUnsavedChanges: hasMeaningfulChanges 
+      });
+    }
+  }
+);
 
 // Subscribe to workflow store changes for automatic sync
 useCanvasStore.subscribe(

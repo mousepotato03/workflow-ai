@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Handle, Position } from "reactflow";
 import { Target, Lock } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,11 +64,20 @@ export const MainTaskNode: React.FC<MainTaskNodeProps> = ({
     e.stopPropagation();
   }, []);
 
+  // Auto-resize textarea when content changes
+  useEffect(() => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current;
+      textarea.style.height = "auto";
+      textarea.style.height = textarea.scrollHeight + "px";
+    }
+  }, [goalText]);
+
   return (
     <div
       className={cn(
         "relative bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl shadow-lg border border-teal-300/30 transition-all duration-200",
-        "min-w-[320px] max-w-[600px] w-fit",
+        "min-w-[320px] max-w-[800px] w-fit",
         selected &&
           "ring-2 ring-teal-400/50 ring-offset-1 ring-offset-background"
       )}
@@ -108,7 +117,7 @@ export const MainTaskNode: React.FC<MainTaskNodeProps> = ({
 
       {/* Content Area */}
       <div className="px-2 pb-2">
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 min-h-[50px] flex items-center">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 min-h-[50px] flex items-start">
           <Textarea
             ref={textareaRef}
             value={goalText}
@@ -117,16 +126,15 @@ export const MainTaskNode: React.FC<MainTaskNodeProps> = ({
             onBlur={handleSave}
             onClick={handleTextareaClick}
             placeholder="Enter your main workflow goal..."
-            className="bg-transparent border-none shadow-none focus-visible:ring-0 text-white placeholder:text-white/60 text-xs resize-none overflow-hidden min-h-[14px] max-h-[60px] p-0 leading-relaxed"
+            className="bg-transparent border-none shadow-none focus-visible:ring-0 text-white placeholder:text-white/60 text-xs resize-none overflow-hidden min-h-[14px] p-0 leading-relaxed w-full"
             style={{
               height: "auto",
               minHeight: "14px",
-              maxHeight: "60px",
             }}
             onInput={(e) => {
               const target = e.target as HTMLTextAreaElement;
               target.style.height = "auto";
-              target.style.height = Math.min(target.scrollHeight, 60) + "px";
+              target.style.height = target.scrollHeight + "px";
             }}
           />
         </div>

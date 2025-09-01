@@ -366,10 +366,23 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
     [nodes, edges, addEdge]
   );
 
-  // Initialize canvas - 메인 태스크 노드가 이미 초기 상태에 포함되어 있음
+  // Initialize canvas on component mount
   useEffect(() => {
-    // 초기 상태에서 메인 태스크 노드가 이미 존재하므로 별도 초기화 불필요
-    // 필요시 여기서 추가 초기화 로직을 수행할 수 있음
+    const currentState = useCanvasStore.getState();
+    
+    // Check if we should initialize with a clean canvas
+    // This happens when:
+    // 1. No nodes exist (first visit or after reset)
+    // 2. Only the main task node exists and it's empty
+    if (currentState.nodes.length === 0) {
+      currentState.resetCanvas();
+    } else if (currentState.nodes.length === 1) {
+      const mainTask = currentState.getMainTaskNode();
+      if (mainTask && !mainTask.data.goal?.trim()) {
+        // Main task is empty, consider this a fresh start
+        currentState.resetCanvas();
+      }
+    }
   }, []);
 
   // Auto-sync with workflow store when it changes
@@ -391,7 +404,12 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
 
   const handleClearCanvas = useCallback(() => {
     clearCanvas();
-  }, [clearCanvas]);
+    // Clear 후 초기 상태로 뷰포트 리셋 (줌 레벨 1.25, 중앙 위치)
+    setTimeout(() => {
+      setViewport({ x: 0, y: 0, zoom: 1.25 });
+      fitView({ duration: 800 });
+    }, 100);
+  }, [clearCanvas, setViewport, fitView]);
 
   const handleSaveCanvas = useCallback(() => {
     saveCanvas();
@@ -699,8 +717,8 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
       showMinimap: true,
       showControls: true,
       nodeSpacing: { x: 200, y: 150 },
-      maxZoom: 2,
-      minZoom: 0.1,
+      maxZoom: 2.0,
+      minZoom: 0.5,
       autoSave: false,
       autoSaveInterval: 30000,
       enableAnimations: true,
@@ -715,7 +733,7 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
     const success = saveCanvasToStorage(
       nodes,
       edges,
-      { x: 0, y: 0, zoom: 0.5 },
+      { x: 0, y: 0, zoom: 1.25 },
       defaultConfig
     );
   }, [saveCanvas, nodes, edges]);
@@ -726,8 +744,8 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
       showMinimap: true,
       showControls: true,
       nodeSpacing: { x: 200, y: 150 },
-      maxZoom: 2,
-      minZoom: 0.1,
+      maxZoom: 2.0,
+      minZoom: 0.5,
       autoSave: false,
       autoSaveInterval: 30000,
       enableAnimations: true,
@@ -739,7 +757,7 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
         borderColor: "#e2e8f0",
       },
     };
-    exportCanvasAsFile(nodes, edges, { x: 0, y: 0, zoom: 0.5 }, defaultConfig);
+    exportCanvasAsFile(nodes, edges, { x: 0, y: 0, zoom: 1.25 }, defaultConfig);
   }, [nodes, edges]);
 
   const handleImportCanvas = useCallback(() => {
