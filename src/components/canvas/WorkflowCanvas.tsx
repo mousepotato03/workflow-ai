@@ -369,7 +369,7 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
   // Initialize canvas on component mount
   useEffect(() => {
     const currentState = useCanvasStore.getState();
-    
+
     // Check if we should initialize with a clean canvas
     // This happens when:
     // 1. No nodes exist (first visit or after reset)
@@ -405,10 +405,8 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
   const handleClearCanvas = useCallback(() => {
     clearCanvas();
     // Clear 후 초기 상태로 뷰포트 리셋 (줌 레벨 1.25, 중앙 위치)
-    setTimeout(() => {
-      setViewport({ x: 0, y: 0, zoom: 1.25 });
-      fitView({ duration: 800 });
-    }, 100);
+    setViewport({ x: 0, y: 0, zoom: 1.25 });
+    fitView();
   }, [clearCanvas, setViewport, fitView]);
 
   const handleSaveCanvas = useCallback(() => {
@@ -632,20 +630,10 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
           color="rgba(20, 184, 166, 0.2)"
         />
 
-        {/* Controls */}
-        {config.showControls && (
-          <Controls
-            position="bottom-right"
-            showZoom={true}
-            showFitView={true}
-            showInteractive={true}
-          />
-        )}
-
         {/* MiniMap */}
         {config.showMinimap && (
           <MiniMap
-            position="bottom-left"
+            position="bottom-right"
             maskColor="rgba(20, 184, 166, 0.1)" // teal-500 with opacity
             nodeStrokeColor="#14b8a6" // teal-500
             nodeStrokeWidth={1.5}
@@ -694,7 +682,10 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
     saveCanvas,
     syncWithWorkflow,
     exportToWorkflow,
+    setViewport,
   } = useCanvasStore();
+
+  const { fitView } = useReactFlow();
 
   // Toolbar action handlers
   const handleAddNode = useCallback(
@@ -708,7 +699,10 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
 
   const handleClearCanvas = useCallback(() => {
     clearCanvas();
-  }, [clearCanvas]);
+    // Clear 후 초기 상태로 뷰포트 리셋 (줌 레벨 1.25, 중앙 위치)
+    setViewport({ x: 0, y: 0, zoom: 1.25 });
+    fitView();
+  }, [clearCanvas, setViewport, fitView]);
 
   const handleSaveCanvas = useCallback(() => {
     saveCanvas();
