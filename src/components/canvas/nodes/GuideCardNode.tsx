@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { Handle, Position } from "reactflow";
+import { Handle, Position, NodeResizer } from "reactflow";
 import {
   BookOpen,
   ChevronDown,
@@ -52,6 +52,7 @@ export const GuideCardNode: React.FC<GuideCardNodeProps> = ({
   const [contentText, setContentText] = useState(data.content || "");
   const [isExpanded, setIsExpanded] = useState(false); // Full-screen mode
   const [isFocused, setIsFocused] = useState(false);
+  const [nodeSize, setNodeSize] = useState({ width: 260, height: 120 });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-focus textarea when entering edit mode
@@ -109,6 +110,11 @@ export const GuideCardNode: React.FC<GuideCardNodeProps> = ({
     [handleSave, handleCancel]
   );
 
+  // Handle node resize
+  const handleResize = useCallback((event: any, data: { width: number; height: number }) => {
+    setNodeSize({ width: data.width, height: data.height });
+  }, []);
+
   // Handle copy content to clipboard
   const handleCopy = useCallback(async () => {
     try {
@@ -151,17 +157,31 @@ export const GuideCardNode: React.FC<GuideCardNodeProps> = ({
   const generationStatus = getGenerationStatusInfo();
 
   return (
-    <div
-      className={cn(
-        "relative bg-card border rounded-xl shadow-lg transition-all duration-200",
-        data.isCollapsed ? "min-w-[220px]" : "min-w-[260px] max-w-[400px]",
-        isExpanded && "fixed inset-4 z-50 max-w-none max-h-none",
-        selected &&
-          "ring-2 ring-emerald-400/50 ring-offset-2 ring-offset-background",
-        isFocused && "ring-2 ring-emerald-200",
-        isEditing && "shadow-xl"
+    <>
+      {!isExpanded && (
+        <NodeResizer
+          minWidth={220}
+          minHeight={120}
+          maxWidth={500}
+          maxHeight={700}
+          isVisible={selected}
+          lineClassName="border-emerald-400"
+          handleClassName="w-3 h-3 bg-emerald-400 border-2 border-white"
+          onResize={handleResize}
+        />
       )}
-    >
+      <div
+        className={cn(
+          "relative bg-card border rounded-xl shadow-lg transition-all duration-200",
+          data.isCollapsed ? "min-w-[220px]" : "min-w-[260px] w-full h-full",
+          !data.isCollapsed && !isExpanded && "max-w-[500px]",
+          isExpanded && "fixed inset-4 z-50 max-w-none max-h-none",
+          selected &&
+            "ring-2 ring-emerald-400/50 ring-offset-2 ring-offset-background",
+          isFocused && "ring-2 ring-emerald-200",
+          isEditing && "shadow-xl"
+        )}
+      >
       {/* Expanded Mode Overlay */}
       {isExpanded && (
         <div
@@ -300,10 +320,11 @@ export const GuideCardNode: React.FC<GuideCardNodeProps> = ({
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
                   placeholder="Enter your guide content (Markdown supported)..."
-                  className={cn(
-                    "text-xs leading-relaxed resize-none font-mono",
-                    isExpanded ? "min-h-[400px]" : "min-h-[150px]"
-                  )}
+                  className="text-xs leading-relaxed resize-none font-mono overflow-y-auto"
+                  style={{
+                    minHeight: isExpanded ? "400px" : `${Math.max(150, nodeSize.height - 200)}px`,
+                    maxHeight: isExpanded ? "none" : `${Math.max(200, nodeSize.height - 150)}px`,
+                  }}
                 />
               </div>
 
@@ -452,7 +473,8 @@ export const GuideCardNode: React.FC<GuideCardNodeProps> = ({
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

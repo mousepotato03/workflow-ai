@@ -14,6 +14,8 @@ import ReactFlow, {
   Viewport,
   Edge,
   OnMove,
+  PanOnScrollMode,
+  NodeResizer,
 } from "reactflow";
 import "reactflow/dist/style.css";
 
@@ -614,7 +616,7 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         onNodeClick={handleNodeClick}
-        zoomOnScroll={false}
+        zoomOnScroll={true}
         onNodeDoubleClick={(event, node) => {
           // Handle node double-click for editing (only if not in eraser mode)
           if (
@@ -627,7 +629,7 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
         }}
         onMove={onViewportChange}
         connectionMode={ConnectionMode.Loose}
-        viewport={viewport}
+        defaultViewport={viewport}
         fitViewOptions={{
           padding: 0.1,
           minZoom: config.minZoom,

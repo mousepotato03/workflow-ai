@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { Handle, Position } from "reactflow";
+import { Handle, Position, NodeResizer } from "reactflow";
 import {
   Sparkles,
   Edit3,
@@ -51,6 +51,7 @@ export const SubtaskNode: React.FC<SubtaskNodeProps> = ({
   const [taskText, setTaskText] = useState(data.taskDescription || "");
   const [isFocused, setIsFocused] = useState(false);
   const [showToolDetails, setShowToolDetails] = useState(false);
+  const [nodeSize, setNodeSize] = useState({ width: 220, height: 150 });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-focus textarea when entering edit mode
@@ -105,6 +106,11 @@ export const SubtaskNode: React.FC<SubtaskNodeProps> = ({
     },
     [isEditing, data.status, handleEditToggle]
   );
+
+  // Handle node resize
+  const handleResize = useCallback((event: any, data: { width: number; height: number }) => {
+    setNodeSize({ width: data.width, height: data.height });
+  }, []);
 
   // Get status-specific styling and content
   const getStatusInfo = useCallback(() => {
@@ -240,18 +246,29 @@ export const SubtaskNode: React.FC<SubtaskNodeProps> = ({
   const availableActions = getAvailableActions();
 
   return (
-    <div
-      className={cn(
-        "relative bg-card border rounded-xl shadow-lg transition-all duration-200",
-        "min-w-[220px] max-w-[300px]",
-        selected &&
-          "ring-2 ring-cyan-400/50 ring-offset-2 ring-offset-background",
-        isFocused && "ring-2 ring-cyan-200",
-        isEditing && "shadow-xl transform scale-[1.01]",
-        statusInfo.animated && "animate-pulse"
-      )}
-      onDoubleClick={handleDoubleClick}
-    >
+    <>
+      <NodeResizer
+        minWidth={220}
+        minHeight={150}
+        maxWidth={400}
+        maxHeight={600}
+        isVisible={selected}
+        lineClassName="border-cyan-400"
+        handleClassName="w-3 h-3 bg-cyan-400 border-2 border-white"
+        onResize={handleResize}
+      />
+      <div
+        className={cn(
+          "relative bg-card border rounded-xl shadow-lg transition-all duration-200",
+          "min-w-[220px] max-w-[400px] w-full h-full",
+          selected &&
+            "ring-2 ring-cyan-400/50 ring-offset-2 ring-offset-background",
+          isFocused && "ring-2 ring-cyan-200",
+          isEditing && "shadow-xl transform scale-[1.01]",
+          statusInfo.animated && "animate-pulse"
+        )}
+        onDoubleClick={handleDoubleClick}
+      >
       {/* Connection Handles */}
       <Handle
         type="target"
@@ -297,7 +314,11 @@ export const SubtaskNode: React.FC<SubtaskNodeProps> = ({
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
                   placeholder="Describe the task you want to accomplish..."
-                  className="min-h-[50px] text-xs leading-relaxed resize-none"
+                  className="text-xs leading-relaxed resize-none overflow-y-auto"
+                  style={{
+                    minHeight: `${Math.max(50, nodeSize.height - 200)}px`,
+                    maxHeight: `${Math.max(100, nodeSize.height - 120)}px`,
+                  }}
                 />
 
                 {/* Edit Actions */}
@@ -516,7 +537,8 @@ export const SubtaskNode: React.FC<SubtaskNodeProps> = ({
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

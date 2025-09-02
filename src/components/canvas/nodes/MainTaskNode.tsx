@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Handle, Position } from "reactflow";
+import { Handle, Position, NodeResizer } from "reactflow";
 import { Target, Lock } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,7 @@ export const MainTaskNode: React.FC<MainTaskNodeProps> = ({
   onEditToggle,
 }) => {
   const [goalText, setGoalText] = useState(data.goal || "");
+  const [nodeSize, setNodeSize] = useState({ width: 320, height: 120 });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Handle goal text change
@@ -64,6 +65,11 @@ export const MainTaskNode: React.FC<MainTaskNodeProps> = ({
     e.stopPropagation();
   }, []);
 
+  // Handle node resize
+  const handleResize = useCallback((event: any, data: { width: number; height: number }) => {
+    setNodeSize({ width: data.width, height: data.height });
+  }, []);
+
   // Auto-resize textarea when content changes
   useEffect(() => {
     if (textareaRef.current) {
@@ -71,17 +77,28 @@ export const MainTaskNode: React.FC<MainTaskNodeProps> = ({
       textarea.style.height = "auto";
       textarea.style.height = textarea.scrollHeight + "px";
     }
-  }, [goalText]);
+  }, [goalText, nodeSize]);
 
   return (
-    <div
-      className={cn(
-        "relative bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl shadow-lg border border-teal-300/30 transition-all duration-200",
-        "min-w-[320px] max-w-[800px] w-fit",
-        selected &&
-          "ring-2 ring-teal-400/50 ring-offset-1 ring-offset-background"
-      )}
-    >
+    <>
+      <NodeResizer
+        minWidth={320}
+        minHeight={120}
+        maxWidth={800}
+        maxHeight={400}
+        isVisible={selected}
+        lineClassName="border-teal-400"
+        handleClassName="w-3 h-3 bg-teal-400 border-2 border-white"
+        onResize={handleResize}
+      />
+      <div
+        className={cn(
+          "relative bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl shadow-lg border border-teal-300/30 transition-all duration-200",
+          "min-w-[320px] max-w-[800px] w-full h-full flex flex-col",
+          selected &&
+            "ring-2 ring-teal-400/50 ring-offset-1 ring-offset-background"
+        )}
+      >
       {/* Connection Handles */}
       <Handle
         type="source"
@@ -116,8 +133,8 @@ export const MainTaskNode: React.FC<MainTaskNodeProps> = ({
       </div>
 
       {/* Content Area */}
-      <div className="px-2 pb-2">
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 min-h-[50px] flex items-start">
+      <div className="px-2 pb-2 flex-1 flex flex-col min-h-0">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 flex-1 flex flex-col min-h-[50px]">
           <Textarea
             ref={textareaRef}
             value={goalText}
@@ -126,20 +143,23 @@ export const MainTaskNode: React.FC<MainTaskNodeProps> = ({
             onBlur={handleSave}
             onClick={handleTextareaClick}
             placeholder="Enter your main workflow goal..."
-            className="bg-transparent border-none shadow-none focus-visible:ring-0 text-white placeholder:text-white/60 text-xs resize-none overflow-hidden min-h-[14px] p-0 leading-relaxed w-full"
+            className="bg-transparent border-none shadow-none focus-visible:ring-0 text-white placeholder:text-white/60 text-xs resize-none overflow-y-auto flex-1 p-0 leading-relaxed w-full"
             style={{
-              height: "auto",
-              minHeight: "14px",
+              minHeight: `${Math.max(14, nodeSize.height - 80)}px`,
+              maxHeight: `${nodeSize.height - 80}px`,
             }}
             onInput={(e) => {
               const target = e.target as HTMLTextAreaElement;
-              target.style.height = "auto";
-              target.style.height = target.scrollHeight + "px";
+              if (target.scrollHeight <= nodeSize.height - 80) {
+                target.style.height = "auto";
+                target.style.height = target.scrollHeight + "px";
+              }
             }}
           />
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 
