@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Handle, Position, NodeResizer } from "reactflow";
-import { Target, Lock } from "lucide-react";
+import { Target, Lock, Move } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { MainTaskNodeProps } from "@/types/canvas";
@@ -87,8 +87,8 @@ export const MainTaskNode: React.FC<MainTaskNodeProps> = ({
         maxWidth={800}
         maxHeight={400}
         isVisible={selected}
-        lineClassName="border-teal-400"
-        handleClassName="w-3 h-3 bg-teal-400 border-2 border-white"
+        lineClassName="border-2 border-teal-400"
+        handleClassName="w-4 h-4 bg-teal-400 border-2 border-white shadow-lg hover:bg-teal-500 hover:scale-110 transition-all cursor-nw-resize"
         onResize={handleResize}
       />
       <div
@@ -119,8 +119,11 @@ export const MainTaskNode: React.FC<MainTaskNodeProps> = ({
         style={{ left: -6 }}
       />
 
-      {/* Header */}
-      <div className="flex items-center justify-between p-2 pb-1">
+      {/* Header - Drag Handle */}
+      <div 
+        className="flex items-center justify-between p-2 pb-1 cursor-move react-flow__drag-handle"
+        title="Drag to move node"
+      >
         <div className="flex items-center space-x-2">
           <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
             <Target className="w-3 h-3 text-white" />
@@ -129,6 +132,9 @@ export const MainTaskNode: React.FC<MainTaskNodeProps> = ({
             <h3 className="font-semibold text-white text-xs">Main Goal</h3>
             <p className="text-white/70 text-xs">Primary objective</p>
           </div>
+        </div>
+        <div className="opacity-60 hover:opacity-100 transition-opacity">
+          <Move className="w-3 h-3 text-white/60" />
         </div>
       </div>
 

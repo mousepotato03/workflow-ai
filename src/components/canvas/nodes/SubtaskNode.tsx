@@ -15,6 +15,7 @@ import {
   Wrench,
   ChevronDown,
   ChevronRight,
+  Move,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -253,8 +254,8 @@ export const SubtaskNode: React.FC<SubtaskNodeProps> = ({
         maxWidth={400}
         maxHeight={600}
         isVisible={selected}
-        lineClassName="border-cyan-400"
-        handleClassName="w-3 h-3 bg-cyan-400 border-2 border-white"
+        lineClassName="border-2 border-cyan-400"
+        handleClassName="w-4 h-4 bg-cyan-400 border-2 border-white shadow-lg hover:bg-cyan-500 hover:scale-110 transition-all cursor-nw-resize"
         onResize={handleResize}
       />
       <div
@@ -289,8 +290,8 @@ export const SubtaskNode: React.FC<SubtaskNodeProps> = ({
         style={{ right: -6 }}
       />
 
-      {/* Header */}
-      <div className="flex items-start justify-between p-3 pb-2">
+      {/* Header - Drag Handle */}
+      <div className="flex items-start justify-between p-3 pb-2 cursor-move react-flow__drag-handle" title="Drag to move node">
         <div className="flex items-start space-x-2 flex-1">
           {/* Status Indicator */}
           <div
@@ -380,6 +381,9 @@ export const SubtaskNode: React.FC<SubtaskNodeProps> = ({
               </>
             )}
           </div>
+        </div>
+        <div className="opacity-60 hover:opacity-100 transition-opacity ml-2 flex-shrink-0">
+          <Move className="w-3 h-3 text-muted-foreground" />
         </div>
       </div>
 

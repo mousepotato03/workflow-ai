@@ -16,6 +16,7 @@ import {
   FileText,
   Maximize2,
   Minimize2,
+  Move,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -165,8 +166,8 @@ export const GuideCardNode: React.FC<GuideCardNodeProps> = ({
           maxWidth={500}
           maxHeight={700}
           isVisible={selected}
-          lineClassName="border-emerald-400"
-          handleClassName="w-3 h-3 bg-emerald-400 border-2 border-white"
+          lineClassName="border-2 border-emerald-400"
+          handleClassName="w-4 h-4 bg-emerald-400 border-2 border-white shadow-lg hover:bg-emerald-500 hover:scale-110 transition-all cursor-nw-resize"
           onResize={handleResize}
         />
       )}
@@ -208,8 +209,8 @@ export const GuideCardNode: React.FC<GuideCardNodeProps> = ({
         </>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b bg-emerald-50/50 dark:bg-emerald-900/20">
+      {/* Header - Drag Handle */}
+      <div className="flex items-center justify-between p-3 border-b bg-emerald-50/50 dark:bg-emerald-900/20 cursor-move react-flow__drag-handle" title="Drag to move node">
         <div className="flex items-center space-x-2 flex-1 min-w-0">
           <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-800 rounded-lg flex items-center justify-center flex-shrink-0">
             <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -298,6 +299,10 @@ export const GuideCardNode: React.FC<GuideCardNodeProps> = ({
               <ChevronUp className="w-3 h-3" />
             )}
           </Button>
+          
+          <div className="opacity-60 hover:opacity-100 transition-opacity ml-1">
+            <Move className="w-3 h-3 text-muted-foreground" />
+          </div>
         </div>
       </div>
 

@@ -245,4 +245,104 @@
         12 12,
       auto !important;
   }
+
+  /* NodeResizer custom styling for better visibility and interaction */
+  .react-flow__resize-control {
+    border-radius: 50% !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+    transition: all 0.2s ease !important;
+    z-index: 1001 !important;
+    cursor: nw-resize !important;
+  }
+
+  .react-flow__resize-control:hover {
+    transform: scale(1.3) !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  .react-flow__resize-control::before {
+    content: "";
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+    border-radius: 50%;
+    background: transparent;
+    pointer-events: all;
+    cursor: inherit;
+  }
+
+  /* Resize control line styling */
+  .react-flow__resize-control-line {
+    border-style: solid !important;
+    opacity: 0.8 !important;
+    z-index: 1000 !important;
+    pointer-events: none !important;
+  }
+
+  .react-flow__resize-control-line:hover {
+    opacity: 1 !important;
+  }
+
+  /* Prevent node dragging when interacting with resize controls */
+  .react-flow__resize-control,
+  .react-flow__resize-control *,
+  .react-flow__resize-control::before {
+    pointer-events: all !important;
+    cursor: nw-resize !important;
+  }
+
+  /* Corner-specific cursors for resize handles */
+  .react-flow__resize-control[data-position="top-left"] {
+    cursor: nw-resize !important;
+  }
+  .react-flow__resize-control[data-position="top-right"] {
+    cursor: ne-resize !important;
+  }
+  .react-flow__resize-control[data-position="bottom-left"] {
+    cursor: sw-resize !important;
+  }
+  .react-flow__resize-control[data-position="bottom-right"] {
+    cursor: se-resize !important;
+  }
+  .react-flow__resize-control[data-position="top"] {
+    cursor: n-resize !important;
+  }
+  .react-flow__resize-control[data-position="bottom"] {
+    cursor: s-resize !important;
+  }
+  .react-flow__resize-control[data-position="left"] {
+    cursor: w-resize !important;
+  }
+  .react-flow__resize-control[data-position="right"] {
+    cursor: e-resize !important;
+  }
+
+  /* Ensure resize handles have highest z-index and prevent node dragging */
+  .react-flow__node.selected .react-flow__resize-control {
+    z-index: 1001 !important;
+  }
+
+  /* Create buffer zone around resize handles to prevent drag interference */
+  .react-flow__node.selected::before {
+    content: "";
+    position: absolute;
+    top: -12px;
+    left: -12px;
+    right: -12px;
+    bottom: -12px;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* Override node dragging near resize controls */
+  .react-flow__node.selected {
+    overflow: visible !important;
+  }
+
+  /* Prevent text selection during resize */
+  .react-flow__node.selected * {
+    user-select: none !important;
+  }
 }
