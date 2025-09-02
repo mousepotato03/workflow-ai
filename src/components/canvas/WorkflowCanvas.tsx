@@ -414,7 +414,6 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
     }
   }, [workflowStore.workflowResult, syncWithWorkflow]);
 
-
   // Toolbar action handlers
   const handleAddNode = useCallback(
     (nodeType: CanvasNodeType) => {
@@ -539,6 +538,9 @@ const WorkflowCanvasContent: React.FC<WorkflowCanvasContentProps> = ({
         onGoalUpdate={(goal: string) => updateNode(props.id, { goal })}
         onEditToggle={(isEditing: boolean) =>
           updateNode(props.id, { isEditing })
+        }
+        onSizeUpdate={(width: number, height: number) =>
+          updateNode(props.id, { width, height })
         }
       />
     ),
@@ -691,7 +693,12 @@ export const WorkflowCanvas: React.FC = () => {
 };
 
 const WorkflowCanvasWithToolbar: React.FC = () => {
-  const [nodes, edges, viewport, config] = useCanvasStore((state) => [state.nodes, state.edges, state.viewport, state.config]);
+  const [nodes, edges, viewport, config] = useCanvasStore((state) => [
+    state.nodes,
+    state.edges,
+    state.viewport,
+    state.config,
+  ]);
   const [isEraserMode, setIsEraserMode] = useState(false);
   const {
     undo,
@@ -709,19 +716,25 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
     setViewport,
   } = useCanvasStore();
 
-  const { fitView, zoomIn, zoomOut, getViewport, setViewport: reactFlowSetViewport } = useReactFlow();
+  const {
+    fitView,
+    zoomIn,
+    zoomOut,
+    getViewport,
+    setViewport: reactFlowSetViewport,
+  } = useReactFlow();
 
   // Sync ReactFlow viewport with store viewport on mount and when store changes
   useEffect(() => {
     const currentReactFlowViewport = getViewport();
     const storeViewport = viewport;
-    
+
     // Only sync if there's a meaningful difference
-    const hasDifference = 
+    const hasDifference =
       Math.abs(currentReactFlowViewport.zoom - storeViewport.zoom) > 0.01 ||
       Math.abs(currentReactFlowViewport.x - storeViewport.x) > 10 ||
       Math.abs(currentReactFlowViewport.y - storeViewport.y) > 10;
-    
+
     if (hasDifference) {
       reactFlowSetViewport(storeViewport, { duration: 0 });
     }
@@ -831,13 +844,13 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
 
   // Zoom levels: 0.5, 0.75, 1.0, 1.5, 2.0
   const zoomLevels = [0.5, 0.75, 1.0, 1.5, 2.0];
-  
+
   const getCurrentZoomLevelIndex = useCallback(() => {
     const currentZoom = viewport.zoom;
     // Find closest zoom level
     let closestIndex = 0;
     let closestDiff = Math.abs(zoomLevels[0] - currentZoom);
-    
+
     for (let i = 1; i < zoomLevels.length; i++) {
       const diff = Math.abs(zoomLevels[i] - currentZoom);
       if (diff < closestDiff) {
@@ -845,7 +858,7 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
         closestIndex = i;
       }
     }
-    
+
     return closestIndex;
   }, [viewport.zoom]);
 
@@ -855,16 +868,24 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
       const newZoom = zoomLevels[currentIndex + 1];
       const currentViewport = getViewport();
       // Use ReactFlow's native setViewport to avoid conflicts
-      reactFlowSetViewport({ 
-        ...currentViewport, 
-        zoom: newZoom 
-      }, { duration: 200 });
+      reactFlowSetViewport(
+        {
+          ...currentViewport,
+          zoom: newZoom,
+        },
+        { duration: 200 }
+      );
       // Update store after a brief delay to avoid conflicts
       setTimeout(() => {
         setViewport({ ...currentViewport, zoom: newZoom });
       }, 50);
     }
-  }, [getCurrentZoomLevelIndex, setViewport, getViewport, reactFlowSetViewport]);
+  }, [
+    getCurrentZoomLevelIndex,
+    setViewport,
+    getViewport,
+    reactFlowSetViewport,
+  ]);
 
   const handleZoomOut = useCallback(() => {
     const currentIndex = getCurrentZoomLevelIndex();
@@ -872,16 +893,24 @@ const WorkflowCanvasWithToolbar: React.FC = () => {
       const newZoom = zoomLevels[currentIndex - 1];
       const currentViewport = getViewport();
       // Use ReactFlow's native setViewport to avoid conflicts
-      reactFlowSetViewport({ 
-        ...currentViewport, 
-        zoom: newZoom 
-      }, { duration: 200 });
+      reactFlowSetViewport(
+        {
+          ...currentViewport,
+          zoom: newZoom,
+        },
+        { duration: 200 }
+      );
       // Update store after a brief delay to avoid conflicts
       setTimeout(() => {
         setViewport({ ...currentViewport, zoom: newZoom });
       }, 50);
     }
-  }, [getCurrentZoomLevelIndex, setViewport, getViewport, reactFlowSetViewport]);
+  }, [
+    getCurrentZoomLevelIndex,
+    setViewport,
+    getViewport,
+    reactFlowSetViewport,
+  ]);
 
   const canZoomIn = getCurrentZoomLevelIndex() < zoomLevels.length - 1;
   const canZoomOut = getCurrentZoomLevelIndex() > 0;
